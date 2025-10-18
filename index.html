@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Localizador de Itens | Otimizado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .spinner {
+            border-top-color: #3b82f6;
+            -webkit-animation: spin 1s ease-in-out infinite;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        :root {
+            --green-title: #4ade80; 
+        }
+        .btn-green-custom {
+            background-color: var(--green-title);
+        }
+        .btn-green-custom:hover {
+            background-color: #22c55e;
+        }
+        .compact-input {
+             padding: 0.625rem 0.75rem; 
+        }
+        .compact-button {
+             padding-top: 0.5rem; 
+             padding-bottom: 0.5rem;
+             font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+
+    <div id="app" class="max-w-3xl mx-auto">
+        
+        <header class="flex items-center justify-between bg-[#3d3d3d] p-3 mb-4 rounded-lg shadow-xl border border-[#444]">
+            <h1 class="text-base font-bold text-green-400 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                Localizador de Itens
+            </h1>
+            <div>
+                <img src="sr-sem-fundo.png" alt="Grupo SR Logo" class="h-7 md:h-8">
+            </div>
+        </header>
+
+        <div id="clientFilterBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+            <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+            <label for="clientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+                Pedido (com nome do Cliente)
+            </label>
+            <select id="clientSelect" onchange="enableItemSearch(this.value)"
+                    class="w-full compact-input border border-[#444] rounded-lg text-base font-medium focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                <option value="">Carregando Pedidos...</option>
+            </select>
+        </div>
+
+        <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Buscar Item (do Pedido Selecionado)</h2>
+            
+            <div class="mb-4">
+                <label for="itemCode" class="block text-sm font-medium text-gray-400 mb-1">
+                    Código do Item (COD ITEM)
+                </label>
+                <input type="text" id="itemCode" placeholder="Informe o código do item"
+                        class="w-full compact-input border border-[#444] rounded-lg text-base font-mono focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
+            </div>
+
+            <button id="searchButton" onclick="searchItem()" disabled
+                    class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center opacity-50 cursor-not-allowed">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                Buscar
+            </button>
+        </div>
+        
+        <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
+            
+            <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
+                </div>
+        </div>
+    </div>
+    
+    <script>
+        // Variáveis globais
+        let allPedidos = []; 
+        let selectedPedido = null; // Armazenará o PEDIDO selecionado (ex: "1120")
+
+        // Elementos DOM
+        const codeInput = document.getElementById('itemCode');
+        const itemSearchBlock = document.getElementById('itemSearchBlock');
+        const resultsDiv = document.getElementById('results');
+        const searchButton = document.getElementById('searchButton');
+        const clientSelect = document.getElementById('clientSelect');
+        const resultsBlock = document.getElementById('resultsBlock'); 
+        // A url base do seu Apps Script
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfjKdYKPkY-HsqB3uxySAQMTUPYrhNby6qjybXWaUgI4TWlwhjC9MNXWT4f9ETL84O/exec"; 
+
+        // Ordem de exibição dos campos (sem PEDIDO)
+        const DISPLAY_ORDER = [
+            "CARREGAMENTO", 
+            "CODIGO VOL", 
+            "COD ITEM", 
+            "DESC TECNICA", 
+            "QTDE"
+        ];
+        
+        // --- Fluxo de Trabalho e Inicialização ---
+
+        /**
+         * 1. Chamado ao carregar a página para buscar a lista de pedidos.
+         */
+        async function fetchAllPedidos() {
+            try {
+                const fullUrl = `${APPS_SCRIPT_URL}?mode=pedidos`;
+                
+                const response = await fetch(fullUrl);
+                
+                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
+                    allPedidos = data;
+                    populateClientSelect(data);
+                } else if (data.error) {
+                    displayError(data.error, true);
+                } else {
+                    displayError("Nenhum pedido encontrado. Verifique se a planilha tem dados.", true);
+                }
+
+            } catch (error) {
+                console.error("Erro na requisição fetchAllPedidos:", error);
+                displayError(`Erro ao carregar a lista de pedidos. Detalhes: ${error.message}.`, true);
+            }
+        }
+        
+        /**
+         * Popula o dropdown com os pedidos.
+         */
+        function populateClientSelect(pedidos) {
+            clientSelect.innerHTML = '';
+            
+            const defaultOption = document.createElement('option');
+            defaultOption.value = ""; 
+            defaultOption.textContent = "--- Selecione um Pedido ---";
+            clientSelect.appendChild(defaultOption);
+
+            pedidos.sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.PEDIDO;
+                option.textContent = `${item.PEDIDO} (${item.CLIENTE})`; 
+                clientSelect.appendChild(option);
+            });
+        }
+        
+        /**
+         * Habilita a busca de item quando um pedido é selecionado.
+         */
+        function enableItemSearch(pedidoValue) {
+            selectedPedido = pedidoValue.trim().toUpperCase();
+            
+            // Limpa e esconde resultados anteriores
+            resultsBlock.classList.add('hidden');
+            resultsDiv.innerHTML = "";
+            codeInput.value = ""; // Limpa o campo de item
+
+            if (selectedPedido) {
+                // Habilita o bloco de busca de item
+                itemSearchBlock.classList.remove('hidden');
+                searchButton.disabled = false;
+                searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                // Mude a mensagem inicial de resultados
+                displayAwaitingSelection(`Pronto para buscar itens no Pedido: ${selectedPedido}. Digite o Código do Item acima.`, true);
+            } else {
+                // Desabilita e esconde o bloco de busca
+                itemSearchBlock.classList.add('hidden');
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+                displayAwaitingSelection("Selecione um Pedido para começar.", true);
+            }
+        }
+
+        /**
+         * 2. Função principal para buscar o item dentro do pedido SELECIONADO.
+         */
+        async function searchItem() {
+            if (!selectedPedido) {
+                displayError("Erro: Nenhum Pedido selecionado. Por favor, selecione um Pedido primeiro.", false);
+                return;
+            }
+
+            resultsBlock.classList.add('hidden');
+            searchButton.disabled = true;
+            searchButton.innerHTML = `<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...`;
+            
+            const itemCode = codeInput.value.trim().toUpperCase();
+
+            if (!itemCode) {
+                displayError("Por favor, informe o Código do Item para buscar.", false);
+                searchButton.disabled = false;
+                return;
+            }
+
+            // Chamada da API: A API ainda busca por item, mas o filtro será aplicado no front-end.
+            // NOTA: Para este fluxo, o seu Apps Script ainda precisa retornar TODOS os itens
+            // que contêm o 'itemCode', e o filtro por 'selectedPedido' é feito no JS.
+            const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
+
+            try {
+                const response = await fetch(fullUrl);
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
+                    // FILTRO CRÍTICO: Filtrar os resultados da API pelo Pedido selecionado
+                    const filteredItems = data.filter(item => 
+                        String(item.PEDIDO || '').trim().toUpperCase() === selectedPedido
+                    );
+
+                    if (filteredItems.length > 0) {
+                        resultsBlock.classList.remove('hidden');
+                        displaySuccess(filteredItems);
+                    } else {
+                        displayError(`Nenhum item com o código ${itemCode} encontrado para o Pedido ${selectedPedido}.`, false);
+                    }
+                } else if (data.error) {
+                    displayError(data.error, false);
+                } else {
+                    displayError(`Código de Item ${itemCode} não encontrado na planilha.`, false);
+                }
+
+            } catch (error) {
+                console.error("Erro na requisição searchItem:", error);
+                displayError(`Erro de Conexão ou Requisição. Detalhes: ${error.message}.`, false);
+            } finally {
+                searchButton.disabled = false;
+                searchButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg> Buscar`;
+            }
+        }
+        
+        // --- Funções de Exibição (Com pequenas alterações para se adequar ao novo fluxo) ---
+
+        function displayAwaitingSelection(message, isInitial) {
+            resultsDiv.classList.remove('border-green-600', 'border-red-600', 'border-2', 'bg-transparent');
+            
+            // Apenas esconde o bloco de resultados se for uma mensagem inicial
+            if (isInitial) {
+                 resultsBlock.classList.add('hidden'); 
+            }
+
+            resultsDiv.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'p-3', 'rounded-lg', 'border', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
+            
+            resultsDiv.innerHTML = `<p class="text-sm text-gray-500 italic text-center" id="initialMessage">${message}</p>`;
+        }
+
+        function displaySuccess(items) {
+            resultsDiv.classList.remove('flex', 'items-center', 'justify-center', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
+            resultsDiv.classList.add('border-green-600', 'border-2', 'p-3', 'bg-transparent');
+            
+            let htmlContent = '';
+            
+            items.forEach(item => {
+                let cardContent = '';
+                let validContentFoundInCard = false; 
+                
+                DISPLAY_ORDER.forEach(key => {
+                    if (item.hasOwnProperty(key)) {
+                        const value = item[key]; 
+                        
+                        cardContent += `
+                            <div class="flex flex-col mb-1">
+                                <span class="text-xs font-medium uppercase text-gray-400">${key.toUpperCase()}:</span>
+                                <span class="text-sm text-white font-medium break-words">${value}</span>
+                            </div>
+                        `;
+                        
+                        if (value !== null && value !== undefined && String(value).trim() !== "") {
+                            validContentFoundInCard = true;
+                        }
+                    }
+                });
+                
+                if (validContentFoundInCard) {
+                    htmlContent += `
+                        <div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">
+                            <div class="p-1 text-white">
+                                ${cardContent}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            if (htmlContent === '') {
+                resultsBlock.classList.add('hidden');
+                displayError("Nenhum item com dados para exibição encontrado.", false);
+            } else {
+                resultsDiv.innerHTML = htmlContent;
+            }
+        }
+
+        function displayError(message, isCritical) {
+            resultsBlock.classList.remove('hidden');
+            
+            resultsDiv.classList.remove('flex', 'flex-col', 'items-center', 'justify-center', 'border-dashed', 'border-green-600', 'bg-transparent');
+            resultsDiv.classList.add('p-3', 'rounded-lg', 'border-red-600', 'border-2', 'bg-[#1a1a1a]');
+            
+            let logMessage = isCritical ? `<p class="text-xs text-red-400 mt-2">Verifique a URL e a Implantação do Apps Script.</p>` : "";
+            
+            resultsDiv.innerHTML = `
+                <div class="text-center">
+                    <p class="text-base font-bold text-red-500 mb-2">❌ Erro na Busca:</p>
+                    <p class="text-gray-400 break-words text-sm">${message}</p>
+                    ${logMessage}
+                </div>
+            `;
+            // Se for erro crítico na inicialização, desabilita o botão de busca
+            if (isCritical) {
+                 searchButton.disabled = true;
+                 searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+                 itemSearchBlock.classList.add('hidden');
+            }
+        }
+
+        // Inicializa a tela de resultados
+        document.addEventListener('DOMContentLoaded', initializeApp);
+        
+        function initializeApp() {
+             displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
+             itemSearchBlock.classList.add('hidden');
+             resultsBlock.classList.add('hidden');
+             fetchAllPedidos(); // Inicia buscando a lista de pedidos
+        }
+        
+        // Função dummy de copy para evitar erro no console
+        function copyToClipboard(text) {
+             console.log("Cópia de texto não implementada na interface.");
+             return false;
+        }
+    </script>
+</body>
+</html>
