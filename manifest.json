@@ -1,0 +1,15 @@
+{
+  "name": "Localizador de Itens Grupo SR",
+  "short_name": "Localizador SR",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#4ade80",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
