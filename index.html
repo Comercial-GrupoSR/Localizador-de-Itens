@@ -3,9 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Localizador de Itens</title>
+    <title>Localizador de Itens | Grupo SR</title>
+
+    <link rel="icon" type="image/png" href="/Localizador-de-Itens/icon.png"> 
+    <link rel="shortcut icon" href="/Localizador-de-Itens/favicon.ico"> 
+
+    <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
+    <meta name="theme-color" content="#1a1a1a"> 
+    
+    <meta name="apple-mobile-web-app-title" content="Localizador SR"> 
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes"> 
+    
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="apple-touch-icon" href="/Localizador-de-Itens/icon.png"> 
+    
+    <meta name="msapplication-TileColor" content="#1a1a1a">
+    <meta name="msapplication-TileImage" content="/Localizador-de-Itens/icon.png">
+    <meta name="application-name" content="Localizador SR"> 
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* ... Estilos CSS ... */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #1a1a1a;
@@ -94,21 +115,19 @@
     </div>
     
     <script>
-        // Variáveis globais
+        // Variáveis globais (inalteradas)
         let allPedidos = []; 
-        let selectedPedido = null; // Armazenará o PEDIDO selecionado (ex: "1120")
+        let selectedPedido = null; 
 
-        // Elementos DOM
+        // Elementos DOM (inalterados)
         const codeInput = document.getElementById('itemCode');
         const itemSearchBlock = document.getElementById('itemSearchBlock');
         const resultsDiv = document.getElementById('results');
         const searchButton = document.getElementById('searchButton');
         const clientSelect = document.getElementById('clientSelect');
         const resultsBlock = document.getElementById('resultsBlock'); 
-        // A url base do seu Apps Script
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfjKdYKPkY-HsqB3uxySAQMTUPYrhNby6qjybXWaUgI4TWlwhjC9MNXWT4f9ETL84O/exec"; 
 
-        // Ordem de exibição dos campos (sem PEDIDO)
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
             "CODIGO VOL", 
@@ -117,15 +136,11 @@
             "QTDE"
         ];
         
-        // --- Fluxo de Trabalho e Inicialização ---
+        // --- Funções de Lógica (inalteradas) ---
 
-        /**
-         * 1. Chamado ao carregar a página para buscar a lista de pedidos.
-         */
         async function fetchAllPedidos() {
             try {
                 const fullUrl = `${APPS_SCRIPT_URL}?mode=pedidos`;
-                
                 const response = await fetch(fullUrl);
                 
                 if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
@@ -147,9 +162,6 @@
             }
         }
         
-        /**
-         * Popula o dropdown com os pedidos.
-         */
         function populateClientSelect(pedidos) {
             clientSelect.innerHTML = '';
             
@@ -166,27 +178,20 @@
             });
         }
         
-        /**
-         * Habilita a busca de item quando um pedido é selecionado.
-         */
         function enableItemSearch(pedidoValue) {
             selectedPedido = pedidoValue.trim().toUpperCase();
             
-            // Limpa e esconde resultados anteriores
             resultsBlock.classList.add('hidden');
             resultsDiv.innerHTML = "";
-            codeInput.value = ""; // Limpa o campo de item
+            codeInput.value = ""; 
 
             if (selectedPedido) {
-                // Habilita o bloco de busca de item
                 itemSearchBlock.classList.remove('hidden');
                 searchButton.disabled = false;
                 searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
                 
-                // Mude a mensagem inicial de resultados
                 displayAwaitingSelection(`Pronto para buscar itens no Pedido: ${selectedPedido}. Digite o Código do Item acima.`, true);
             } else {
-                // Desabilita e esconde o bloco de busca
                 itemSearchBlock.classList.add('hidden');
                 searchButton.disabled = true;
                 searchButton.classList.add('opacity-50', 'cursor-not-allowed');
@@ -194,9 +199,6 @@
             }
         }
 
-        /**
-         * 2. Função principal para buscar o item dentro do pedido SELECIONADO.
-         */
         async function searchItem() {
             if (!selectedPedido) {
                 displayError("Erro: Nenhum Pedido selecionado. Por favor, selecione um Pedido primeiro.", false);
@@ -215,9 +217,6 @@
                 return;
             }
 
-            // Chamada da API: A API ainda busca por item, mas o filtro será aplicado no front-end.
-            // NOTA: Para este fluxo, o seu Apps Script ainda precisa retornar TODOS os itens
-            // que contêm o 'itemCode', e o filtro por 'selectedPedido' é feito no JS.
             const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
 
             try {
@@ -225,7 +224,6 @@
                 const data = await response.json();
 
                 if (Array.isArray(data) && data.length > 0) {
-                    // FILTRO CRÍTICO: Filtrar os resultados da API pelo Pedido selecionado
                     const filteredItems = data.filter(item => 
                         String(item.PEDIDO || '').trim().toUpperCase() === selectedPedido
                     );
@@ -253,12 +251,9 @@
             }
         }
         
-        // --- Funções de Exibição (Com pequenas alterações para se adequar ao novo fluxo) ---
-
         function displayAwaitingSelection(message, isInitial) {
             resultsDiv.classList.remove('border-green-600', 'border-red-600', 'border-2', 'bg-transparent');
             
-            // Apenas esconde o bloco de resultados se for uma mensagem inicial
             if (isInitial) {
                  resultsBlock.classList.add('hidden'); 
             }
@@ -329,11 +324,10 @@
                     ${logMessage}
                 </div>
             `;
-            // Se for erro crítico na inicialização, desabilita o botão de busca
             if (isCritical) {
-                 searchButton.disabled = true;
-                 searchButton.classList.add('opacity-50', 'cursor-not-allowed');
-                 itemSearchBlock.classList.add('hidden');
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+                itemSearchBlock.classList.add('hidden');
             }
         }
 
@@ -341,19 +335,16 @@
         document.addEventListener('DOMContentLoaded', initializeApp);
         
         function initializeApp() {
-             displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
-             itemSearchBlock.classList.add('hidden');
-             resultsBlock.classList.add('hidden');
-             fetchAllPedidos(); // Inicia buscando a lista de pedidos
+            displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
+            itemSearchBlock.classList.add('hidden');
+            resultsBlock.classList.add('hidden');
+            fetchAllPedidos(); 
         }
         
-        // Função dummy de copy para evitar erro no console
         function copyToClipboard(text) {
-             console.log("Cópia de texto não implementada na interface.");
-             return false;
+            console.log("Cópia de texto não implementada na interface.");
+            return false;
         }
     </script>
 </body>
-
 </html>
-
