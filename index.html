@@ -145,7 +145,8 @@
         // --- Configuração de cache e performance ---
         const CACHE_KEY = "localizador_pedidos_cache_v1";
         const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
-        const FETCH_TIMEOUT_MS = 12000; // 12 segundos
+        const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
+        const SEARCH_TIMEOUT_MS = 30000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
 
         // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
         async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -156,7 +157,7 @@
                 return response;
             } catch (err) {
                 if (err.name === "AbortError") {
-                    throw new Error("Tempo de resposta excedido. Verifique sua conexão e tente novamente.");
+                    throw new Error(`O servidor demorou mais de ${Math.round(timeoutMs / 1000)}s para responder. Tente novamente em alguns segundos.`);
                 }
                 throw err;
             } finally {
@@ -328,7 +329,7 @@
             const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
 
             try {
-                const response = await fetchWithTimeout(fullUrl);
+                const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
                 const data = await response.json();
 
                 if (Array.isArray(data) && data.length > 0) {
