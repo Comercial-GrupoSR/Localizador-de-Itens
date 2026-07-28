@@ -72,22 +72,32 @@
             background-color: #242424;
             border-top: 1px solid #333;
             display: flex;
+            justify-content: center;
             z-index: 50;
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
+        .bottom-nav-inner {
+            display: flex;
+            gap: 1.5rem;
+            max-width: 48rem;
+            width: 100%;
+            justify-content: center;
+        }
         .nav-item {
-            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 0.15rem;
-            padding: 0.6rem 0.25rem;
+            padding: 0.6rem 0.75rem;
             color: #888;
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
+            line-height: 1.1;
+            text-align: center;
+            max-width: 6rem;
             transition: color 0.2s ease;
         }
         .nav-item svg {
@@ -129,10 +139,10 @@
         
         <header class="flex items-center justify-between bg-[#3d3d3d] p-3 mb-4 rounded-lg shadow-xl border border-[#444]">
             <h1 class="text-base font-bold text-green-400 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
                 </svg>
-                Localizador de Itens
+                <span id="headerTitle">Localizador de Itens</span>
             </h1>
             <div>
                 <img src="sr-sem-fundo.png" alt="Grupo SR Logo" class="h-7 md:h-8">
@@ -213,19 +223,23 @@
     </div>
 
     <nav class="bottom-nav">
-        <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-            </svg>
-            Localizador
-        </button>
-        <button type="button" id="navFormularios" class="nav-item" onclick="switchPage('formularios')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 11l3 3L22 4"/>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-            Formulários
-        </button>
+        <div class="bottom-nav-inner">
+            <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                Localizador
+            </button>
+            <button type="button" id="navFormularios" class="nav-item" onclick="switchPage('formularios')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                    <line x1="9" y1="12" x2="15" y2="12"/>
+                    <line x1="9" y1="16" x2="13" y2="16"/>
+                </svg>
+                Formulários de Obra
+            </button>
+        </div>
     </nav>
     
     <script>
@@ -572,6 +586,7 @@
         const pageFormularios = document.getElementById('page-formularios');
         const navLocalizador = document.getElementById('navLocalizador');
         const navFormularios = document.getElementById('navFormularios');
+        const headerTitle = document.getElementById('headerTitle');
 
         function switchPage(page) {
             const isLocalizador = page === 'localizador';
@@ -581,6 +596,8 @@
 
             navLocalizador.classList.toggle('active', isLocalizador);
             navFormularios.classList.toggle('active', !isLocalizador);
+
+            headerTitle.textContent = isLocalizador ? 'Localizador de Itens' : 'Formulários de Obra';
         }
 
         // Placeholder: os formulários ainda serão implementados
