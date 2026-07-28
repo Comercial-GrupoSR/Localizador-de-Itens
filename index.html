@@ -53,6 +53,14 @@
              padding-bottom: 0.5rem;
              font-size: 0.875rem;
         }
+        .cache-badge {
+            font-size: 0.65rem;
+            color: #6b7280;
+            text-align: right;
+            margin-top: 0.25rem;
+            min-height: 0.9rem;
+            transition: opacity 0.3s ease;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -80,6 +88,7 @@
                     class="w-full compact-input border border-[#444] rounded-lg text-base font-medium focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
                 <option value="">Carregando Pedidos...</option>
             </select>
+            <p id="cacheStatus" class="cache-badge"></p>
         </div>
 
         <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
@@ -122,6 +131,7 @@
         const searchButton = document.getElementById('searchButton');
         const clientSelect = document.getElementById('clientSelect');
         const resultsBlock = document.getElementById('resultsBlock'); 
+        const cacheStatus = document.getElementById('cacheStatus');
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; 
 
         const DISPLAY_ORDER = [
@@ -131,34 +141,130 @@
             "DESC TECNICA", 
             "QTDE"
         ];
-        
-        // --- Funções de Lógica (inalteradas) ---
 
+        // --- Configuração de cache e performance ---
+        const CACHE_KEY = "localizador_pedidos_cache_v1";
+        const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
+        const FETCH_TIMEOUT_MS = 12000; // 12 segundos
+
+        // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
+        async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                return response;
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    throw new Error("Tempo de resposta excedido. Verifique sua conexão e tente novamente.");
+                }
+                throw err;
+            } finally {
+                clearTimeout(id);
+            }
+        }
+
+        function getCachedPedidos() {
+            try {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !Array.isArray(parsed.data) || parsed.data.length === 0) return null;
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setCachedPedidos(data) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+            } catch (e) {
+                // Armazenamento indisponível ou cheio: apenas ignora, app segue funcionando sem cache
+                console.warn("Não foi possível salvar cache local:", e);
+            }
+        }
+
+        function showCacheStatus(text) {
+            cacheStatus.textContent = text;
+            if (text) {
+                setTimeout(() => { cacheStatus.textContent = ""; }, 4000);
+            }
+        }
+
+        // --- Funções de Lógica ---
+
+        // Carrega pedidos: mostra cache local instantaneamente (se existir e válido)
+        // e sempre revalida em segundo plano, atualizando a lista silenciosamente.
         async function fetchAllPedidos() {
+            const cached = getCachedPedidos();
+
+            if (cached) {
+                allPedidos = cached.data;
+                populateClientSelect(cached.data);
+                itemSearchBlock.classList.add('hidden');
+
+                const ageMs = Date.now() - cached.timestamp;
+                if (ageMs < CACHE_TTL_MS) {
+                    showCacheStatus("Carregado do cache local");
+                } else {
+                    showCacheStatus("Atualizando lista de pedidos...");
+                }
+                // Revalida em segundo plano independentemente da idade do cache
+                refreshPedidosInBackground();
+                return;
+            }
+
+            // Sem cache: carregamento normal, com o spinner já visível na tela
+            await loadPedidosFromServer(false);
+        }
+
+        async function loadPedidosFromServer(isBackground) {
             try {
                 const fullUrl = `${APPS_SCRIPT_URL}?mode=pedidos`;
-                const response = await fetch(fullUrl);
-                
+                const response = await fetchWithTimeout(fullUrl);
+
                 if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
 
                 const data = await response.json();
 
                 if (Array.isArray(data) && data.length > 0) {
                     allPedidos = data;
-                    populateClientSelect(data);
+                    setCachedPedidos(data);
+
+                    if (isBackground) {
+                        // Preserva a seleção atual do usuário ao atualizar a lista
+                        const currentSelection = clientSelect.value;
+                        populateClientSelect(data);
+                        if (currentSelection) clientSelect.value = currentSelection;
+                        showCacheStatus("Lista de pedidos atualizada");
+                    } else {
+                        populateClientSelect(data);
+                    }
                 } else if (data.error) {
-                    displayError(data.error, true);
+                    if (!isBackground) displayError(data.error, true);
                 } else {
-                    displayError("Nenhum pedido encontrado. Verifique se a planilha tem dados.", true);
+                    if (!isBackground) displayError("Nenhum pedido encontrado. Verifique se a planilha tem dados.", true);
                 }
 
             } catch (error) {
-                console.error("Erro na requisição fetchAllPedidos:", error);
-                displayError(`Erro ao carregar a lista de pedidos. Detalhes: ${error.message}.`, true);
+                console.error("Erro na requisição de pedidos:", error);
+                if (!isBackground) {
+                    displayError(`Erro ao carregar a lista de pedidos. Detalhes: ${error.message}.`, true);
+                } else {
+                    showCacheStatus("Falha ao atualizar (usando dados salvos)");
+                }
             }
+        }
+
+        function refreshPedidosInBackground() {
+            // Não bloqueia a interface; falhas aqui são silenciosas para o usuário,
+            // já que ele já está vendo os dados do cache.
+            loadPedidosFromServer(true);
         }
         
         function populateClientSelect(pedidos) {
+            const previousValue = clientSelect.value;
             clientSelect.innerHTML = '';
             
             const defaultOption = document.createElement('option');
@@ -166,12 +272,14 @@
             defaultOption.textContent = "--- Selecione um Pedido ---";
             clientSelect.appendChild(defaultOption);
 
-            pedidos.sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
+            [...pedidos].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.PEDIDO;
                 option.textContent = `${item.PEDIDO} (${item.CLIENTE})`; 
                 clientSelect.appendChild(option);
             });
+
+            if (previousValue) clientSelect.value = previousValue;
         }
         
         function enableItemSearch(pedidoValue) {
@@ -187,6 +295,7 @@
                 searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
                 
                 displayAwaitingSelection(`Pronto para buscar itens no Pedido: ${selectedPedido}. Digite o Código do Item acima.`, true);
+                codeInput.focus();
             } else {
                 itemSearchBlock.classList.add('hidden');
                 searchButton.disabled = true;
@@ -210,13 +319,16 @@
             if (!itemCode) {
                 displayError("Por favor, informe o Código do Item para buscar.", false);
                 searchButton.disabled = false;
+                searchButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg> Buscar`;
                 return;
             }
 
             const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
 
             try {
-                const response = await fetch(fullUrl);
+                const response = await fetchWithTimeout(fullUrl);
                 const data = await response.json();
 
                 if (Array.isArray(data) && data.length > 0) {
@@ -331,7 +443,10 @@
         document.addEventListener('DOMContentLoaded', initializeApp);
         
         function initializeApp() {
-            displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
+            const hasCache = !!getCachedPedidos();
+            if (!hasCache) {
+                displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
+            }
             itemSearchBlock.classList.add('hidden');
             resultsBlock.classList.add('hidden');
             fetchAllPedidos(); 
