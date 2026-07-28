@@ -61,6 +61,66 @@
             min-height: 0.9rem;
             transition: opacity 0.3s ease;
         }
+        body {
+            padding-bottom: 5rem;
+        }
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #242424;
+            border-top: 1px solid #333;
+            display: flex;
+            z-index: 50;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+            padding: 0.6rem 0.25rem;
+            color: #888;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.65rem;
+            transition: color 0.2s ease;
+        }
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+        }
+        .nav-item.active {
+            color: var(--green-title);
+        }
+        .form-card {
+            background-color: #2e2e2e;
+            border: 1px solid #3d3d3d;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #e0e0e0;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        .form-card:hover {
+            border-color: #4ade80;
+            background-color: #333;
+        }
+        .form-card svg {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -79,45 +139,94 @@
             </div>
         </header>
 
-        <div id="clientFilterBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
-            <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
-            <label for="clientSelect" class="block text-sm font-medium text-gray-400 mb-1">
-                Pedido (com nome do Cliente)
-            </label>
-            <select id="clientSelect" onchange="enableItemSearch(this.value)"
-                    class="w-full compact-input border border-[#444] rounded-lg text-base font-medium focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
-                <option value="">Carregando Pedidos...</option>
-            </select>
-            <p id="cacheStatus" class="cache-badge"></p>
-        </div>
-
-        <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Buscar Item (do Pedido Selecionado)</h2>
-            
-            <div class="mb-4">
-                <label for="itemCode" class="block text-sm font-medium text-gray-400 mb-1">
-                    Código do Item (COD ITEM)
+        <div id="page-localizador">
+            <div id="clientFilterBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+                <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+                <label for="clientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+                    Pedido (com nome do Cliente)
                 </label>
-                <input type="text" id="itemCode" placeholder="Informe o código do item"
-                        class="w-full compact-input border border-[#444] rounded-lg text-base font-mono focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
+                <select id="clientSelect" onchange="enableItemSearch(this.value)"
+                        class="w-full compact-input border border-[#444] rounded-lg text-base font-medium focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                    <option value="">Carregando Pedidos...</option>
+                </select>
+                <p id="cacheStatus" class="cache-badge"></p>
             </div>
 
-            <button id="searchButton" onclick="searchItem()" disabled
-                    class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center opacity-50 cursor-not-allowed">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                </svg>
-                Buscar
-            </button>
-        </div>
-        
-        <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
-            
-            <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
+            <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Buscar Item (do Pedido Selecionado)</h2>
+                
+                <div class="mb-4">
+                    <label for="itemCode" class="block text-sm font-medium text-gray-400 mb-1">
+                        Código do Item (COD ITEM)
+                    </label>
+                    <input type="text" id="itemCode" placeholder="Informe o código do item"
+                            class="w-full compact-input border border-[#444] rounded-lg text-base font-mono focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
                 </div>
+
+                <button id="searchButton" onclick="searchItem()" disabled
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center opacity-50 cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                    </svg>
+                    Buscar
+                </button>
+            </div>
+            
+            <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
+                
+                <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
+                    </div>
+            </div>
+        </div>
+
+        <div id="page-formularios" class="hidden">
+            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
+                <h2 class="text-base font-semibold mb-4 text-gray-200">Selecione um formulário</h2>
+                <div class="flex flex-col gap-3">
+                    <button type="button" class="form-card" onclick="openForm('inconformidades')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Inconformidades
+                    </button>
+                    <button type="button" class="form-card" onclick="openForm('checklist')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5dcaa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        Checklist de Montagem
+                    </button>
+                    <button type="button" class="form-card" onclick="openForm('melhorias')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18h6"/>
+                            <path d="M10 22h4"/>
+                            <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.68.68 1.25 1.44 1.41 2.5"/>
+                        </svg>
+                        Melhorias
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <nav class="bottom-nav">
+        <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+            </svg>
+            Localizador
+        </button>
+        <button type="button" id="navFormularios" class="nav-item" onclick="switchPage('formularios')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            Formulários
+        </button>
+    </nav>
     
     <script>
         // Variáveis globais (inalteradas)
@@ -456,6 +565,27 @@
         function copyToClipboard(text) {
             console.log("Cópia de texto não implementada na interface.");
             return false;
+        }
+
+        // --- Navegação entre páginas (Localizador / Formulários de Obra) ---
+        const pageLocalizador = document.getElementById('page-localizador');
+        const pageFormularios = document.getElementById('page-formularios');
+        const navLocalizador = document.getElementById('navLocalizador');
+        const navFormularios = document.getElementById('navFormularios');
+
+        function switchPage(page) {
+            const isLocalizador = page === 'localizador';
+
+            pageLocalizador.classList.toggle('hidden', !isLocalizador);
+            pageFormularios.classList.toggle('hidden', isLocalizador);
+
+            navLocalizador.classList.toggle('active', isLocalizador);
+            navFormularios.classList.toggle('active', !isLocalizador);
+        }
+
+        // Placeholder: os formulários ainda serão implementados
+        function openForm(tipo) {
+            console.log(`Abrir formulário: ${tipo}`);
         }
     </script>
 </body>
