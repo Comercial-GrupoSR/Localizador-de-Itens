@@ -62,7 +62,7 @@
             transition: opacity 0.3s ease;
         }
         body {
-            padding-bottom: 5rem;
+            padding-bottom: 6.5rem;
         }
         .bottom-nav {
             position: fixed;
@@ -182,7 +182,7 @@
                 </button>
             </div>
             
-            <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
+            <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
                 <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
                 
                 <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
@@ -208,6 +208,13 @@
                             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                         </svg>
                         Checklist de Montagem
+                    </button>
+                    <button type="button" class="form-card" onclick="openForm('checklist-entrega')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="15" height="15" rx="2"/>
+                            <path d="M7.5 10.5l2 2 4-4"/>
+                        </svg>
+                        Checklist de Entrega
                     </button>
                     <button type="button" class="form-card" onclick="openForm('melhorias')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
