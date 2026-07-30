@@ -311,7 +311,7 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="block text-sm font-medium text-gray-400 mb-0.5">Anexos <span class="text-red-500">*</span></label>
                     <div id="inc_dropzone"
                          class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
@@ -326,7 +326,7 @@
                     <input type="file" id="inc_anexos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
                 </div>
 
-                <p id="inc_formStatus" class="text-sm text-center mb-2 min-h-[1.25rem]"></p>
+                <p id="inc_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
 
                 <button type="submit" id="inc_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
@@ -435,7 +435,7 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="block text-sm font-medium text-gray-400 mb-0.5">Fotos em Anexo <span class="text-red-500">*</span></label>
                     <div id="mel_dropzone"
                          class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
@@ -450,7 +450,7 @@
                     <input type="file" id="mel_anexos" multiple accept="image/*" class="hidden">
                 </div>
 
-                <p id="mel_formStatus" class="text-sm text-center mb-2 min-h-[1.25rem]"></p>
+                <p id="mel_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
 
                 <button type="submit" id="mel_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
@@ -906,7 +906,7 @@
             document.getElementById('inc_fileNames').textContent = '';
             const status = document.getElementById('inc_formStatus');
             status.textContent = '';
-            status.className = 'text-sm text-center mb-3 min-h-[1.25rem]';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
 
         async function submitInconformidade(event) {
@@ -958,7 +958,7 @@
             document.getElementById('mel_fileNames').textContent = '';
             const status = document.getElementById('mel_formStatus');
             status.textContent = '';
-            status.className = 'text-sm text-center mb-3 min-h-[1.25rem]';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
 
         async function submitMelhoria(event) {
