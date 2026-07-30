@@ -212,7 +212,7 @@
                         </svg>
                         Checklist de Montagem
                     </button>
-                    <button type="button" class="form-card" onclick="openForm('checklist-entrega')">
+                    <button type="button" class="form-card" onclick="abrirChecklistEntrega()">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="3" width="15" height="15" rx="2"/>
                             <path d="M7.5 10.5l2 2 4-4"/>
@@ -460,6 +460,47 @@
         </div>
     </div>
 
+    <div id="modal-checklist-entrega"
+     class="fixed inset-0 z-[60] hidden items-center justify-center p-4"
+     style="background:rgba(0,0,0,.6)">
+
+    <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
+
+        <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d]">
+
+            <h2 class="text-lg font-semibold">
+                Selecione o Equipamento
+            </h2>
+
+            <button onclick="fecharChecklistEntrega()">✕</button>
+
+        </div>
+
+        <div class="p-4 space-y-3">
+
+            <button
+                class="form-card"
+                onclick="abrirChecklistElevador()">
+
+                Elevador de Canecas
+
+            </button>
+
+            <button
+                class="form-card"
+                disabled>
+
+                Rosca Transportadora
+                <span class="text-xs text-gray-500">(Em breve)</span>
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+    
     <nav class="bottom-nav">
         <div class="bottom-nav-inner">
             <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
@@ -1038,6 +1079,38 @@
                 resetMelhoriaForm();
             }
         }
+
+        function abrirChecklistEntrega(){
+
+    document
+        .getElementById("modal-checklist-entrega")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("modal-checklist-entrega")
+        .classList.add("flex");
+
+}
+
+function fecharChecklistEntrega(){
+
+    document
+        .getElementById("modal-checklist-entrega")
+        .classList.add("hidden");
+
+    document
+        .getElementById("modal-checklist-entrega")
+        .classList.remove("flex");
+
+}
+
+function abrirChecklistElevador(){
+
+    fecharChecklistEntrega();
+
+    // Aqui será aberto o HTML do checklist
+}
+        
     </script>
 </body>
 </html>
