@@ -48,6 +48,9 @@
         .compact-input {
              padding: 0.625rem 0.75rem; 
         }
+        .modal-input {
+             padding: 0.5rem 0.75rem;
+        }
         .compact-button {
              padding-top: 0.5rem; 
              padding-bottom: 0.5rem;
@@ -231,8 +234,8 @@
 
     <!-- Modal: Formulário de Inconformidades -->
     <div id="modal-inconformidades" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
-        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
                 <h2 class="text-base font-semibold text-gray-200 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -248,73 +251,73 @@
                 </button>
             </div>
 
-            <form id="formInconformidades" class="p-5" onsubmit="submitInconformidade(event)">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <form id="formInconformidades" class="p-4" onsubmit="submitInconformidade(event)">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-1">Número Pedido <span class="text-red-500">*</span></label>
+                        <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
                         <input type="text" id="inc_pedido" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="inc_cliente" class="block text-sm font-medium text-gray-400 mb-1">Nome Cliente <span class="text-red-500">*</span></label>
+                        <label for="inc_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
                         <input type="text" id="inc_cliente" required placeholder="Digite um nome"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-1">Código Item <span class="text-red-500">*</span></label>
+                        <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
                         <input type="text" id="inc_item" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="inc_mascara" class="block text-sm font-medium text-gray-400 mb-1">Máscara <span class="text-red-500">*</span></label>
+                        <label for="inc_mascara" class="block text-sm font-medium text-gray-400 mb-0.5">Máscara <span class="text-red-500">*</span></label>
                         <input type="text" id="inc_mascara" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="inc_quantidade" class="block text-sm font-medium text-gray-400 mb-1">Quantidade <span class="text-red-500">*</span></label>
+                        <label for="inc_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
                         <input type="number" id="inc_quantidade" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="inc_carregamento" class="block text-sm font-medium text-gray-400 mb-1">Carregamento <span class="text-red-500">*</span></label>
+                        <label for="inc_carregamento" class="block text-sm font-medium text-gray-400 mb-0.5">Carregamento <span class="text-red-500">*</span></label>
                         <input type="text" id="inc_carregamento" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="inc_descricao" class="block text-sm font-medium text-gray-400 mb-1">Qual foi a inconformidade encontrada? <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="inc_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a inconformidade encontrada? <span class="text-red-500">*</span></label>
                     <input type="text" id="inc_descricao" required placeholder="Digite a sua resposta"
-                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
 
-                <div class="mb-4">
-                    <label for="inc_acao" class="block text-sm font-medium text-gray-400 mb-1">Qual foi a ação tomada para correção? <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="inc_acao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a ação tomada para correção? <span class="text-red-500">*</span></label>
                     <input type="text" id="inc_acao" required placeholder="Digite a sua resposta"
-                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
 
-                <div class="mb-4">
-                    <label for="inc_supervisor" class="block text-sm font-medium text-gray-400 mb-1">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="inc_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
                     <select id="inc_supervisor" required
-                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
                         <option value="">Escolha...</option>
                     </select>
                 </div>
 
-                <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Anexos <span class="text-red-500">*</span></label>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-400 mb-0.5">Anexos <span class="text-red-500">*</span></label>
                     <div id="inc_dropzone"
-                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-6 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
                          onclick="document.getElementById('inc_anexos').click()">
                         <button type="button"
-                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg mb-2 transition duration-150">
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-1.5 rounded-lg mb-1.5 transition duration-150">
                             Selecione os arquivos
                         </button>
                         <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
@@ -323,7 +326,7 @@
                     <input type="file" id="inc_anexos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
                 </div>
 
-                <p id="inc_formStatus" class="text-sm text-center mb-3 min-h-[1.25rem]"></p>
+                <p id="inc_formStatus" class="text-sm text-center mb-2 min-h-[1.25rem]"></p>
 
                 <button type="submit" id="inc_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
@@ -335,8 +338,8 @@
 
     <!-- Modal: Formulário de Melhorias -->
     <div id="modal-melhorias" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
-        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
                 <h2 class="text-base font-semibold text-gray-200 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 18h6"/>
@@ -352,93 +355,93 @@
                 </button>
             </div>
 
-            <form id="formMelhorias" class="p-5" onsubmit="submitMelhoria(event)">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <form id="formMelhorias" class="p-4" onsubmit="submitMelhoria(event)">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-1">Número Pedido <span class="text-red-500">*</span></label>
+                        <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
                         <input type="text" id="mel_pedido" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="mel_cliente" class="block text-sm font-medium text-gray-400 mb-1">Nome Cliente <span class="text-red-500">*</span></label>
+                        <label for="mel_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
                         <input type="text" id="mel_cliente" required placeholder="Digite um nome"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="mel_tipoEquipamento" class="block text-sm font-medium text-gray-400 mb-1">Tipo de Equipamento <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="mel_tipoEquipamento" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Equipamento <span class="text-red-500">*</span></label>
                     <select id="mel_tipoEquipamento" required
-                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
                         <option value="">Escolha...</option>
                         <option value="Padrão">Padrão</option>
                         <option value="Customizado">Customizado</option>
                     </select>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="mel_item" class="block text-sm font-medium text-gray-400 mb-1">Código Item <span class="text-red-500">*</span></label>
+                        <label for="mel_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
                         <input type="text" id="mel_item" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="mel_mascara" class="block text-sm font-medium text-gray-400 mb-1">Máscara <span class="text-red-500">*</span></label>
+                        <label for="mel_mascara" class="block text-sm font-medium text-gray-400 mb-0.5">Máscara <span class="text-red-500">*</span></label>
                         <input type="text" id="mel_mascara" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
-                        <label for="mel_quantidade" class="block text-sm font-medium text-gray-400 mb-1">Quantidade <span class="text-red-500">*</span></label>
+                        <label for="mel_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
                         <input type="number" id="mel_quantidade" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                     <div>
-                        <label for="mel_carregamento" class="block text-sm font-medium text-gray-400 mb-1">Carregamento <span class="text-red-500">*</span></label>
+                        <label for="mel_carregamento" class="block text-sm font-medium text-gray-400 mb-0.5">Carregamento <span class="text-red-500">*</span></label>
                         <input type="text" id="mel_carregamento" required placeholder="Digite um número"
-                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="mel_descricao" class="block text-sm font-medium text-gray-400 mb-1">Inconformidade identificada <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="mel_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Inconformidade identificada <span class="text-red-500">*</span></label>
                     <input type="text" id="mel_descricao" required placeholder="Digite a sua resposta"
-                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
 
-                <div class="mb-4">
-                    <label for="mel_recorrencia" class="block text-sm font-medium text-gray-400 mb-1">A inconformidade é pontual, ou recorrente? <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="mel_recorrencia" class="block text-sm font-medium text-gray-400 mb-0.5">A inconformidade é pontual, ou recorrente? <span class="text-red-500">*</span></label>
                     <select id="mel_recorrencia" required
-                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
                         <option value="">Escolha...</option>
                         <option value="Pontual">Pontual</option>
                         <option value="Recorrente">Recorrente</option>
                     </select>
                 </div>
 
-                <div class="mb-4">
-                    <label for="mel_melhoria" class="block text-sm font-medium text-gray-400 mb-1">Melhoria proposta/realizada <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="mel_melhoria" class="block text-sm font-medium text-gray-400 mb-0.5">Melhoria proposta/realizada <span class="text-red-500">*</span></label>
                     <input type="text" id="mel_melhoria" required placeholder="Digite a sua resposta"
-                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
 
-                <div class="mb-4">
-                    <label for="mel_supervisor" class="block text-sm font-medium text-gray-400 mb-1">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                <div class="mb-2.5">
+                    <label for="mel_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
                     <select id="mel_supervisor" required
-                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
                         <option value="">Escolha...</option>
                     </select>
                 </div>
 
-                <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Fotos em Anexo <span class="text-red-500">*</span></label>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-400 mb-0.5">Fotos em Anexo <span class="text-red-500">*</span></label>
                     <div id="mel_dropzone"
-                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-6 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
                          onclick="document.getElementById('mel_anexos').click()">
                         <button type="button"
-                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg mb-2 transition duration-150">
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-1.5 rounded-lg mb-1.5 transition duration-150">
                             Selecione os arquivos
                         </button>
                         <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
@@ -447,7 +450,7 @@
                     <input type="file" id="mel_anexos" multiple accept="image/*" class="hidden">
                 </div>
 
-                <p id="mel_formStatus" class="text-sm text-center mb-3 min-h-[1.25rem]"></p>
+                <p id="mel_formStatus" class="text-sm text-center mb-2 min-h-[1.25rem]"></p>
 
                 <button type="submit" id="mel_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
