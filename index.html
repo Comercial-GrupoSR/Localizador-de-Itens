@@ -229,6 +229,110 @@
         </div>
     </div>
 
+    <!-- Modal: Formulário de Inconformidades -->
+    <div id="modal-inconformidades" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Inconformidades
+                </h2>
+                <button type="button" onclick="closeForm('inconformidades')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <form id="formInconformidades" class="p-5" onsubmit="submitInconformidade(event)">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-1">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_pedido" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_cliente" class="block text-sm font-medium text-gray-400 mb-1">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_cliente" required placeholder="Digite a sua resposta"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-1">Código Item <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_item" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_mascara" class="block text-sm font-medium text-gray-400 mb-1">Máscara <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_mascara" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="inc_quantidade" class="block text-sm font-medium text-gray-400 mb-1">Quantidade <span class="text-red-500">*</span></label>
+                        <input type="number" id="inc_quantidade" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_carregamento" class="block text-sm font-medium text-gray-400 mb-1">Carregamento <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_carregamento" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="inc_descricao" class="block text-sm font-medium text-gray-400 mb-1">Qual foi a inconformidade encontrada? <span class="text-red-500">*</span></label>
+                    <input type="text" id="inc_descricao" required placeholder="Digite o seu nome"
+                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="inc_acao" class="block text-sm font-medium text-gray-400 mb-1">Qual foi a ação tomada para correção? <span class="text-red-500">*</span></label>
+                    <input type="text" id="inc_acao" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="inc_supervisor" class="block text-sm font-medium text-gray-400 mb-1">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                    <select id="inc_supervisor" required
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                    </select>
+                </div>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Anexos <span class="text-red-500">*</span></label>
+                    <div id="inc_dropzone"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-6 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         onclick="document.getElementById('inc_anexos').click()">
+                        <button type="button"
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg mb-2 transition duration-150">
+                            Selecione os arquivos
+                        </button>
+                        <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
+                        <p id="inc_fileNames" class="text-xs text-gray-400 mt-2 break-words"></p>
+                    </div>
+                    <input type="file" id="inc_anexos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                </div>
+
+                <p id="inc_formStatus" class="text-sm text-center mb-3 min-h-[1.25rem]"></p>
+
+                <button type="submit" id="inc_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    Enviar
+                </button>
+            </form>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <div class="bottom-nav-inner">
             <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
@@ -607,9 +711,144 @@
             headerTitle.textContent = isLocalizador ? 'Localizador de Itens' : 'Formulários de Obra';
         }
 
-        // Placeholder: os formulários ainda serão implementados
+        // --- Formulário: Inconformidades ---
+
+        const SUPERVISORES = [
+            "Jocélio Almeida",
+            "Juarez Barasuol",
+            "Marcelo de Oliveira",
+            "Jair Milbradt"
+        ];
+
+        function populateSupervisorSelect() {
+            const select = document.getElementById('inc_supervisor');
+            if (!select || select.dataset.populated) return;
+            SUPERVISORES.forEach(nome => {
+                const option = document.createElement('option');
+                option.value = nome;
+                option.textContent = nome;
+                select.appendChild(option);
+            });
+            select.dataset.populated = "true";
+        }
+
+        function setupDropzone() {
+            const dropzone = document.getElementById('inc_dropzone');
+            const fileInput = document.getElementById('inc_anexos');
+            const fileNames = document.getElementById('inc_fileNames');
+            if (!dropzone || dropzone.dataset.bound) return;
+
+            function updateFileNames() {
+                const files = fileInput.files;
+                fileNames.textContent = files.length > 0
+                    ? Array.from(files).map(f => f.name).join(', ')
+                    : '';
+            }
+
+            fileInput.addEventListener('change', updateFileNames);
+
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('border-green-500');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-green-500');
+                });
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    updateFileNames();
+                }
+            });
+
+            dropzone.dataset.bound = "true";
+        }
+
+        function resetInconformidadeForm() {
+            const form = document.getElementById('formInconformidades');
+            form.reset();
+            document.getElementById('inc_fileNames').textContent = '';
+            const status = document.getElementById('inc_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-3 min-h-[1.25rem]';
+        }
+
+        async function submitInconformidade(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('inc_submitButton');
+            const status = document.getElementById('inc_formStatus');
+
+            const payload = {
+                pedido: document.getElementById('inc_pedido').value.trim(),
+                cliente: document.getElementById('inc_cliente').value.trim(),
+                item: document.getElementById('inc_item').value.trim().toUpperCase(),
+                mascara: document.getElementById('inc_mascara').value.trim(),
+                quantidade: document.getElementById('inc_quantidade').value.trim(),
+                carregamento: document.getElementById('inc_carregamento').value.trim(),
+                inconformidade: document.getElementById('inc_descricao').value.trim(),
+                acaoCorrecao: document.getElementById('inc_acao').value.trim(),
+                supervisor: document.getElementById('inc_supervisor').value
+            };
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+            status.textContent = '';
+
+            try {
+                // TODO: implementar envio real (Apps Script/endpoint) incluindo os anexos.
+                // Exemplo de chamada, quando o backend estiver pronto:
+                // await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'inconformidade', ...payload }) });
+                console.log('Inconformidade a enviar:', payload, document.getElementById('inc_anexos').files);
+
+                status.textContent = 'Inconformidade registrada com sucesso!';
+                status.classList.add('text-green-400');
+                setTimeout(() => {
+                    closeForm('inconformidades');
+                }, 1200);
+            } catch (error) {
+                console.error('Erro ao enviar inconformidade:', error);
+                status.textContent = `Erro ao enviar: ${error.message}`;
+                status.classList.add('text-red-400');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+            }
+        }
+
         function openForm(tipo) {
-            console.log(`Abrir formulário: ${tipo}`);
+            const modal = document.getElementById(`modal-${tipo}`);
+            if (!modal) {
+                console.log(`Formulário ainda não implementado: ${tipo}`);
+                return;
+            }
+            if (tipo === 'inconformidades') {
+                populateSupervisorSelect();
+                setupDropzone();
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeForm(tipo) {
+            const modal = document.getElementById(`modal-${tipo}`);
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+            if (tipo === 'inconformidades') {
+                resetInconformidadeForm();
+            }
         }
     </script>
 </body>
