@@ -333,6 +333,130 @@
         </div>
     </div>
 
+    <!-- Modal: Formulário de Melhorias -->
+    <div id="modal-melhorias" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18h6"/>
+                        <path d="M10 22h4"/>
+                        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.68.68 1.25 1.44 1.41 2.5"/>
+                    </svg>
+                    Melhorias
+                </h2>
+                <button type="button" onclick="closeForm('melhorias')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <form id="formMelhorias" class="p-5" onsubmit="submitMelhoria(event)">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-1">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_pedido" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_cliente" class="block text-sm font-medium text-gray-400 mb-1">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_cliente" required placeholder="Digite um nome"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="mel_tipoEquipamento" class="block text-sm font-medium text-gray-400 mb-1">Tipo de Equipamento <span class="text-red-500">*</span></label>
+                    <select id="mel_tipoEquipamento" required
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                        <option value="Padrão">Padrão</option>
+                        <option value="Customizado">Customizado</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="mel_item" class="block text-sm font-medium text-gray-400 mb-1">Código Item <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_item" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_mascara" class="block text-sm font-medium text-gray-400 mb-1">Máscara <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_mascara" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="mel_quantidade" class="block text-sm font-medium text-gray-400 mb-1">Quantidade <span class="text-red-500">*</span></label>
+                        <input type="number" id="mel_quantidade" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_carregamento" class="block text-sm font-medium text-gray-400 mb-1">Carregamento <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_carregamento" required placeholder="Digite um número"
+                               class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="mel_descricao" class="block text-sm font-medium text-gray-400 mb-1">Inconformidade identificada <span class="text-red-500">*</span></label>
+                    <input type="text" id="mel_descricao" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="mel_recorrencia" class="block text-sm font-medium text-gray-400 mb-1">A inconformidade é pontual, ou recorrente? <span class="text-red-500">*</span></label>
+                    <select id="mel_recorrencia" required
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                        <option value="Pontual">Pontual</option>
+                        <option value="Recorrente">Recorrente</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="mel_melhoria" class="block text-sm font-medium text-gray-400 mb-1">Melhoria proposta/realizada <span class="text-red-500">*</span></label>
+                    <input type="text" id="mel_melhoria" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+
+                <div class="mb-4">
+                    <label for="mel_supervisor" class="block text-sm font-medium text-gray-400 mb-1">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                    <select id="mel_supervisor" required
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                    </select>
+                </div>
+
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Fotos em Anexo <span class="text-red-500">*</span></label>
+                    <div id="mel_dropzone"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-6 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         onclick="document.getElementById('mel_anexos').click()">
+                        <button type="button"
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg mb-2 transition duration-150">
+                            Selecione os arquivos
+                        </button>
+                        <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
+                        <p id="mel_fileNames" class="text-xs text-gray-400 mt-2 break-words"></p>
+                    </div>
+                    <input type="file" id="mel_anexos" multiple accept="image/*" class="hidden">
+                </div>
+
+                <p id="mel_formStatus" class="text-sm text-center mb-3 min-h-[1.25rem]"></p>
+
+                <button type="submit" id="mel_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    Enviar
+                </button>
+            </form>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <div class="bottom-nav-inner">
             <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
@@ -711,7 +835,7 @@
             headerTitle.textContent = isLocalizador ? 'Localizador de Itens' : 'Formulários de Obra';
         }
 
-        // --- Formulário: Inconformidades ---
+        // --- Formulários (Inconformidades / Melhorias) ---
 
         const SUPERVISORES = [
             "Jocélio Almeida",
@@ -720,8 +844,8 @@
             "Jair Milbradt"
         ];
 
-        function populateSupervisorSelect() {
-            const select = document.getElementById('inc_supervisor');
+        function populateSupervisorSelect(selectId) {
+            const select = document.getElementById(selectId);
             if (!select || select.dataset.populated) return;
             SUPERVISORES.forEach(nome => {
                 const option = document.createElement('option');
@@ -732,10 +856,10 @@
             select.dataset.populated = "true";
         }
 
-        function setupDropzone() {
-            const dropzone = document.getElementById('inc_dropzone');
-            const fileInput = document.getElementById('inc_anexos');
-            const fileNames = document.getElementById('inc_fileNames');
+        function setupDropzone(dropzoneId, fileInputId, fileNamesId) {
+            const dropzone = document.getElementById(dropzoneId);
+            const fileInput = document.getElementById(fileInputId);
+            const fileNames = document.getElementById(fileNamesId);
             if (!dropzone || dropzone.dataset.bound) return;
 
             function updateFileNames() {
@@ -825,6 +949,60 @@
             }
         }
 
+        function resetMelhoriaForm() {
+            const form = document.getElementById('formMelhorias');
+            form.reset();
+            document.getElementById('mel_fileNames').textContent = '';
+            const status = document.getElementById('mel_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-3 min-h-[1.25rem]';
+        }
+
+        async function submitMelhoria(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('mel_submitButton');
+            const status = document.getElementById('mel_formStatus');
+
+            const payload = {
+                pedido: document.getElementById('mel_pedido').value.trim(),
+                cliente: document.getElementById('mel_cliente').value.trim(),
+                tipoEquipamento: document.getElementById('mel_tipoEquipamento').value,
+                item: document.getElementById('mel_item').value.trim().toUpperCase(),
+                mascara: document.getElementById('mel_mascara').value.trim(),
+                quantidade: document.getElementById('mel_quantidade').value.trim(),
+                carregamento: document.getElementById('mel_carregamento').value.trim(),
+                inconformidade: document.getElementById('mel_descricao').value.trim(),
+                recorrencia: document.getElementById('mel_recorrencia').value,
+                melhoria: document.getElementById('mel_melhoria').value.trim(),
+                supervisor: document.getElementById('mel_supervisor').value
+            };
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+            status.textContent = '';
+
+            try {
+                // TODO: implementar envio real (Apps Script/endpoint) incluindo os anexos.
+                // Exemplo de chamada, quando o backend estiver pronto:
+                // await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'melhoria', ...payload }) });
+                console.log('Melhoria a enviar:', payload, document.getElementById('mel_anexos').files);
+
+                status.textContent = 'Melhoria registrada com sucesso!';
+                status.classList.add('text-green-400');
+                setTimeout(() => {
+                    closeForm('melhorias');
+                }, 1200);
+            } catch (error) {
+                console.error('Erro ao enviar melhoria:', error);
+                status.textContent = `Erro ao enviar: ${error.message}`;
+                status.classList.add('text-red-400');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+            }
+        }
+
         function openForm(tipo) {
             const modal = document.getElementById(`modal-${tipo}`);
             if (!modal) {
@@ -832,8 +1010,12 @@
                 return;
             }
             if (tipo === 'inconformidades') {
-                populateSupervisorSelect();
-                setupDropzone();
+                populateSupervisorSelect('inc_supervisor');
+                setupDropzone('inc_dropzone', 'inc_anexos', 'inc_fileNames');
+            }
+            if (tipo === 'melhorias') {
+                populateSupervisorSelect('mel_supervisor');
+                setupDropzone('mel_dropzone', 'mel_anexos', 'mel_fileNames');
             }
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -848,6 +1030,9 @@
             document.body.style.overflow = '';
             if (tipo === 'inconformidades') {
                 resetInconformidadeForm();
+            }
+            if (tipo === 'melhorias') {
+                resetMelhoriaForm();
             }
         }
     </script>
