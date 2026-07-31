@@ -328,6 +328,42 @@
         #checklistElevadorRoot .badge-ok  { background: rgba(74,222,128,.15); color: var(--chk-ok); }
         #checklistElevadorRoot .badge-nc  { background: rgba(248,113,113,.15); color: var(--chk-nc); }
         #checklistElevadorRoot .badge-na  { background: rgba(156,163,175,.15); color: var(--chk-na); }
+        #checklistElevadorRoot .sig-pad-wrap {
+            position: relative;
+            border: 1px dashed var(--chk-border-2);
+            border-radius: var(--chk-radius);
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        #checklistElevadorRoot .sig-pad {
+            display: block;
+            width: 100%;
+            height: 110px;
+            touch-action: none;
+            cursor: crosshair;
+        }
+        #checklistElevadorRoot .sig-pad-placeholder {
+            position: absolute;
+            top: 50%; left: 12px;
+            transform: translateY(-50%);
+            font-size: 11px; color: #9aa0a6;
+            pointer-events: none;
+            font-style: italic;
+        }
+        #checklistElevadorRoot .sig-pad-actions {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 4px;
+        }
+        #checklistElevadorRoot .sig-clear-btn {
+            background: none; border: none; padding: 2px 4px;
+            font-size: 11px; font-weight: 600; color: var(--chk-muted);
+            cursor: pointer; text-decoration: underline;
+        }
+        #checklistElevadorRoot .sig-clear-btn:hover { color: var(--chk-text); }
+        #checklistElevadorRoot .sig-status {
+            font-size: 10.5px; color: var(--chk-muted);
+        }
+        #checklistElevadorRoot .sig-status.signed { color: var(--chk-ok); }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -789,7 +825,18 @@
                                     </select>
                                 </div>
                             </div>
-                            <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. A assinatura é feita à mão após a impressão do PDF.</p>
+                            <div class="field" style="margin-top:12px;">
+                                <span class="field-label">Assinatura do supervisor (opcional)</span>
+                                <div class="sig-pad-wrap">
+                                    <canvas id="sigSupervisor" class="sig-pad"></canvas>
+                                    <span class="sig-pad-placeholder" id="sigSupervisorPlaceholder">Assine aqui com o dedo ou o mouse</span>
+                                </div>
+                                <div class="sig-pad-actions">
+                                    <span class="sig-status" id="sigSupervisorStatus">Sem assinatura — pode gerar o PDF normalmente e assinar depois</span>
+                                    <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigSupervisor')">Limpar assinatura</button>
+                                </div>
+                            </div>
+                            <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
                         </div>
                     </div>
 
@@ -810,7 +857,18 @@
                             <div class="field"><span class="field-label">Teste com produto — data</span><input type="date" id="produtoData"></div>
                             <div class="field"><span class="field-label">Nome do cliente</span><input type="text" id="clienteNome"></div>
                         </div>
-                        <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assinatura à mão após impressão.</p>
+                        <div class="field" style="margin-top:12px;">
+                            <span class="field-label">Assinatura do cliente (opcional)</span>
+                            <div class="sig-pad-wrap">
+                                <canvas id="sigCliente" class="sig-pad"></canvas>
+                                <span class="sig-pad-placeholder" id="sigClientePlaceholder">Assine aqui com o dedo ou o mouse</span>
+                            </div>
+                            <div class="sig-pad-actions">
+                                <span class="sig-status" id="sigClienteStatus">Sem assinatura — pode gerar o PDF normalmente e assinar depois</span>
+                                <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigCliente')">Limpar assinatura</button>
+                            </div>
+                        </div>
+                        <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
                     </div>
 
                     <!-- 4. Observações -->
@@ -1466,6 +1524,10 @@
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
+            requestAnimationFrame(() => {
+                chkInitSignaturePad('sigSupervisor');
+                chkInitSignaturePad('sigCliente');
+            });
         }
 
         function closeChecklistElevador() {
@@ -1598,10 +1660,107 @@
             return '';
         }
 
+        // ── Quadro de assinatura digital (desenho na tela) ──
+        // Assinar é opcional: se o campo ficar em branco, o PDF é gerado normalmente
+        // com a linha vazia para assinatura à mão, exatamente como já era antes.
+        const chkSignaturePads = {};
+
+        function chkInitSignaturePad(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || canvas.dataset.bound === 'true') return;
+            canvas.dataset.bound = 'true';
+
+            const ctx = canvas.getContext('2d');
+            const ratio = window.devicePixelRatio || 1;
+            const displayWidth = canvas.clientWidth || 300;
+            const displayHeight = canvas.clientHeight || 110;
+            canvas.width = displayWidth * ratio;
+            canvas.height = displayHeight * ratio;
+            ctx.scale(ratio, ratio);
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#1a1a1a';
+
+            const state = { drawing: false, hasDrawn: false };
+            chkSignaturePads[canvasId] = { canvas, ctx, state };
+
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const p = e.touches && e.touches.length ? e.touches[0] : e;
+                return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+            }
+            function start(e) {
+                e.preventDefault();
+                state.drawing = true;
+                if (!state.hasDrawn) {
+                    state.hasDrawn = true;
+                    chkUpdateSignatureStatus(canvasId);
+                }
+                const pos = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            }
+            function move(e) {
+                if (!state.drawing) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+            }
+            function end() { state.drawing = false; }
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end);
+        }
+
+        function chkUpdateSignatureStatus(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            const placeholder = document.getElementById(canvasId + 'Placeholder');
+            const status = document.getElementById(canvasId + 'Status');
+            const signed = !!(pad && pad.state.hasDrawn);
+            if (placeholder) placeholder.style.display = signed ? 'none' : '';
+            if (status) {
+                status.textContent = signed
+                    ? '✓ Assinado nesta tela'
+                    : 'Sem assinatura — pode gerar o PDF normalmente e assinar depois';
+                status.classList.toggle('signed', signed);
+            }
+        }
+
+        function chkClearSignature(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            if (!pad) return;
+            pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height);
+            pad.state.hasDrawn = false;
+            chkUpdateSignatureStatus(canvasId);
+        }
+
+        // Retorna a assinatura em PNG (data URL) ou null se o campo estiver vazio.
+        function chkGetSignatureDataUrl(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            if (!pad || !pad.state.hasDrawn) return null;
+            return pad.canvas.toDataURL('image/png');
+        }
+
+        function chkDataUrlToBytes(dataUrl) {
+            const base64 = dataUrl.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+
         document.getElementById('btnReset').addEventListener('click', () => {
             if(confirm('Limpar todos os campos preenchidos?')){
                 document.getElementById('checklistForm').reset();
                 document.querySelectorAll('#checklistElevadorRoot select.status-sel').forEach(s => s.classList.remove('v-OK','v-NC','v-NA'));
+                chkClearSignature('sigSupervisor');
+                chkClearSignature('sigCliente');
                 document.getElementById('statusMsg').textContent = '';
                 chkUpdateProgress();
             }
@@ -1624,6 +1783,14 @@
                 const logoHeight = 24;
                 const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
                 // -----------------------------------
+
+                // --- Assinaturas desenhadas na tela (opcionais) ---
+                // Se a pessoa não assinou, os "Img" ficam null e o PDF é gerado
+                // normalmente, apenas com a linha em branco para assinar depois.
+                const sigSupervisorDataUrl = chkGetSignatureDataUrl('sigSupervisor');
+                const sigClienteDataUrl = chkGetSignatureDataUrl('sigCliente');
+                const sigSupervisorImg = sigSupervisorDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigSupervisorDataUrl)) : null;
+                const sigClienteImg = sigClienteDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigClienteDataUrl)) : null;
 
                 const font = await doc.embedFont(StandardFonts.Helvetica);
                 const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -1720,8 +1887,12 @@
                 const rightEnd = drawChecks(chkRightItems, rX, 'R');
                 y = Math.min(leftEnd, rightEnd) - 10;
 
-                ensure(60);
-                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 22;
+                ensure(90);
+                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 50;
+                if (sigSupervisorImg) {
+                    const sw = 150, sh = Math.min(34, sw * (sigSupervisorImg.height / sigSupervisorImg.width));
+                    page.drawImage(sigSupervisorImg, { x: mg+250, y: y+2, width: sw, height: sh });
+                }
                 txt(chkVal('supervisorNome'), mg, y, {size:9.5});
                 hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
@@ -1740,7 +1911,12 @@
                 if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
                 txt('Não', mg+73, y, {size:9});
                 y -= 22;
-                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= 22;
+                ensure(90);
+                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= 50;
+                if (sigClienteImg) {
+                    const sw = 150, sh = Math.min(34, sw * (sigClienteImg.height / sigClienteImg.width));
+                    page.drawImage(sigClienteImg, { x: mg+250, y: y+2, width: sw, height: sh });
+                }
                 txt(chkVal('clienteNome'), mg, y, {size:9.5});
                 hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
@@ -1770,7 +1946,7 @@
                 notes.forEach(n => {
                     wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
                 });
-                y -= 60;
+                y -= 90;
 
                 // ── Closing ──
                 ensure(45);
