@@ -21,6 +21,7 @@
     <meta name="application-name" content="Localizador SR">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         /* ... Estilos CSS ... */
         body {
@@ -134,6 +135,199 @@
             height: 22px;
             flex-shrink: 0;
         }
+
+        /* ============================================================
+           Checklist de Entrega — Elevador de Canecas (escopado)
+           Todas as regras abaixo são prefixadas com #checklistElevadorRoot
+           para não vazar estilos (ex: seletor genérico "button") para o
+           restante do app.
+        ============================================================ */
+        #checklistElevadorRoot {
+            --chk-card:       #2e2e2e;
+            --chk-border:     #3d3d3d;
+            --chk-border-2:   #444;
+            --chk-input-bg:   #1f1f1f;
+            --chk-text:       #e0e0e0;
+            --chk-muted:      #9ca3af;
+            --chk-green:      #4ade80;
+            --chk-green-hover:#22c55e;
+            --chk-ok:         #4ade80;
+            --chk-nc:         #f87171;
+            --chk-na:         #9ca3af;
+            --chk-radius:     8px;
+            --chk-radius-lg:  12px;
+        }
+        #checklistElevadorRoot .card {
+            background: var(--chk-card);
+            border: 1px solid var(--chk-border);
+            border-radius: var(--chk-radius-lg);
+            padding: 20px;
+            margin-bottom: 14px;
+        }
+        #checklistElevadorRoot .card-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px; padding-bottom: 12px;
+            border-bottom: 1px solid var(--chk-border);
+        }
+        #checklistElevadorRoot .card-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: rgba(74,222,128,.15);
+            color: var(--chk-green);
+            font-weight: 700; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            flex: 0 0 26px;
+        }
+        #checklistElevadorRoot .card-title {
+            font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .8px;
+            color: var(--chk-green);
+            margin: 0;
+        }
+        #checklistElevadorRoot .hint {
+            font-size: 11.5px; color: var(--chk-muted); font-style: italic;
+            margin: -10px 0 16px;
+        }
+        #checklistElevadorRoot .fields { display: grid; gap: 12px; }
+        #checklistElevadorRoot .fields-4 { grid-template-columns: repeat(4, 1fr); }
+        #checklistElevadorRoot .fields-3 { grid-template-columns: repeat(3, 1fr); }
+        #checklistElevadorRoot .fields-2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 680px) {
+            #checklistElevadorRoot .fields-4 { grid-template-columns: repeat(2, 1fr); }
+            #checklistElevadorRoot .fields-3 { grid-template-columns: repeat(2, 1fr); }
+            #checklistElevadorRoot .fields-2 { grid-template-columns: 1fr; }
+        }
+        #checklistElevadorRoot .field { display: flex; flex-direction: column; gap: 5px; }
+        #checklistElevadorRoot .field-label {
+            font-size: 10.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            color: var(--chk-muted);
+        }
+        #checklistElevadorRoot input[type=text],
+        #checklistElevadorRoot input[type=date],
+        #checklistElevadorRoot textarea,
+        #checklistElevadorRoot .chk-plain-sel {
+            font-family: 'Inter', sans-serif; font-size: 13.5px;
+            padding: 8px 11px; border: 1px solid var(--chk-border-2);
+            border-radius: var(--chk-radius); background: var(--chk-input-bg); color: var(--chk-text);
+            width: 100%; transition: border-color .15s;
+        }
+        #checklistElevadorRoot input[type=text]:focus,
+        #checklistElevadorRoot input[type=date]:focus,
+        #checklistElevadorRoot textarea:focus,
+        #checklistElevadorRoot .chk-plain-sel:focus {
+            outline: none; border-color: var(--chk-green);
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+        }
+        #checklistElevadorRoot input[type=date] { color-scheme: dark; }
+        #checklistElevadorRoot .chk-mono-input { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: .4px; }
+        #checklistElevadorRoot textarea { min-height: 90px; resize: vertical; font-size: 13px; }
+        #checklistElevadorRoot select.chk-plain-sel {
+            appearance: none; -webkit-appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 30px;
+        }
+        #checklistElevadorRoot .checklist-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+        @media (max-width: 640px) { #checklistElevadorRoot .checklist-cols { grid-template-columns: 1fr; } }
+        #checklistElevadorRoot .group-label {
+            font-size: 10px; font-weight: 700; color: var(--chk-green);
+            text-transform: uppercase; letter-spacing: .6px;
+            padding: 10px 0 4px; margin-top: 4px;
+            border-top: 1px dashed var(--chk-border);
+        }
+        #checklistElevadorRoot .group-label:first-child { border-top: none; padding-top: 0; }
+        #checklistElevadorRoot .item-row { display: flex; align-items: center; gap: 9px; padding: 3.5px 0; }
+        #checklistElevadorRoot select.status-sel {
+            width: 56px; flex: 0 0 56px; font-size: 11px; font-weight: 700;
+            text-align: center; text-align-last: center;
+            padding: 4px 2px; border: 1px solid var(--chk-border-2);
+            border-radius: 6px; background: var(--chk-input-bg); color: var(--chk-muted);
+            appearance: none; -webkit-appearance: none; cursor: pointer;
+            transition: background .1s, border-color .1s, color .1s;
+        }
+        #checklistElevadorRoot select.status-sel.v-OK { background: rgba(74,222,128,.15); color: var(--chk-ok); border-color: var(--chk-green); }
+        #checklistElevadorRoot select.status-sel.v-NC { background: rgba(248,113,113,.15); color: var(--chk-nc); border-color: #f87171; }
+        #checklistElevadorRoot select.status-sel.v-NA { background: rgba(156,163,175,.15); color: var(--chk-na); border-color: #6b7280; }
+        #checklistElevadorRoot .item-label { font-size: 12.5px; line-height: 1.35; color: var(--chk-text); }
+        #checklistElevadorRoot .sign-row { margin-top: 18px; }
+        #checklistElevadorRoot .sign-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 640px) { #checklistElevadorRoot .sign-fields { grid-template-columns: 1fr; } }
+        #checklistElevadorRoot .sign-note {
+            font-size: 11px; color: var(--chk-muted); font-style: italic;
+            margin-top: 8px; padding-top: 8px;
+            border-top: 1px solid var(--chk-border);
+            line-height: 1.5;
+        }
+        #checklistElevadorRoot .radio-group { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        #checklistElevadorRoot .radio-pill {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 13px; padding: 8px 16px;
+            border: 1px solid var(--chk-border-2); border-radius: 50px;
+            cursor: pointer; background: var(--chk-input-bg); color: var(--chk-muted);
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        #checklistElevadorRoot .radio-pill input { accent-color: var(--chk-green); margin: 0; }
+        #checklistElevadorRoot .radio-pill:has(input:checked) {
+            border-color: var(--chk-green); background: rgba(74,222,128,.12); color: var(--chk-green);
+        }
+        #checklistElevadorRoot .footnotes {
+            font-size: 11px; color: var(--chk-muted); line-height: 1.65;
+            margin-top: 16px; padding-top: 14px;
+            border-top: 1px dashed var(--chk-border);
+        }
+        #checklistElevadorRoot .footnotes p { margin: 0 0 4px; }
+        #checklistElevadorRoot .action-bar {
+            position: sticky; bottom: 0;
+            display: flex; gap: 10px; align-items: center;
+            padding: 14px 0 4px;
+            background: linear-gradient(to top, var(--chk-card) 72%, transparent);
+        }
+        #checklistElevadorRoot button {
+            font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+            padding: 11px 20px; border-radius: var(--chk-radius);
+            border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            justify-content: center;
+            transition: background .15s, opacity .15s;
+        }
+        #checklistElevadorRoot #btnPdf {
+            background: var(--chk-green); color: #0a1f13; flex: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        }
+        #checklistElevadorRoot #btnPdf:hover { background: var(--chk-green-hover); }
+        #checklistElevadorRoot #btnPdf:disabled { opacity: .6; cursor: wait; }
+        #checklistElevadorRoot #btnReset {
+            background: var(--chk-border); color: var(--chk-text);
+            border: 1px solid var(--chk-border-2); flex: 0 0 auto;
+        }
+        #checklistElevadorRoot #btnReset:hover { background: #454545; }
+        #checklistElevadorRoot .status-msg {
+            font-size: 12px; color: var(--chk-green);
+            min-height: 18px; padding: 0 2px;
+        }
+        #checklistElevadorRoot .progress-wrap { position: relative; margin-bottom: 18px; }
+        #checklistElevadorRoot .progress-bar {
+            height: 4px; background: var(--chk-border); border-radius: 2px; overflow: hidden;
+        }
+        #checklistElevadorRoot .progress-fill {
+            height: 100%; width: 0; background: var(--chk-green);
+            border-radius: 2px; transition: width .3s ease;
+        }
+        #checklistElevadorRoot .progress-label {
+            font-size: 11px; color: var(--chk-muted); margin-top: 5px;
+            display: flex; justify-content: space-between;
+        }
+        #checklistElevadorRoot .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 10.5px; font-weight: 700;
+            padding: 2px 8px; border-radius: 50px;
+        }
+        #checklistElevadorRoot .badge-ok  { background: rgba(74,222,128,.15); color: var(--chk-ok); }
+        #checklistElevadorRoot .badge-nc  { background: rgba(248,113,113,.15); color: var(--chk-nc); }
+        #checklistElevadorRoot .badge-na  { background: rgba(156,163,175,.15); color: var(--chk-na); }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -212,7 +406,7 @@
                         </svg>
                         Checklist de Montagem
                     </button>
-                    <button type="button" class="form-card" onclick="abrirChecklistEntrega()">
+                    <button type="button" class="form-card" onclick="openChecklistTipo()">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="3" width="15" height="15" rx="2"/>
                             <path d="M7.5 10.5l2 2 4-4"/>
@@ -460,47 +654,203 @@
         </div>
     </div>
 
-    <div id="modal-checklist-entrega"
-     class="fixed inset-0 z-[60] hidden items-center justify-center p-4"
-     style="background:rgba(0,0,0,.6)">
-
-    <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
-
-        <div class="flex items-center justify-between p-4 border-b border-[#3d3d3d]">
-
-            <h2 class="text-lg font-semibold">
-                Selecione o Equipamento
-            </h2>
-
-            <button onclick="fecharChecklistEntrega()">✕</button>
-
+    <!-- Modal: Seleção do Tipo de Equipamento (Checklist de Entrega) -->
+    <div id="modal-checklist-tipo" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="15" height="15" rx="2"/>
+                        <path d="M7.5 10.5l2 2 4-4"/>
+                    </svg>
+                    Checklist de Entrega
+                </h2>
+                <button type="button" onclick="closeChecklistTipo()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-400 mb-3">Selecione o tipo de equipamento para abrir o checklist correspondente:</p>
+                <div class="flex flex-col gap-3">
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('elevador-canecas')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="2" width="4" height="20" rx="1"/>
+                            <rect x="16" y="2" width="4" height="20" rx="1"/>
+                            <path d="M8 6h8"/>
+                            <path d="M8 18h8"/>
+                        </svg>
+                        Elevador de Canecas
+                    </button>
+                    <div class="form-card opacity-50 cursor-not-allowed" style="pointer-events:none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <path d="M4.5 9h15"/>
+                            <path d="M4.5 15h15"/>
+                        </svg>
+                        <span class="flex-1">Roscas Transportadoras</span>
+                        <span class="text-xs text-gray-500">Em breve</span>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div class="p-4 space-y-3">
-
-            <button
-                class="form-card"
-                onclick="abrirChecklistElevador()">
-
-                Elevador de Canecas
-
-            </button>
-
-            <button
-                class="form-card"
-                disabled>
-
-                Rosca Transportadora
-                <span class="text-xs text-gray-500">(Em breve)</span>
-
-            </button>
-
-        </div>
-
     </div>
 
-</div>
-    
+    <!-- Modal: Checklist de Entrega — Elevador de Canecas -->
+    <div id="modal-checklist-elevador" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="checklistElevadorRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="15" height="15" rx="2"/>
+                        <path d="M7.5 10.5l2 2 4-4"/>
+                    </svg>
+                    Checklist de Entrega — Elevador de Canecas
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="voltarTipoChecklist()" class="text-xs text-gray-400 hover:text-white transition duration-150">
+                        Trocar equipamento
+                    </button>
+                    <button type="button" onclick="closeChecklistElevador()" class="text-gray-400 hover:text-white transition duration-150">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4">
+                <!-- Progress -->
+                <div class="progress-wrap">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <div class="progress-label">
+                        <span id="progressText">0 de 28 itens preenchidos</span>
+                        <span>
+                            <span class="badge badge-ok" id="cntOK">OK: 0</span>&ensp;
+                            <span class="badge badge-nc" id="cntNC">NC: 0</span>&ensp;
+                            <span class="badge badge-na" id="cntNA">NA: 0</span>
+                        </span>
+                    </div>
+                </div>
+
+                <form id="checklistForm">
+
+                    <!-- 1. Identificação -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">1</div>
+                            <p class="card-title">Identificação</p>
+                        </div>
+                        <div class="fields fields-4">
+                            <div class="field"><span class="field-label">TAG</span><input type="text" id="tag" class="chk-mono-input" placeholder="Digite o número, ex: 1"></div>
+                            <div class="field"><span class="field-label">Código</span><input type="text" id="codigo" class="chk-mono-input" placeholder="SR-2024-XXX"></div>
+                            <div class="field"><span class="field-label">Máscara</span><input type="text" id="mascara" class="chk-mono-input"></div>
+                            <div class="field">
+                                <span class="field-label">Modelo</span>
+                                <select id="modelo" class="chk-plain-sel">
+                                    <option value="">Selecione…</option>
+                                    <option value="EL5P">EL5P</option>
+                                    <option value="EL6P">EL6P</option>
+                                    <option value="EL8P">EL8P</option>
+                                    <option value="EL10P">EL10P</option>
+                                    <option value="EL11P">EL11P</option>
+                                    <option value="EL13P">EL13P</option>
+                                    <option value="EL15P">EL15P</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="fields fields-3" style="margin-top:12px;">
+                            <div class="field"><span class="field-label">Pedido</span><input type="text" id="pedido"></div>
+                            <div class="field"><span class="field-label">Cliente</span><input type="text" id="cliente"></div>
+                            <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="local"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Montagem -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">2</div>
+                            <p class="card-title">Conferência do processo de montagem</p>
+                        </div>
+                        <p class="hint">Marque cada item com OK, NC (não conforme) ou NA (não aplicável)</p>
+
+                        <div class="checklist-cols">
+                            <div id="colLeft"></div>
+                            <div id="colRight"></div>
+                        </div>
+
+                        <div class="sign-row">
+                            <div class="sign-fields">
+                                <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
+                                <div class="field"><span class="field-label">Nome do supervisor</span><input type="text" id="supervisorNome"></div>
+                            </div>
+                            <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. A assinatura é feita à mão após a impressão do PDF.</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Desempenho -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">3</div>
+                            <p class="card-title">Conferência do desempenho do equipamento</p>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">A capacidade do equipamento está de acordo com o projeto?</span>
+                            <div class="radio-group">
+                                <label class="radio-pill"><input type="radio" name="capacidade" value="Sim"> Sim</label>
+                                <label class="radio-pill"><input type="radio" name="capacidade" value="Não"> Não</label>
+                            </div>
+                        </div>
+                        <div class="sign-fields" style="margin-top:14px;">
+                            <div class="field"><span class="field-label">Teste com produto — data</span><input type="date" id="produtoData"></div>
+                            <div class="field"><span class="field-label">Nome do cliente</span><input type="text" id="clienteNome"></div>
+                        </div>
+                        <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assinatura à mão após impressão.</p>
+                    </div>
+
+                    <!-- 4. Observações -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">4</div>
+                            <p class="card-title">Observações / Parecer técnico</p>
+                        </div>
+                        <textarea id="observacoes" placeholder="Escreva observações ou deixe em branco para preencher à mão após a impressão"></textarea>
+                    </div>
+
+                    <!-- 5. Encerramento -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">5</div>
+                            <p class="card-title">Encerramento</p>
+                        </div>
+                        <div class="fields fields-2">
+                            <div class="field"><span class="field-label">Local</span><input type="text" id="footerLocal"></div>
+                            <div class="field"><span class="field-label">Data</span><input type="date" id="footerData"></div>
+                        </div>
+                        <div class="fields fields-2" style="margin-top:12px;">
+                            <div class="field"><span class="field-label">SR Engenharia</span><input type="text" id="srEngenharia"></div>
+                            <div class="field"><span class="field-label">Gestor de Montagem</span><input type="text" id="gestorMontagem"></div>
+                        </div>
+                        <div class="footnotes">
+                            <p>1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.</p>
+                            <p>2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.</p>
+                            <p>3 — A infiltração de água no equipamento somente será corrigida no período de garantia.</p>
+                            <p>* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.</p>
+                        </div>
+                    </div>
+
+                </form>
+
+                <div class="action-bar">
+                    <button id="btnPdf" type="button">⬇ Gerar PDF</button>
+                    <button id="btnReset" type="button">Limpar</button>
+                </div>
+                <div class="status-msg" id="statusMsg"></div>
+            </div>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <div class="bottom-nav-inner">
             <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
@@ -1080,750 +1430,358 @@
             }
         }
 
-        function abrirChecklistEntrega(){
+        // ============================================================
+        // Checklist de Entrega — seleção de equipamento + Elevador de Canecas
+        // ============================================================
 
-            <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Check-List de Entrega — Elevador de Canecas</title>
-<link rel="icon" href="favicon.ico" type="image/x-icon">
-<link rel="apple-touch-icon" href="favicon.ico">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg:         #1a1a1a;
-    --card:       #2e2e2e;
-    --card-alt:   #242424;
-    --border:     #3d3d3d;
-    --border-2:   #444;
-    --input-bg:   #1f1f1f;
-    --text:       #e0e0e0;
-    --muted:      #9ca3af;
-    --green:      #4ade80;
-    --green-hover:#22c55e;
-    --ok:         #4ade80;
-    --nc:         #f87171;
-    --na:         #9ca3af;
-    --radius:     8px;
-    --radius-lg:  12px;
-    --mono:       ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    --sans:       'Inter', -apple-system, 'Segoe UI', Roboto, system-ui, Arial, sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0;
-    font-family: var(--sans);
-    background: var(--bg);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  .app { max-width: 960px; margin: 0 auto; padding: 16px 16px 100px; }
-
-  .back-link {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12px; color: var(--muted); text-decoration: none;
-    margin: 0 0 10px; transition: color .15s;
-  }
-  .back-link:hover { color: var(--green); }
-
-  /* ── Header (padrão Localizador: barra escura, ícone+título à esquerda, logo à direita) ── */
-  .header-app {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px;
-    background: var(--border);
-    border: 1px solid var(--border-2);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.25);
-  }
-  .header-app h1 {
-    margin: 0;
-    font-size: 14.5px; font-weight: 700;
-    color: var(--green);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .header-app h1 svg { width: 16px; height: 16px; flex: 0 0 16px; }
-  .header-app img { height: 30px; width: auto; }
-  .header-sub {
-    font-size: 11.5px; color: var(--muted); font-style: italic;
-    margin: 0 2px 20px;
-  }
-
-  /* ── Cards ── */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 22px 24px;
-    margin-bottom: 16px;
-  }
-  .card-header {
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 18px; padding-bottom: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  .card-num {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: rgba(74,222,128,.15);
-    color: var(--green);
-    font-weight: 700; font-size: 12px;
-    display: flex; align-items: center; justify-content: center;
-    flex: 0 0 26px;
-  }
-  .card-title {
-    font-size: 12px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .8px;
-    color: var(--green);
-    margin: 0;
-  }
-  .hint {
-    font-size: 11.5px; color: var(--muted); font-style: italic;
-    margin: -10px 0 16px;
-  }
-
-  /* ── Field grid ── */
-  .fields { display: grid; gap: 12px; }
-  .fields-4 { grid-template-columns: repeat(4, 1fr); }
-  .fields-3 { grid-template-columns: repeat(3, 1fr); }
-  .fields-2 { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 680px) {
-    .fields-4 { grid-template-columns: repeat(2, 1fr); }
-    .fields-3 { grid-template-columns: repeat(2, 1fr); }
-    .fields-2 { grid-template-columns: 1fr; }
-  }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  .field-label {
-    font-size: 10.5px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .5px;
-    color: var(--muted);
-  }
-  input[type=text], input[type=date], textarea, .plain-sel {
-    font-family: var(--sans); font-size: 13.5px;
-    padding: 8px 11px; border: 1px solid var(--border-2);
-    border-radius: var(--radius); background: var(--input-bg); color: var(--text);
-    width: 100%; transition: border-color .15s;
-  }
-  input[type=text]:focus, input[type=date]:focus, textarea:focus, .plain-sel:focus {
-    outline: none; border-color: var(--green);
-    box-shadow: 0 0 0 3px rgba(74,222,128,.15);
-  }
-  input[type=date] { color-scheme: dark; }
-  .mono-input { font-family: var(--mono); letter-spacing: .4px; }
-  textarea { min-height: 90px; resize: vertical; font-size: 13px; }
-  select.plain-sel {
-    appearance: none; -webkit-appearance: none;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 14px;
-    padding-right: 30px;
-  }
-
-  /* ── Checklist columns ── */
-  .checklist-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
-  @media (max-width: 640px) { .checklist-cols { grid-template-columns: 1fr; } }
-  .group-label {
-    font-size: 10px; font-weight: 700; color: var(--green);
-    text-transform: uppercase; letter-spacing: .6px;
-    padding: 10px 0 4px; margin-top: 4px;
-    border-top: 1px dashed var(--border);
-  }
-  .group-label:first-child { border-top: none; padding-top: 0; }
-  .item-row { display: flex; align-items: center; gap: 9px; padding: 3.5px 0; }
-  select.status-sel {
-    width: 56px; flex: 0 0 56px; font-size: 11px; font-weight: 700;
-    text-align: center; text-align-last: center;
-    padding: 4px 2px; border: 1px solid var(--border-2);
-    border-radius: 6px; background: var(--input-bg); color: var(--muted);
-    appearance: none; -webkit-appearance: none; cursor: pointer;
-    transition: background .1s, border-color .1s, color .1s;
-  }
-  select.status-sel.v-OK { background: rgba(74,222,128,.15); color: var(--ok); border-color: var(--green); }
-  select.status-sel.v-NC { background: rgba(248,113,113,.15); color: var(--nc); border-color: #f87171; }
-  select.status-sel.v-NA { background: rgba(156,163,175,.15); color: var(--na); border-color: #6b7280; }
-  .item-label { font-size: 12.5px; line-height: 1.35; color: var(--text); }
-
-  /* ── Sign row ── */
-  .sign-row { margin-top: 18px; }
-  .sign-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 640px) { .sign-fields { grid-template-columns: 1fr; } }
-  .sign-note {
-    font-size: 11px; color: var(--muted); font-style: italic;
-    margin-top: 8px; padding-top: 8px;
-    border-top: 1px solid var(--border);
-    line-height: 1.5;
-  }
-
-  /* ── Radio / toggle ── */
-  .radio-group { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
-  .radio-pill {
-    display: flex; align-items: center; gap: 7px;
-    font-size: 13px; padding: 8px 16px;
-    border: 1px solid var(--border-2); border-radius: 50px;
-    cursor: pointer; background: var(--input-bg); color: var(--muted);
-    transition: border-color .15s, background .15s;
-    user-select: none;
-  }
-  .radio-pill input { accent-color: var(--green); margin: 0; }
-  .radio-pill:has(input:checked) {
-    border-color: var(--green); background: rgba(74,222,128,.12); color: var(--green);
-  }
-
-  /* ── Footer notes ── */
-  .footnotes {
-    font-size: 11px; color: var(--muted); line-height: 1.65;
-    margin-top: 16px; padding-top: 14px;
-    border-top: 1px dashed var(--border);
-  }
-  .footnotes p { margin: 0 0 4px; }
-
-  /* ── Action bar ── */
-  .action-bar {
-    position: sticky; bottom: 0;
-    display: flex; gap: 10px; align-items: center;
-    padding: 14px 0 8px;
-    background: linear-gradient(to top, var(--bg) 72%, transparent);
-  }
-  button {
-    font-family: var(--sans); font-size: 14px; font-weight: 700;
-    padding: 11px 20px; border-radius: var(--radius);
-    border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
-    justify-content: center;
-    transition: background .15s, opacity .15s;
-  }
-  #btnPdf {
-    background: var(--green); color: #0a1f13; flex: 1;
-    box-shadow: 0 1px 3px rgba(0,0,0,.35);
-  }
-  #btnPdf:hover { background: var(--green-hover); }
-  #btnPdf:disabled { opacity: .6; cursor: wait; }
-  #btnReset {
-    background: var(--border); color: var(--text);
-    border: 1px solid var(--border-2); flex: 0 0 auto;
-  }
-  #btnReset:hover { background: #454545; }
-  .status-msg {
-    font-size: 12px; color: var(--green);
-    min-height: 18px; padding: 0 2px;
-  }
-
-  /* ── Progress bar ── */
-  .progress-wrap { position: relative; margin-bottom: 20px; }
-  .progress-bar {
-    height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%; width: 0; background: var(--green);
-    border-radius: 2px; transition: width .3s ease;
-  }
-  .progress-label {
-    font-size: 11px; color: var(--muted); margin-top: 5px;
-    display: flex; justify-content: space-between;
-  }
-  .badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 10.5px; font-weight: 700;
-    padding: 2px 8px; border-radius: 50px;
-  }
-  .badge-ok  { background: rgba(74,222,128,.15); color: var(--ok); }
-  .badge-nc  { background: rgba(248,113,113,.15); color: var(--nc); }
-  .badge-na  { background: rgba(156,163,175,.15); color: var(--na); }
-</style>
-</head>
-<body>
-<div class="app">
-
-  <a href="index.html" class="back-link">← Voltar aos Formulários</a>
-
-  <div class="header-app">
-    <h1>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="15" height="15" rx="2"/>
-        <path d="M7.5 10.5l2 2 4-4"/>
-      </svg>
-      Check-List de Entrega — Elevador de Canecas
-    </h1>
-    <img src="sr-sem-fundo.png" alt="Grupo SR Logo">
-  </div>
-  <p class="header-sub">Preencha em campo e gere o PDF para impressão e assinatura</p>
-
-  <!-- Progress -->
-  <div class="progress-wrap">
-    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-label">
-      <span id="progressText">0 de 28 itens preenchidos</span>
-      <span>
-        <span class="badge badge-ok" id="cntOK">OK: 0</span>&ensp;
-        <span class="badge badge-nc" id="cntNC">NC: 0</span>&ensp;
-        <span class="badge badge-na" id="cntNA">NA: 0</span>
-      </span>
-    </div>
-  </div>
-
-  <form id="checklistForm">
-
-    <!-- 1. Identificação -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-num">1</div>
-        <p class="card-title">Identificação</p>
-      </div>
-      <div class="fields fields-4">
-        <div class="field"><span class="field-label">TAG</span><input type="text" id="tag" class="mono-input" placeholder="Digite o número, ex: 1"></div>
-        <div class="field"><span class="field-label">Código</span><input type="text" id="codigo" class="mono-input" placeholder="SR-2024-XXX"></div>
-        <div class="field"><span class="field-label">Máscara</span><input type="text" id="mascara" class="mono-input"></div>
-        <div class="field">
-          <span class="field-label">Modelo</span>
-          <select id="modelo" class="plain-sel">
-            <option value="">Selecione…</option>
-            <option value="EL5P">EL5P</option>
-            <option value="EL6P">EL6P</option>
-            <option value="EL8P">EL8P</option>
-            <option value="EL10P">EL10P</option>
-            <option value="EL11P">EL11P</option>
-            <option value="EL13P">EL13P</option>
-            <option value="EL15P">EL15P</option>
-          </select>
-        </div>
-      </div>
-      <div class="fields fields-3" style="margin-top:12px;">
-        <div class="field"><span class="field-label">Pedido</span><input type="text" id="pedido"></div>
-        <div class="field"><span class="field-label">Cliente</span><input type="text" id="cliente"></div>
-        <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="local"></div>
-      </div>
-    </div>
-
-    <!-- 2. Montagem -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-num">2</div>
-        <p class="card-title">Conferência do processo de montagem</p>
-      </div>
-      <p class="hint">Marque cada item com OK, NC (não conforme) ou NA (não aplicável)</p>
-
-      <div class="checklist-cols">
-        <div id="colLeft"></div>
-        <div id="colRight"></div>
-      </div>
-
-      <div class="sign-row">
-        <div class="sign-fields">
-          <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
-          <div class="field"><span class="field-label">Nome do supervisor</span><input type="text" id="supervisorNome"></div>
-        </div>
-        <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. A assinatura é feita à mão após a impressão do PDF.</p>
-      </div>
-    </div>
-
-    <!-- 3. Desempenho -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-num">3</div>
-        <p class="card-title">Conferência do desempenho do equipamento</p>
-      </div>
-      <div class="field">
-        <span class="field-label">A capacidade do equipamento está de acordo com o projeto?</span>
-        <div class="radio-group">
-          <label class="radio-pill"><input type="radio" name="capacidade" value="Sim"> Sim</label>
-          <label class="radio-pill"><input type="radio" name="capacidade" value="Não"> Não</label>
-        </div>
-      </div>
-      <div class="sign-fields" style="margin-top:14px;">
-        <div class="field"><span class="field-label">Teste com produto — data</span><input type="date" id="produtoData"></div>
-        <div class="field"><span class="field-label">Nome do cliente</span><input type="text" id="clienteNome"></div>
-      </div>
-      <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assinatura à mão após impressão.</p>
-    </div>
-
-    <!-- 4. Observações -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-num">4</div>
-        <p class="card-title">Observações / Parecer técnico</p>
-      </div>
-      <textarea id="observacoes" placeholder="Escreva observações ou deixe em branco para preencher à mão após a impressão"></textarea>
-    </div>
-
-    <!-- 5. Encerramento -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-num">5</div>
-        <p class="card-title">Encerramento</p>
-      </div>
-      <div class="fields fields-2">
-        <div class="field"><span class="field-label">Local</span><input type="text" id="footerLocal"></div>
-        <div class="field"><span class="field-label">Data</span><input type="date" id="footerData"></div>
-      </div>
-      <div class="fields fields-2" style="margin-top:12px;">
-        <div class="field"><span class="field-label">SR Engenharia</span><input type="text" id="srEngenharia"></div>
-        <div class="field"><span class="field-label">Gestor de Montagem</span><input type="text" id="gestorMontagem"></div>
-      </div>
-      <div class="footnotes">
-        <p>1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.</p>
-        <p>2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.</p>
-        <p>3 — A infiltração de água no equipamento somente será corrigida no período de garantia.</p>
-        <p>* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.</p>
-      </div>
-    </div>
-
-  </form>
-
-  <div class="action-bar">
-    <button id="btnPdf" type="button">⬇ Gerar PDF</button>
-    <button id="btnReset" type="button">Limpar</button>
-  </div>
-  <div class="status-msg" id="statusMsg"></div>
-
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script>
-const leftItems = [
-  {group:'Conjunto Pé', label:'União da correia'},
-  {group:'Conjunto Pé', label:'Esticamento da correia'},
-  {group:'Conjunto Pé', label:'Fixação do pé (chumbadores)'},
-  {group:'Conjunto Pé', label:'Montagem das caçambas (fixação/distribuição)'},
-  {group:'Conjunto Pé e Cabeça', label:'Alinhamento dos módulos'},
-  {group:'Conjunto Pé e Cabeça', label:'Lubrificação e fixação dos mancais'},
-  {group:'Conjunto Pé e Cabeça', label:'Pontos de estaiamento'},
-  {group:'Conjunto Pé e Cabeça', label:'Adesivos de segurança'},
-  {group:'Conjunto Pé e Cabeça', label:'Montagem interligações (carga e descarga)'},
-  {group:'Conjunto Pé e Cabeça', label:'Acabamento e pintura'},
-  {group:'Conjunto Pé e Cabeça', label:'Ponto de captação de pó'},
-  {group:'Conjunto Cabeça', label:'Localização e altura conforme projeto'},
-  {group:'Conjunto Cabeça', label:'Prumo do elevador'},
-  {group:'Conjunto Cabeça', label:'Lado acionamento oposto ao alçapão'},
-  {group:'Conjunto Cabeça', label:'Fixação do acionamento (arruelas de pressão)'},
-];
-const rightItems = [
-  {group:'Conjunto Cabeça', label:'Nível de óleo e posição do motoredutor'},
-  {group:'Conjunto Cabeça', label:'Plataformas (alçapão / corrimão)'},
-  {group:'Conjunto Cabeça', label:'Respiro do motoredutor destravado'},
-  {group:'Conjunto Cabeça', label:'Montagem das escadas e guarda corpo'},
-  {group:'Conjunto Cabeça', label:'Tensão dos cabos de aço do estaiamento'},
-  {group:'Conjunto Cabeça', label:'Vedação (infiltração de água)'},
-  {group:'Conjunto Cabeça', label:'Potência (W) / Tensão (V) / Frequência do motor (RPM)'},
-  {group:'Teste a vazio', label:'Centralização da correia no rolo inferior'},
-  {group:'Teste a vazio', label:'Centralização da correia no rolo superior'},
-  {group:'Teste a vazio', label:'Curso do conjunto deslizante'},
-  {group:'Teste a vazio', label:'Caçambas não colidem com a estrutura dos módulos'},
-  {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
-  {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
-];
-
-function buildColumn(container, items, prefix) {
-  let lastGroup = null;
-  items.forEach((item, i) => {
-    if (item.group !== lastGroup) {
-      const h = document.createElement('div');
-      h.className = 'group-label';
-      h.textContent = item.group;
-      container.appendChild(h);
-      lastGroup = item.group;
-    }
-    const row = document.createElement('div');
-    row.className = 'item-row';
-    const sel = document.createElement('select');
-    sel.className = 'status-sel';
-    sel.id = prefix + '-' + i;
-    [['','—'],['OK','OK'],['NC','NC'],['NA','NA']].forEach(([v,t]) => {
-      const opt = document.createElement('option');
-      opt.value = v; opt.textContent = t;
-      sel.appendChild(opt);
-    });
-    sel.addEventListener('change', () => {
-      sel.classList.remove('v-OK','v-NC','v-NA');
-      if (sel.value) sel.classList.add('v-' + sel.value);
-      updateProgress();
-    });
-    const lbl = document.createElement('div');
-    lbl.className = 'item-label';
-    lbl.textContent = item.label;
-    row.appendChild(sel); row.appendChild(lbl);
-    container.appendChild(row);
-  });
-}
-buildColumn(document.getElementById('colLeft'), leftItems, 'L');
-buildColumn(document.getElementById('colRight'), rightItems, 'R');
-
-const total = leftItems.length + rightItems.length;
-
-function updateProgress() {
-  let filled = 0, ok = 0, nc = 0, na = 0;
-  leftItems.forEach((_, i) => {
-    const v = document.getElementById('L-'+i).value;
-    if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
-  });
-  rightItems.forEach((_, i) => {
-    const v = document.getElementById('R-'+i).value;
-    if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
-  });
-  document.getElementById('progressFill').style.width = (filled/total*100) + '%';
-  document.getElementById('progressText').textContent = `${filled} de ${total} itens preenchidos`;
-  document.getElementById('cntOK').textContent = `OK: ${ok}`;
-  document.getElementById('cntNC').textContent = `NC: ${nc}`;
-  document.getElementById('cntNA').textContent = `NA: ${na}`;
-}
-
-// ── Auto-formatação do campo TAG: usuário digita apenas o número (ex: 1) e o campo
-// exibe automaticamente no padrão EL-01 (prefixo de elevador). ──
-(function(){
-  const tagInput = document.getElementById('tag');
-  tagInput.addEventListener('input', () => {
-    const digits = tagInput.value.replace(/\D/g, '');
-    tagInput.value = digits ? 'EL-' + digits.padStart(2, '0') : '';
-  });
-})();
-
-function val(id){ return document.getElementById(id).value.trim(); }
-function fmtDate(iso){
-  if(!iso) return '____/____/______';
-  const [y,m,d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
-function getRadio(name){
-  for(const el of document.getElementsByName(name)) if(el.checked) return el.value;
-  return '';
-}
-
-document.getElementById('btnReset').addEventListener('click', () => {
-  if(confirm('Limpar todos os campos preenchidos?')){
-    document.getElementById('checklistForm').reset();
-    document.querySelectorAll('select.status-sel').forEach(s => s.classList.remove('v-OK','v-NC','v-NA'));
-    document.getElementById('statusMsg').textContent = '';
-    updateProgress();
-  }
-});
-
-document.getElementById('btnPdf').addEventListener('click', gerarPDF);
-
-async function gerarPDF(){
-  const btn = document.getElementById('btnPdf');
-  const msg = document.getElementById('statusMsg');
-  btn.disabled = true; msg.textContent = 'Gerando PDF…';
-try {
-    const { PDFDocument, StandardFonts, rgb } = PDFLib;
-    const doc = await PDFDocument.create();
-    
-    // --- CARREGANDO A LOGO DO GITHUB ---
-    const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
-    const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
-    const logoImage = await doc.embedPng(logoImageBytes);
-    const logoHeight = 24;
-    const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
-    // -----------------------------------
-
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-    const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
-
-    const pageW = 595.28, pageH = 841.89, mg = 26;
-    const headerH = 58;
-    const green = rgb(0.102, 0.322, 0.251);
-    const greenDark = rgb(0.059, 0.322, 0.161);
-    const ink = rgb(0.10, 0.11, 0.10);
-    const muted = rgb(0.46, 0.47, 0.44);
-    const lineC = rgb(0.84, 0.85, 0.82);
-    const white = rgb(1,1,1);
-
-    let page = doc.addPage([pageW, pageH]);
-    let y = pageH - mg;
-    let firstPage = true;
-
-    const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; firstPage = false; };
-    const ensure = h => { if(y - h < mg) newPage(); };
-
-    const txt = (str, x, yy, opts={}) => {
-      page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
-    };
-    const hline = (x1, yy, x2, opts={}) => {
-      page.drawLine({ start:{x:x1,y:yy}, end:{x:x2,y:yy}, thickness: opts.t||0.6, color: opts.color||lineC });
-    };
-    const rect = (x,yy,w,h,opts={}) => {
-      page.drawRectangle({ x, y:yy, width:w, height:h, borderWidth: opts.bw!==undefined?opts.bw:0.6, borderColor: opts.bc||lineC, color: opts.fill||white });
-    };
-    const wrap = (str, maxW, size, f) => {
-      const words = (str||'').split(/\s+/).filter(Boolean);
-      const lines=[]; let cur='';
-      for(const w of words){
-        const test = cur ? cur+' '+w : w;
-        if(f.widthOfTextAtSize(test,size)>maxW && cur){ lines.push(cur); cur=w; } else cur=test;
-      }
-      if(cur) lines.push(cur);
-      return lines.length ? lines : [''];
-    };
-
-    // ── Header block (faixa de ponta a ponta, fundo branco para a logo aparecer) ──
-    hline(0, pageH-headerH, pageW, {t:2.5, color: greenDark});
-    page.drawImage(logoImage, {
-      x: mg,
-      y: pageH - headerH/2 - logoHeight/2 + 4,
-      width: logoWidth,
-      height: logoHeight,
-    });
-    txt('Check-List de Entrega — Elevador de Canecas', mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
-    txt('TAG: '+val('tag')+'   Código: '+val('codigo')+'   Máscara: '+val('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
-    y = pageH - headerH - 14;
-
-    txt('Pedido: '+val('pedido'), mg, y, {size:9});
-    txt('Cliente: '+val('cliente'), mg+140, y, {size:9});
-    txt('Modelo: '+val('modelo'), mg+330, y, {size:9});
-    y -= 12;
-    txt('Local: '+val('local'), mg, y, {size:9});
-    y -= 18;
-
-    // ── Section 1 ──
-    txt('CONFERÊNCIA DO PROCESSO DE MONTAGEM', mg, y, {size:10, font:bold, color:greenDark});
-    y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 11;
-    txt('Marque cada item com OK, NC (não conforme) ou NA (não aplicável)', mg, y, {size:8, font:italic, color:muted});
-    y -= 13;
-
-    const colTop = y;
-    const colW = (pageW-2*mg-20)/2;
-    const lX = mg, rX = mg+colW+20;
-    const rowH = 13;
-
-    const drawChecks = (items, x, prefix) => {
-      let yy = colTop;
-      let lastG = null;
-      items.forEach((item,i) => {
-        if(item.group!==lastG){
-          yy -= 2;
-          txt(item.group.toUpperCase(), x, yy, {size:7, font:bold, color:greenDark});
-          yy -= 10; lastG=item.group;
+        function openChecklistTipo() {
+            const modal = document.getElementById('modal-checklist-tipo');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
         }
-        const v = document.getElementById(prefix+'-'+i).value;
-        const bColor = v==='OK'?rgb(.12,.48,.25):v==='NC'?rgb(.72,.19,.19):v==='NA'?rgb(.48,.49,.47):lineC;
-        const bFill = v==='OK'?rgb(.89,.97,.91):v==='NC'?rgb(.99,.91,.91):v==='NA'?rgb(.94,.94,.93):white;
-        rect(x, yy-2.5, 22, 10.5, {fill:bFill, bc:bColor, bw:.7});
-        txt(v, x+(v.length===2?4:4.5), yy, {size:7.2, font:bold, color:bColor});
-        const llines = wrap(item.label, colW-30, 7.8, font);
-        txt(llines[0], x+28, yy, {size:7.8});
-        yy -= rowH;
-        for(let k=1;k<llines.length;k++){ txt(llines[k], x+28, yy, {size:7.8}); yy-=rowH; }
-      });
-      return yy;
-    };
-    const leftEnd = drawChecks(leftItems, lX, 'L');
-    const rightEnd = drawChecks(rightItems, rX, 'R');
-    y = Math.min(leftEnd, rightEnd) - 10;
 
-    ensure(60);
-    txt('Teste a vazio: '+fmtDate(val('vazioData')), mg, y, {size:9.5}); y -= 22;
-    txt(val('supervisorNome'), mg, y, {size:9.5});
-    hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
-    hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
-    y -= 32;
+        function closeChecklistTipo() {
+            const modal = document.getElementById('modal-checklist-tipo');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
 
-    // ── Section 2 ──
-    ensure(90);
-    txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
-    y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
-    txt('A capacidade do equipamento está de acordo com o projeto (conferir modelo)?', mg, y, {size:9}); y -= 16;
-    const cap = getRadio('capacidade');
-    rect(mg, y-2.5, 10, 10, {fill:cap==='Sim'?rgb(.89,.97,.91):white, bc:cap==='Sim'?rgb(.12,.48,.25):lineC});
-    if(cap==='Sim') txt('✓', mg+1.5, y, {size:8, font:bold, color:greenDark});
-    txt('Sim', mg+15, y, {size:9});
-    rect(mg+58, y-2.5, 10, 10, {fill:cap==='Não'?rgb(.99,.91,.91):white, bc:cap==='Não'?rgb(.72,.19,.19):lineC});
-    if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
-    txt('Não', mg+73, y, {size:9});
-    y -= 22;
-    txt('Teste com produto: '+fmtDate(val('produtoData')), mg, y, {size:9.5}); y -= 22;
-    txt(val('clienteNome'), mg, y, {size:9.5});
-    hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
-    hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
-    y -= 32;
+        function selectEquipamentoChecklist(tipo) {
+            closeChecklistTipo();
+            if (tipo === 'elevador-canecas') {
+                openChecklistElevador();
+            }
+            // Outros tipos de equipamento serão adicionados aqui futuramente.
+        }
 
-    // ── Section 3 ──
-    ensure(60);
-    txt('OBSERVAÇÕES / PARECER TÉCNICO', mg, y, {size:10, font:bold, color:greenDark});
-    y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
-    const obs = val('observacoes');
-    if(obs){
-      wrap(obs, pageW-2*mg, 9.5, font).forEach(l => { ensure(14); txt(l,mg,y,{size:9.5}); y-=14; });
-    } else {
-      for(let i=0;i<4;i++){ ensure(16); hline(mg,y,pageW-mg); y-=16; }
-    }
-    y -= 8;
+        function openChecklistElevador() {
+            const modal = document.getElementById('modal-checklist-elevador');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
 
-    // ── Notes ──
-    ensure(70);
-    const notes = [
-      '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
-      '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
-      '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
-      '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
-    ];
-    hline(mg,y,pageW-mg,{t:.4}); y -= 10;
-    notes.forEach(n => {
-      wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
-    });
-    y -= 14;
+        function closeChecklistElevador() {
+            const modal = document.getElementById('modal-checklist-elevador');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
 
-    // ── Closing ──
-    ensure(45);
-    hline(mg,y,pageW-mg); y -= 16;
-    txt(val('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
-    txt(fmtDate(val('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
-    txt(val('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('SR Engenharia',mg+240,y-13,{size:7,color:muted});
-    txt(val('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
+        function voltarTipoChecklist() {
+            closeChecklistElevador();
+            openChecklistTipo();
+        }
 
-    const bytes = await doc.save();
-    const blob = new Blob([bytes], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const tagPart = val('tag').replace(/[^a-zA-Z0-9_-]/g,'');
-    a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+'elevador_canecas.pdf';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
-  } catch(err){
-    console.error(err);
-    msg.textContent = 'Não foi possível gerar o PDF. Verifique sua conexão e tente novamente.';
-  } finally {
-    btn.disabled = false;
-  }
-}
-</script>
-</body>
-</html>
+        // --- Conteúdo do Checklist de Entrega (Elevador de Canecas) ---
+        const chkLeftItems = [
+          {group:'Conjunto Pé', label:'União da correia'},
+          {group:'Conjunto Pé', label:'Esticamento da correia'},
+          {group:'Conjunto Pé', label:'Fixação do pé (chumbadores)'},
+          {group:'Conjunto Pé', label:'Montagem das caçambas (fixação/distribuição)'},
+          {group:'Conjunto Pé e Cabeça', label:'Alinhamento dos módulos'},
+          {group:'Conjunto Pé e Cabeça', label:'Lubrificação e fixação dos mancais'},
+          {group:'Conjunto Pé e Cabeça', label:'Pontos de estaiamento'},
+          {group:'Conjunto Pé e Cabeça', label:'Adesivos de segurança'},
+          {group:'Conjunto Pé e Cabeça', label:'Montagem interligações (carga e descarga)'},
+          {group:'Conjunto Pé e Cabeça', label:'Acabamento e pintura'},
+          {group:'Conjunto Pé e Cabeça', label:'Ponto de captação de pó'},
+          {group:'Conjunto Cabeça', label:'Localização e altura conforme projeto'},
+          {group:'Conjunto Cabeça', label:'Prumo do elevador'},
+          {group:'Conjunto Cabeça', label:'Lado acionamento oposto ao alçapão'},
+          {group:'Conjunto Cabeça', label:'Fixação do acionamento (arruelas de pressão)'},
+        ];
+        const chkRightItems = [
+          {group:'Conjunto Cabeça', label:'Nível de óleo e posição do motoredutor'},
+          {group:'Conjunto Cabeça', label:'Plataformas (alçapão / corrimão)'},
+          {group:'Conjunto Cabeça', label:'Respiro do motoredutor destravado'},
+          {group:'Conjunto Cabeça', label:'Montagem das escadas e guarda corpo'},
+          {group:'Conjunto Cabeça', label:'Tensão dos cabos de aço do estaiamento'},
+          {group:'Conjunto Cabeça', label:'Vedação (infiltração de água)'},
+          {group:'Conjunto Cabeça', label:'Potência (W) / Tensão (V) / Frequência do motor (RPM)'},
+          {group:'Teste a vazio', label:'Centralização da correia no rolo inferior'},
+          {group:'Teste a vazio', label:'Centralização da correia no rolo superior'},
+          {group:'Teste a vazio', label:'Curso do conjunto deslizante'},
+          {group:'Teste a vazio', label:'Caçambas não colidem com a estrutura dos módulos'},
+          {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
+          {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
+        ];
 
-    document
-        .getElementById("modal-checklist-entrega")
-        .classList.remove("hidden");
+        function chkBuildColumn(container, items, prefix) {
+            let lastGroup = null;
+            items.forEach((item, i) => {
+                if (item.group !== lastGroup) {
+                    const h = document.createElement('div');
+                    h.className = 'group-label';
+                    h.textContent = item.group;
+                    container.appendChild(h);
+                    lastGroup = item.group;
+                }
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                const sel = document.createElement('select');
+                sel.className = 'status-sel';
+                sel.id = prefix + '-' + i;
+                [['','—'],['OK','OK'],['NC','NC'],['NA','NA']].forEach(([v,t]) => {
+                    const opt = document.createElement('option');
+                    opt.value = v; opt.textContent = t;
+                    sel.appendChild(opt);
+                });
+                sel.addEventListener('change', () => {
+                    sel.classList.remove('v-OK','v-NC','v-NA');
+                    if (sel.value) sel.classList.add('v-' + sel.value);
+                    chkUpdateProgress();
+                });
+                const lbl = document.createElement('div');
+                lbl.className = 'item-label';
+                lbl.textContent = item.label;
+                row.appendChild(sel); row.appendChild(lbl);
+                container.appendChild(row);
+            });
+        }
+        chkBuildColumn(document.getElementById('colLeft'), chkLeftItems, 'L');
+        chkBuildColumn(document.getElementById('colRight'), chkRightItems, 'R');
 
-    document
-        .getElementById("modal-checklist-entrega")
-        .classList.add("flex");
+        const chkTotal = chkLeftItems.length + chkRightItems.length;
 
-}
+        function chkUpdateProgress() {
+            let filled = 0, ok = 0, nc = 0, na = 0;
+            chkLeftItems.forEach((_, i) => {
+                const v = document.getElementById('L-'+i).value;
+                if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
+            });
+            chkRightItems.forEach((_, i) => {
+                const v = document.getElementById('R-'+i).value;
+                if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
+            });
+            document.getElementById('progressFill').style.width = (filled/chkTotal*100) + '%';
+            document.getElementById('progressText').textContent = `${filled} de ${chkTotal} itens preenchidos`;
+            document.getElementById('cntOK').textContent = `OK: ${ok}`;
+            document.getElementById('cntNC').textContent = `NC: ${nc}`;
+            document.getElementById('cntNA').textContent = `NA: ${na}`;
+        }
 
-function fecharChecklistEntrega(){
+        // Auto-formatação do campo TAG: usuário digita apenas o número (ex: 1) e o campo
+        // exibe automaticamente no padrão EL-01 (prefixo de elevador).
+        (function(){
+            const tagInput = document.getElementById('tag');
+            tagInput.addEventListener('input', () => {
+                const digits = tagInput.value.replace(/\D/g, '');
+                tagInput.value = digits ? 'EL-' + digits.padStart(2, '0') : '';
+            });
+        })();
 
-    document
-        .getElementById("modal-checklist-entrega")
-        .classList.add("hidden");
+        function chkVal(id){ return document.getElementById(id).value.trim(); }
+        function chkFmtDate(iso){
+            if(!iso) return '____/____/______';
+            const [y,m,d] = iso.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        function chkGetRadio(name){
+            for(const el of document.getElementsByName(name)) if(el.checked) return el.value;
+            return '';
+        }
 
-    document
-        .getElementById("modal-checklist-entrega")
-        .classList.remove("flex");
+        document.getElementById('btnReset').addEventListener('click', () => {
+            if(confirm('Limpar todos os campos preenchidos?')){
+                document.getElementById('checklistForm').reset();
+                document.querySelectorAll('#checklistElevadorRoot select.status-sel').forEach(s => s.classList.remove('v-OK','v-NC','v-NA'));
+                document.getElementById('statusMsg').textContent = '';
+                chkUpdateProgress();
+            }
+        });
 
-}
+        document.getElementById('btnPdf').addEventListener('click', chkGerarPDF);
 
-function abrirChecklistElevador(){
+        async function chkGerarPDF(){
+            const btn = document.getElementById('btnPdf');
+            const msg = document.getElementById('statusMsg');
+            btn.disabled = true; msg.textContent = 'Gerando PDF…';
+            try {
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const doc = await PDFDocument.create();
 
-    fecharChecklistEntrega();
+                // --- CARREGANDO A LOGO DO GITHUB ---
+                const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
+                const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
+                const logoImage = await doc.embedPng(logoImageBytes);
+                const logoHeight = 24;
+                const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
+                // -----------------------------------
 
-    // Aqui será aberto o HTML do checklist
-}
-        
+                const font = await doc.embedFont(StandardFonts.Helvetica);
+                const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+                const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+
+                const pageW = 595.28, pageH = 841.89, mg = 26;
+                const headerH = 58;
+                const green = rgb(0.102, 0.322, 0.251);
+                const greenDark = rgb(0.059, 0.322, 0.161);
+                const ink = rgb(0.10, 0.11, 0.10);
+                const muted = rgb(0.46, 0.47, 0.44);
+                const lineC = rgb(0.84, 0.85, 0.82);
+                const white = rgb(1,1,1);
+
+                let page = doc.addPage([pageW, pageH]);
+                let y = pageH - mg;
+                let firstPage = true;
+
+                const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; firstPage = false; };
+                const ensure = h => { if(y - h < mg) newPage(); };
+
+                const txt = (str, x, yy, opts={}) => {
+                    page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
+                };
+                const hline = (x1, yy, x2, opts={}) => {
+                    page.drawLine({ start:{x:x1,y:yy}, end:{x:x2,y:yy}, thickness: opts.t||0.6, color: opts.color||lineC });
+                };
+                const rect = (x,yy,w,h,opts={}) => {
+                    page.drawRectangle({ x, y:yy, width:w, height:h, borderWidth: opts.bw!==undefined?opts.bw:0.6, borderColor: opts.bc||lineC, color: opts.fill||white });
+                };
+                const wrap = (str, maxW, size, f) => {
+                    const words = (str||'').split(/\s+/).filter(Boolean);
+                    const lines=[]; let cur='';
+                    for(const w of words){
+                        const test = cur ? cur+' '+w : w;
+                        if(f.widthOfTextAtSize(test,size)>maxW && cur){ lines.push(cur); cur=w; } else cur=test;
+                    }
+                    if(cur) lines.push(cur);
+                    return lines.length ? lines : [''];
+                };
+
+                // ── Header block ──
+                hline(0, pageH-headerH, pageW, {t:2.5, color: greenDark});
+                page.drawImage(logoImage, {
+                    x: mg,
+                    y: pageH - headerH/2 - logoHeight/2 + 4,
+                    width: logoWidth,
+                    height: logoHeight,
+                });
+                txt('Check-List de Entrega — Elevador de Canecas', mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
+                txt('TAG: '+chkVal('tag')+'   Código: '+chkVal('codigo')+'   Máscara: '+chkVal('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
+                y = pageH - headerH - 14;
+
+                txt('Pedido: '+chkVal('pedido'), mg, y, {size:9});
+                txt('Cliente: '+chkVal('cliente'), mg+140, y, {size:9});
+                txt('Modelo: '+chkVal('modelo'), mg+330, y, {size:9});
+                y -= 12;
+                txt('Local: '+chkVal('local'), mg, y, {size:9});
+                y -= 18;
+
+                // ── Section 1 ──
+                txt('CONFERÊNCIA DO PROCESSO DE MONTAGEM', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 11;
+                txt('Marque cada item com OK, NC (não conforme) ou NA (não aplicável)', mg, y, {size:8, font:italic, color:muted});
+                y -= 13;
+
+                const colTop = y;
+                const colW = (pageW-2*mg-20)/2;
+                const lX = mg, rX = mg+colW+20;
+                const rowH = 13;
+
+                const drawChecks = (items, x, prefix) => {
+                    let yy = colTop;
+                    let lastG = null;
+                    items.forEach((item,i) => {
+                        if(item.group!==lastG){
+                            yy -= 2;
+                            txt(item.group.toUpperCase(), x, yy, {size:7, font:bold, color:greenDark});
+                            yy -= 10; lastG=item.group;
+                        }
+                        const v = document.getElementById(prefix+'-'+i).value;
+                        const bColor = v==='OK'?rgb(.12,.48,.25):v==='NC'?rgb(.72,.19,.19):v==='NA'?rgb(.48,.49,.47):lineC;
+                        const bFill = v==='OK'?rgb(.89,.97,.91):v==='NC'?rgb(.99,.91,.91):v==='NA'?rgb(.94,.94,.93):white;
+                        rect(x, yy-2.5, 22, 10.5, {fill:bFill, bc:bColor, bw:.7});
+                        txt(v, x+(v.length===2?4:4.5), yy, {size:7.2, font:bold, color:bColor});
+                        const llines = wrap(item.label, colW-30, 7.8, font);
+                        txt(llines[0], x+28, yy, {size:7.8});
+                        yy -= rowH;
+                        for(let k=1;k<llines.length;k++){ txt(llines[k], x+28, yy, {size:7.8}); yy-=rowH; }
+                    });
+                    return yy;
+                };
+                const leftEnd = drawChecks(chkLeftItems, lX, 'L');
+                const rightEnd = drawChecks(chkRightItems, rX, 'R');
+                y = Math.min(leftEnd, rightEnd) - 10;
+
+                ensure(60);
+                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 22;
+                txt(chkVal('supervisorNome'), mg, y, {size:9.5});
+                hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
+                hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
+                y -= 32;
+
+                // ── Section 2 ──
+                ensure(90);
+                txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
+                txt('A capacidade do equipamento está de acordo com o projeto (conferir modelo)?', mg, y, {size:9}); y -= 16;
+                const cap = chkGetRadio('capacidade');
+                rect(mg, y-2.5, 10, 10, {fill:cap==='Sim'?rgb(.89,.97,.91):white, bc:cap==='Sim'?rgb(.12,.48,.25):lineC});
+                if(cap==='Sim') txt('✓', mg+1.5, y, {size:8, font:bold, color:greenDark});
+                txt('Sim', mg+15, y, {size:9});
+                rect(mg+58, y-2.5, 10, 10, {fill:cap==='Não'?rgb(.99,.91,.91):white, bc:cap==='Não'?rgb(.72,.19,.19):lineC});
+                if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
+                txt('Não', mg+73, y, {size:9});
+                y -= 22;
+                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= 22;
+                txt(chkVal('clienteNome'), mg, y, {size:9.5});
+                hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
+                hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
+                y -= 32;
+
+                // ── Section 3 ──
+                ensure(60);
+                txt('OBSERVAÇÕES / PARECER TÉCNICO', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
+                const obs = chkVal('observacoes');
+                if(obs){
+                    wrap(obs, pageW-2*mg, 9.5, font).forEach(l => { ensure(14); txt(l,mg,y,{size:9.5}); y-=14; });
+                } else {
+                    for(let i=0;i<4;i++){ ensure(16); hline(mg,y,pageW-mg); y-=16; }
+                }
+                y -= 8;
+
+                // ── Notes ──
+                ensure(70);
+                const notes = [
+                    '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
+                    '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
+                    '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
+                    '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
+                ];
+                hline(mg,y,pageW-mg,{t:.4}); y -= 10;
+                notes.forEach(n => {
+                    wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
+                });
+                y -= 14;
+
+                // ── Closing ──
+                ensure(45);
+                hline(mg,y,pageW-mg); y -= 16;
+                txt(chkVal('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
+                txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
+                txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('SR Engenharia',mg+240,y-13,{size:7,color:muted});
+                txt(chkVal('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
+
+                const bytes = await doc.save();
+                const blob = new Blob([bytes], {type:'application/pdf'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const tagPart = chkVal('tag').replace(/[^a-zA-Z0-9_-]/g,'');
+                a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+'elevador_canecas.pdf';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(()=>URL.revokeObjectURL(url), 5000);
+                msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
+            } catch(err){
+                console.error(err);
+                msg.textContent = 'Não foi possível gerar o PDF. Verifique sua conexão e tente novamente.';
+            } finally {
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
