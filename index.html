@@ -783,7 +783,11 @@
                         <div class="sign-row">
                             <div class="sign-fields">
                                 <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
-                                <div class="field"><span class="field-label">Nome do supervisor</span><input type="text" id="supervisorNome"></div>
+                                <div class="field"><span class="field-label">Nome do supervisor</span>
+                                    <select id="supervisorNome" class="chk-plain-sel">
+                                        <option value="">Escolha...</option>
+                                    </select>
+                                </div>
                             </div>
                             <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. A assinatura é feita à mão após a impressão do PDF.</p>
                         </div>
@@ -1458,6 +1462,7 @@
 
         function openChecklistElevador() {
             const modal = document.getElementById('modal-checklist-elevador');
+            populateSupervisorSelect('supervisorNome');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -1569,7 +1574,9 @@
             const tagInput = document.getElementById('tag');
             tagInput.addEventListener('input', () => {
                 const digits = tagInput.value.replace(/\D/g, '');
-                tagInput.value = digits ? 'EL-' + digits.padStart(2, '0') : '';
+                if (!digits) { tagInput.value = ''; return; }
+                const num = parseInt(digits, 10);
+                tagInput.value = 'EL-' + (num < 10 ? '0' + num : String(num));
             });
         })();
 
