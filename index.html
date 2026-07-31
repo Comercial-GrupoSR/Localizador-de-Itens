@@ -833,7 +833,7 @@
                             <div class="field"><span class="field-label">Data</span><input type="date" id="footerData"></div>
                         </div>
                         <div class="fields fields-2" style="margin-top:12px;">
-                            <div class="field"><span class="field-label">SR Engenharia</span><input type="text" id="srEngenharia"></div>
+                            <div class="field"><span class="field-label">Grupo SR</span><input type="text" id="srEngenharia"></div>
                             <div class="field"><span class="field-label">Gestor de Montagem</span><input type="text" id="gestorMontagem"></div>
                         </div>
                         <div class="footnotes">
@@ -1770,14 +1770,14 @@
                 notes.forEach(n => {
                     wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
                 });
-                y -= 14;
+                y -= 90;
 
                 // ── Closing ──
                 ensure(45);
                 hline(mg,y,pageW-mg); y -= 16;
                 txt(chkVal('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
                 txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
-                txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('SR Engenharia',mg+240,y-13,{size:7,color:muted});
+                txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('Grupo SR',mg+240,y-13,{size:7,color:muted});
                 txt(chkVal('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
 
                 const bytes = await doc.save();
