@@ -1,6 +1,6 @@
 {
-  "name": "Localizador de Itens Grupo SR",
-  "short_name": "Localizador SR",
+  "name": "ObraFlow - Grupo SR",
+  "short_name": "ObraFlow",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
