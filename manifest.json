@@ -1,6 +1,6 @@
 {
   "name": "Localizador de Itens Grupo SR",
-  "short_name": "App",
+  "short_name": "Localizador SR",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
