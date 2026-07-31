@@ -734,7 +734,7 @@
                     </div>
                 </div>
 
-                <form id="checklistForm">
+                <form id="checklistForm" onsubmit="return false;">
 
                     <!-- 1. Identificação -->
                     <div class="card">
@@ -1549,6 +1549,13 @@
         chkBuildColumn(document.getElementById('colLeft'), chkLeftItems, 'L');
         chkBuildColumn(document.getElementById('colRight'), chkRightItems, 'R');
 
+        // Segurança extra: impede que o formulário do checklist seja enviado
+        // (o que recarregaria a página e apagaria os dados) caso o navegador
+        // dispare um submit implícito, por exemplo ao confirmar uma data com Enter.
+        document.getElementById('checklistForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+        });
+
         const chkTotal = chkLeftItems.length + chkRightItems.length;
 
         function chkUpdateProgress() {
@@ -1784,7 +1791,7 @@
                 msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
             } catch(err){
                 console.error(err);
-                msg.textContent = 'Não foi possível gerar o PDF. Verifique sua conexão e tente novamente.';
+                msg.textContent = 'Não foi possível gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido') + '. Tente novamente.';
             } finally {
                 btn.disabled = false;
             }
