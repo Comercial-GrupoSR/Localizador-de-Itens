@@ -53,6 +53,35 @@
         .modal-input {
              padding: 0.5rem 0.75rem;
         }
+        .modal-input,
+        .compact-input,
+        #clientSelect,
+        #itemCode,
+        #formInconformidades input,
+        #formInconformidades select,
+        #formMelhorias input,
+        #formMelhorias select,
+        #modal-checklist-tipo select,
+        #checklistElevadorRoot input,
+        #checklistElevadorRoot select,
+        #checklistElevadorRoot textarea {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+            line-height: 1.4 !important;
+            letter-spacing: 0.01em !important;
+        }
+        #itemCode {
+            font-family: 'Inter', sans-serif !important;
+        }
+        #formInconformidades input::placeholder,
+        #formMelhorias input::placeholder,
+        #checklistElevadorRoot input::placeholder,
+        #checklistElevadorRoot textarea::placeholder {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+        }
         .compact-button {
              padding-top: 0.5rem; 
              padding-bottom: 0.5rem;
@@ -102,7 +131,7 @@
             font-size: 0.82rem;
             line-height: 1.1;
             text-align: center;
-            max-width: 10rem;
+            max-width: 15rem;
             transition: color 0.2s ease;
         }
         .nav-item svg {
@@ -140,8 +169,8 @@
             background-color: #333;
         }
         .form-card svg {
-            width: 22px;
-            height: 22px;
+            width: 30px;
+            height: 30px;
             flex-shrink: 0;
         }
 
@@ -228,7 +257,7 @@
             box-shadow: 0 0 0 3px rgba(74,222,128,.15);
         }
         #checklistElevadorRoot input[type=date] { color-scheme: dark; }
-        #checklistElevadorRoot .chk-mono-input { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: .4px; }
+        #checklistElevadorRoot .chk-mono-input { font-family: 'Inter', sans-serif; letter-spacing: .4px; }
         #checklistElevadorRoot textarea { min-height: 90px; resize: vertical; font-size: 13px; }
         #checklistElevadorRoot select.chk-plain-sel {
             appearance: none; -webkit-appearance: none;
@@ -412,7 +441,7 @@
                         Código do Item (COD ITEM)
                     </label>
                     <input type="text" id="itemCode" placeholder="Informe o código do item"
-                            class="w-full compact-input border border-[#444] rounded-lg text-base font-mono focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
                 </div>
 
                 <button id="searchButton" onclick="searchItem()" disabled
