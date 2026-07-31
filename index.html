@@ -8,6 +8,7 @@
     <link rel="icon" type="image/x-icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="shortcut icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="apple-touch-icon" href="/Localizador-de-Itens/favicon.ico">
+    <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
 
     <meta name="theme-color" content="#1a1a1a">
 
@@ -1972,6 +1973,16 @@
                 btn.disabled = false;
             }
         }
+    </script>
+    
+        <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/Localizador-de-Itens/sw.js')
+          .then(reg => console.log('Service worker registrado:', reg.scope))
+          .catch(err => console.error('Erro ao registrar service worker:', err));
+      });
+    }
     </script>
 </body>
 </html>
