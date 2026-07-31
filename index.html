@@ -1943,11 +1943,11 @@
                     '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
                     '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
                 ];
-                hline(mg,y,pageW-mg,{t:.4}); y -= 10;
+                hline(mg,y,pageW-mg,{t:.4}); y -= 5;
                 notes.forEach(n => {
                     wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
                 });
-                y -= 25;
+                y -= 30;
 
                 // ── Closing ──
                 ensure(45);
