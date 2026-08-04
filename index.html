@@ -108,46 +108,49 @@
             display: flex;
             justify-content: center;
             z-index: 50;
-            padding-bottom: env(safe-area-inset-bottom, 0);
+            padding-top: 0.55rem;
+            padding-bottom: calc(0.55rem + env(safe-area-inset-bottom, 0));
         }
         .bottom-nav-inner {
             display: flex;
-            gap: 0rem;
+            gap: 0.25rem;
             max-width: 48rem;
             width: 100%;
             justify-content: center;
+            align-items: center;
         }
         .nav-item {
             display: flex;
             flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 0.6rem;
-            padding: 0.9rem 1.4rem;
+            gap: 0.5rem;
+            padding: 0.7rem 1rem;
             color: #888;
             background: none;
             border: none;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             line-height: 1.1;
             text-align: center;
-            max-width: 15rem;
+            max-width: 12rem;
             transition: color 0.2s ease;
         }
         .nav-item svg {
-            width: 25px;
-            height: 25px;
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
         }
         .nav-item.active {
             color: var(--green-title);
         
             background: rgba(74,222,128,.10);
             border: 1px solid rgba(74,222,128,.25);
+            border-radius: 10px;
         
             box-shadow:
                 inset 0 2px 4px rgba(0,0,0,.35);
-        
-            transform: translateY(1px);
         }
         .form-card {
             background-color: #2e2e2e;
@@ -498,6 +501,13 @@
                         Melhorias
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <div id="page-cronograma" class="hidden">
+            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
+                <h2 class="text-base font-semibold mb-2 text-gray-200">Cronograma de Obra</h2>
+                <p class="text-sm text-gray-400">Conteúdo em breve.</p>
             </div>
         </div>
     </div>
@@ -997,6 +1007,15 @@
                 </svg>
                 Formulários de Obra
             </button>
+            <button type="button" id="navCronograma" class="nav-item" onclick="switchPage('cronograma')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Cronograma de Obra
+            </button>
         </div>
     </nav>
     
@@ -1344,20 +1363,28 @@
         // --- Navegação entre páginas (Localizador / Formulários de Obra) ---
         const pageLocalizador = document.getElementById('page-localizador');
         const pageFormularios = document.getElementById('page-formularios');
+        const pageCronograma = document.getElementById('page-cronograma');
         const navLocalizador = document.getElementById('navLocalizador');
         const navFormularios = document.getElementById('navFormularios');
+        const navCronograma = document.getElementById('navCronograma');
         const headerTitle = document.getElementById('headerTitle');
 
+        const PAGE_TITLES = {
+            localizador: 'Localizador de Itens',
+            formularios: 'Formulários de Obra',
+            cronograma: 'Cronograma de Obra'
+        };
+
         function switchPage(page) {
-            const isLocalizador = page === 'localizador';
+            pageLocalizador.classList.toggle('hidden', page !== 'localizador');
+            pageFormularios.classList.toggle('hidden', page !== 'formularios');
+            pageCronograma.classList.toggle('hidden', page !== 'cronograma');
 
-            pageLocalizador.classList.toggle('hidden', !isLocalizador);
-            pageFormularios.classList.toggle('hidden', isLocalizador);
+            navLocalizador.classList.toggle('active', page === 'localizador');
+            navFormularios.classList.toggle('active', page === 'formularios');
+            navCronograma.classList.toggle('active', page === 'cronograma');
 
-            navLocalizador.classList.toggle('active', isLocalizador);
-            navFormularios.classList.toggle('active', !isLocalizador);
-
-            headerTitle.textContent = isLocalizador ? 'Localizador de Itens' : 'Formulários de Obra';
+            headerTitle.textContent = PAGE_TITLES[page] || '';
         }
 
         // --- Formulários (Inconformidades / Melhorias) ---
