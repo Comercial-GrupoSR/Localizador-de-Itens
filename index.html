@@ -636,6 +636,18 @@
             </div>
 
             <form id="formMelhorias" class="p-4" onsubmit="submitMelhoria(event)">
+                <div class="mb-3">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="mel_registro" class="block text-sm font-medium text-gray-400">N° Registro de Melhoria <span class="text-red-500">*</span></label>
+                        <button type="button" id="mel_gerarRegistroButton" onclick="gerarNumeroRegistroMelhoria()"
+                                class="bg-[#4ade80] text-[#4b5563] text-[11px] font-bold px-3 py-1 rounded-md border border-[#2f6f40] shadow-[inset_0_-2px_0_rgba(0,0,0,0.3)] transition duration-150 ease-in-out hover:brightness-95 whitespace-nowrap">
+                            GERAR REGISTRO
+                        </button>
+                    </div>
+                    <input type="text" id="mel_registro" readonly required placeholder="Clique em GERAR REGISTRO"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
@@ -657,6 +669,7 @@
                         <option value="Padrão">Padrão</option>
                         <option value="Customizado">Customizado</option>
                     </select>
+                    <p class="text-xs text-gray-500 mt-1">Define para qual projeto do Asana a tarefa será enviada.</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
@@ -998,6 +1011,7 @@
         const cacheStatus = document.getElementById('cacheStatus');
       const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
       const INCONFORMIDADES_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec"; // Inconformidades
+      const MELHORIAS_URL = "https://script.google.com/macros/s/AKfycbwfxpJ4flqT9r2acQBrBnMalCW4JSr1AnmRa4KeOZIn-EWC4rg_CNf5R-5QScL1NQKK/exec"; // Melhorias 
 
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
@@ -1412,6 +1426,14 @@
             return String(next).padStart(5, '0');
         }
 
+        function getNextLocalRegistroMelhoria() {
+            const key = 'localizador_melhoria_registro';
+            const current = Number(localStorage.getItem(key) || 0);
+            const next = current + 1;
+            localStorage.setItem(key, String(next));
+            return String(next).padStart(5, '0');
+        }
+
         async function filesToBase64Array(fileList) {
             const files = Array.from(fileList || []);
             const filesData = [];
@@ -1466,6 +1488,38 @@
             }
         }
 
+        async function gerarNumeroRegistroMelhoria() {
+            const input = document.getElementById('mel_registro');
+            const button = document.getElementById('mel_gerarRegistroButton');
+            if (!input || !button) return;
+
+            button.disabled = true;
+            button.textContent = 'GERANDO...';
+
+            try {
+                const response = await fetch(`${MELHORIAS_URL}?action=getSequence`);
+                if (!response.ok) {
+                    throw new Error(`Falha ao consultar o registro (${response.status})`);
+                }
+
+                const data = await response.json();
+                const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
+
+                if (nextRegistro) {
+                    input.value = String(nextRegistro).trim();
+                    return;
+                }
+
+                throw new Error('Resposta do Apps Script sem número de registro.');
+            } catch (error) {
+                console.warn('Apps Script não respondeu com registro; usando fallback local.', error);
+                input.value = getNextLocalRegistroMelhoria();
+            } finally {
+                button.disabled = false;
+                button.textContent = 'GERAR REGISTRO';
+            }
+        }
+
         async function createAsanaTaskFromInconformidade(payload) {
             const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
 
@@ -1485,6 +1539,46 @@
                     acaoCorrecao: payload.acaoCorrecao,
                     supervisor: payload.supervisor,
                     registro: payload.registro,
+                    arquivos
+                })
+            });
+
+            const contentType = response.headers.get('content-type') || '';
+            const body = contentType.includes('application/json')
+                ? await response.json()
+                : await response.text();
+
+            if (!response.ok) {
+                const message = typeof body === 'object' && body && body.message
+                    ? body.message
+                    : (typeof body === 'string' ? body : `HTTP ${response.status}`);
+                throw new Error(message);
+            }
+
+            return body;
+        }
+
+        async function createAsanaTaskFromMelhoria(payload) {
+            const arquivos = await filesToBase64Array(document.getElementById('mel_anexos').files);
+
+            const response = await fetch(MELHORIAS_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify({
+                    registro: payload.registro,
+                    numeroPedido: payload.pedido,
+                    nomeCliente: payload.cliente,
+                    tipoEquipamento: payload.tipoEquipamento,
+                    codigoItem: payload.item,
+                    mascara: payload.mascara,
+                    quantidade: payload.quantidade,
+                    carregamento: payload.carregamento,
+                    inconformidade: payload.inconformidade,
+                    recorrencia: payload.recorrencia,
+                    melhoria: payload.melhoria,
+                    supervisor: payload.supervisor,
                     arquivos
                 })
             });
@@ -1580,6 +1674,7 @@
             const status = document.getElementById('mel_formStatus');
 
             const payload = {
+                registro: document.getElementById('mel_registro').value.trim(),
                 pedido: document.getElementById('mel_pedido').value.trim(),
                 cliente: document.getElementById('mel_cliente').value.trim(),
                 tipoEquipamento: document.getElementById('mel_tipoEquipamento').value,
@@ -1593,17 +1688,22 @@
                 supervisor: document.getElementById('mel_supervisor').value
             };
 
+            if (!payload.registro) {
+                status.textContent = 'Gere primeiro o número de registro antes de enviar.';
+                status.classList.add('text-red-400');
+                return;
+            }
+
             submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
             status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
 
             try {
-                // TODO: implementar envio real (Apps Script/endpoint) incluindo os anexos.
-                // Exemplo de chamada, quando o backend estiver pronto:
-                // await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'melhoria', ...payload }) });
-                console.log('Melhoria a enviar:', payload, document.getElementById('mel_anexos').files);
+                const taskResult = await createAsanaTaskFromMelhoria(payload);
+                console.log('Melhoria enviada e tarefa criada no Asana:', payload, taskResult);
 
-                status.textContent = 'Melhoria registrada com sucesso!';
+                status.textContent = 'Melhoria registrada com sucesso e tarefa enviada para o Asana!';
                 status.classList.add('text-green-400');
                 setTimeout(() => {
                     closeForm('melhorias');
