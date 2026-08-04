@@ -996,7 +996,8 @@
         const clientSelect = document.getElementById('clientSelect');
         const resultsBlock = document.getElementById('resultsBlock'); 
         const cacheStatus = document.getElementById('cacheStatus');
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec";
+      const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
+      const INCONFORMIDADES_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec"; // Inconformidades
 
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
@@ -1442,7 +1443,7 @@
             button.textContent = 'GERANDO...';
 
             try {
-                const response = await fetch(`${APPS_SCRIPT_URL}?action=getSequence`);
+                const response = await fetch(`${INCONFORMIDADES_URL}?action=getSequence`);
                 if (!response.ok) {
                     throw new Error(`Falha ao consultar o protocolo (${response.status})`);
                 }
@@ -1468,7 +1469,7 @@
         async function createAsanaTaskFromInconformidade(payload) {
             const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
 
-            const response = await fetch(APPS_SCRIPT_URL, {
+           const response = await fetch(INCONFORMIDADES_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
