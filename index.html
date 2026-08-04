@@ -997,7 +997,6 @@
         const resultsBlock = document.getElementById('resultsBlock'); 
         const cacheStatus = document.getElementById('cacheStatus');
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec";
-        const ASANA_TASK_ENDPOINT = ""; // Preencher com um endpoint/proxy do backend que cria a tarefa no Asana.
 
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
@@ -1409,7 +1408,29 @@
             const current = Number(localStorage.getItem(key) || 0);
             const next = current + 1;
             localStorage.setItem(key, String(next));
-            return String(next).padStart(4, '0');
+            return String(next).padStart(5, '0');
+        }
+
+        async function filesToBase64Array(fileList) {
+            const files = Array.from(fileList || []);
+            const filesData = [];
+
+            for (const file of files) {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = () => reject(new Error(`Não foi possível ler o arquivo ${file.name}`));
+                    reader.readAsDataURL(file);
+                });
+
+                filesData.push({
+                    name: file.name,
+                    type: file.type,
+                    data: base64
+                });
+            }
+
+            return filesData;
         }
 
         async function gerarNumeroRegistro() {
@@ -1445,31 +1466,25 @@
         }
 
         async function createAsanaTaskFromInconformidade(payload) {
-            if (!ASANA_TASK_ENDPOINT) {
-                throw new Error('Endpoint do Asana não configurado. Defina ASANA_TASK_ENDPOINT no código antes de testar o envio.');
-            }
+            const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
 
-            const response = await fetch(ASANA_TASK_ENDPOINT, {
+            const response = await fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    action: 'createAsanaTask',
-                    source: 'inconformidade',
-                    taskName: `Inconformidade - Pedido ${payload.pedido} - Cliente ${payload.cliente}`,
-                    taskNotes: [
-                        `Pedido: ${payload.pedido}`,
-                        `Cliente: ${payload.cliente}`,
-                        `Código Item: ${payload.item}`,
-                        `Máscara: ${payload.mascara}`,
-                        `Quantidade: ${payload.quantidade}`,
-                        `Carregamento: ${payload.carregamento}`,
-                        `Inconformidade: ${payload.inconformidade}`,
-                        `Ação de correção: ${payload.acaoCorrecao}`,
-                        `Supervisor: ${payload.supervisor}`
-                    ].join('\n'),
-                    anexos: Array.from(document.getElementById('inc_anexos').files).map(file => file.name)
+                    numeroPedido: payload.pedido,
+                    nomeCliente: payload.cliente,
+                    codigoItem: payload.item,
+                    mascara: payload.mascara,
+                    quantidade: payload.quantidade,
+                    carregamento: payload.carregamento,
+                    inconformidade: payload.inconformidade,
+                    acaoCorrecao: payload.acaoCorrecao,
+                    supervisor: payload.supervisor,
+                    registro: payload.registro,
+                    arquivos
                 })
             });
 
