@@ -1470,11 +1470,11 @@
             const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
 
            const response = await fetch(INCONFORMIDADES_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
+    method: 'POST',
+    headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify({
                     numeroPedido: payload.pedido,
                     nomeCliente: payload.cliente,
                     codigoItem: payload.item,
