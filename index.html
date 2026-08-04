@@ -1011,7 +1011,7 @@
         const CACHE_KEY = "localizador_pedidos_cache_v1";
         const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
         const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
-        const SEARCH_TIMEOUT_MS = 30000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
+        const SEARCH_TIMEOUT_MS = 90000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
 
         // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
         async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
