@@ -520,6 +520,18 @@
             </div>
 
             <form id="formInconformidades" class="p-4" onsubmit="submitInconformidade(event)">
+                <div class="mb-3">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="inc_registro" class="block text-sm font-medium text-gray-400">Número de Protocolo <span class="text-red-500">*</span></label>
+                        <button type="button" id="inc_gerarRegistroButton" onclick="gerarNumeroRegistro()"
+                                class="bg-[#4ade80] text-[#4b5563] text-[11px] font-bold px-3 py-1 rounded-md border border-[#2f6f40] shadow-[inset_0_-2px_0_rgba(0,0,0,0.3)] transition duration-150 ease-in-out hover:brightness-95 whitespace-nowrap">
+                            GERAR REGISTRO
+                        </button>
+                    </div>
+                    <input type="text" id="inc_registro" readonly required placeholder="Clique em GERAR REGISTRO"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
@@ -984,7 +996,8 @@
         const clientSelect = document.getElementById('clientSelect');
         const resultsBlock = document.getElementById('resultsBlock'); 
         const cacheStatus = document.getElementById('cacheStatus');
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; 
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec";
+        const ASANA_TASK_ENDPOINT = ""; // Preencher com um endpoint/proxy do backend que cria a tarefa no Asana.
 
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
@@ -1391,6 +1404,90 @@
             dropzone.dataset.bound = "true";
         }
 
+        function getNextLocalRegistro() {
+            const key = 'localizador_inconformidade_protocolo';
+            const current = Number(localStorage.getItem(key) || 0);
+            const next = current + 1;
+            localStorage.setItem(key, String(next));
+            return String(next).padStart(4, '0');
+        }
+
+        async function gerarNumeroRegistro() {
+            const input = document.getElementById('inc_registro');
+            const button = document.getElementById('inc_gerarRegistroButton');
+            if (!input || !button) return;
+
+            button.disabled = true;
+            button.textContent = 'GERANDO...';
+
+            try {
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=getSequence`);
+                if (!response.ok) {
+                    throw new Error(`Falha ao consultar o protocolo (${response.status})`);
+                }
+
+                const data = await response.json();
+                const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
+
+                if (nextRegistro) {
+                    input.value = String(nextRegistro).trim();
+                    return;
+                }
+
+                throw new Error('Resposta do Apps Script sem número de protocolo.');
+            } catch (error) {
+                console.warn('Apps Script não respondeu com protocolo; usando fallback local.', error);
+                input.value = getNextLocalRegistro();
+            } finally {
+                button.disabled = false;
+                button.textContent = 'GERAR REGISTRO';
+            }
+        }
+
+        async function createAsanaTaskFromInconformidade(payload) {
+            if (!ASANA_TASK_ENDPOINT) {
+                throw new Error('Endpoint do Asana não configurado. Defina ASANA_TASK_ENDPOINT no código antes de testar o envio.');
+            }
+
+            const response = await fetch(ASANA_TASK_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'createAsanaTask',
+                    source: 'inconformidade',
+                    taskName: `Inconformidade - Pedido ${payload.pedido} - Cliente ${payload.cliente}`,
+                    taskNotes: [
+                        `Pedido: ${payload.pedido}`,
+                        `Cliente: ${payload.cliente}`,
+                        `Código Item: ${payload.item}`,
+                        `Máscara: ${payload.mascara}`,
+                        `Quantidade: ${payload.quantidade}`,
+                        `Carregamento: ${payload.carregamento}`,
+                        `Inconformidade: ${payload.inconformidade}`,
+                        `Ação de correção: ${payload.acaoCorrecao}`,
+                        `Supervisor: ${payload.supervisor}`
+                    ].join('\n'),
+                    anexos: Array.from(document.getElementById('inc_anexos').files).map(file => file.name)
+                })
+            });
+
+            const contentType = response.headers.get('content-type') || '';
+            const body = contentType.includes('application/json')
+                ? await response.json()
+                : await response.text();
+
+            if (!response.ok) {
+                const message = typeof body === 'object' && body && body.message
+                    ? body.message
+                    : (typeof body === 'string' ? body : `HTTP ${response.status}`);
+                throw new Error(message);
+            }
+
+            return body;
+        }
+
         function resetInconformidadeForm() {
             const form = document.getElementById('formInconformidades');
             form.reset();
@@ -1407,6 +1504,7 @@
             const status = document.getElementById('inc_formStatus');
 
             const payload = {
+                registro: document.getElementById('inc_registro').value.trim(),
                 pedido: document.getElementById('inc_pedido').value.trim(),
                 cliente: document.getElementById('inc_cliente').value.trim(),
                 item: document.getElementById('inc_item').value.trim().toUpperCase(),
@@ -1418,17 +1516,24 @@
                 supervisor: document.getElementById('inc_supervisor').value
             };
 
+            if (!payload.registro) {
+                status.textContent = 'Gere primeiro o número de protocolo antes de enviar.';
+                status.classList.add('text-red-400');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+                return;
+            }
+
             submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
             status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
 
             try {
-                // TODO: implementar envio real (Apps Script/endpoint) incluindo os anexos.
-                // Exemplo de chamada, quando o backend estiver pronto:
-                // await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'inconformidade', ...payload }) });
-                console.log('Inconformidade a enviar:', payload, document.getElementById('inc_anexos').files);
+                const taskResult = await createAsanaTaskFromInconformidade(payload);
+                console.log('Inconformidade enviada e tarefa criada no Asana:', payload, taskResult);
 
-                status.textContent = 'Inconformidade registrada com sucesso!';
+                status.textContent = 'Inconformidade registrada com sucesso e tarefa enviada para o Asana!';
                 status.classList.add('text-green-400');
                 setTimeout(() => {
                     closeForm('inconformidades');
