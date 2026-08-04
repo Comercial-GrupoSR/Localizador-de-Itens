@@ -996,8 +996,7 @@
         const clientSelect = document.getElementById('clientSelect');
         const resultsBlock = document.getElementById('resultsBlock'); 
         const cacheStatus = document.getElementById('cacheStatus');
-      const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
-      const INCONFORMIDADES_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec"; // Inconformidades
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec";
 
         const DISPLAY_ORDER = [
             "CARREGAMENTO", 
@@ -1011,7 +1010,7 @@
         const CACHE_KEY = "localizador_pedidos_cache_v1";
         const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
         const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
-        const SEARCH_TIMEOUT_MS = 60000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
+        const SEARCH_TIMEOUT_MS = 30000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
 
         // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
         async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -1443,7 +1442,7 @@
             button.textContent = 'GERANDO...';
 
             try {
-                const response = await fetch(`${INCONFORMIDADES_URL}?action=getSequence`);
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=getSequence`);
                 if (!response.ok) {
                     throw new Error(`Falha ao consultar o protocolo (${response.status})`);
                 }
@@ -1469,12 +1468,12 @@
         async function createAsanaTaskFromInconformidade(payload) {
             const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
 
-           const response = await fetch(INCONFORMIDADES_URL, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify({
+            const response = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
                     numeroPedido: payload.pedido,
                     nomeCliente: payload.cliente,
                     codigoItem: payload.item,
