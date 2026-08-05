@@ -158,13 +158,17 @@
             border-radius: 0.75rem;
             padding: 1rem;
             width: 100%;
+            min-height: 60px;
             display: flex;
             align-items: center;
+            justify-content: flex-start;
             gap: 0.75rem;
             color: #e0e0e0;
             font-size: 0.9375rem;
             font-weight: 500;
+            line-height: 1.2;
             cursor: pointer;
+            text-align: left;
             transition: border-color 0.2s ease, background-color 0.2s ease;
         }
         .form-card:hover {
@@ -174,7 +178,13 @@
         .form-card svg {
             width: 30px;
             height: 30px;
+            display: block;
             flex-shrink: 0;
+            align-self: center;
+        }
+        .form-card span {
+            display: inline-flex;
+            align-items: center;
         }
 
         /* ============================================================
@@ -796,15 +806,14 @@
                         </svg>
                         Elevador de Canecas
                     </button>
-                    <div class="form-card opacity-50 cursor-not-allowed" style="pointer-events:none;">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('rosca-transportadora')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="9"/>
                             <path d="M4.5 9h15"/>
                             <path d="M4.5 15h15"/>
                         </svg>
                         <span class="flex-1">Roscas Transportadoras</span>
-                        <span class="text-xs text-gray-500">Em breve</span>
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -814,7 +823,7 @@
     <div id="modal-checklist-elevador" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="checklistElevadorRoot">
             <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
-                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                <h2 id="checklistTitle" class="text-base font-semibold text-gray-200 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                         <path d="M8 12.5l2.5 2.5L17 8"/>
@@ -863,13 +872,6 @@
                                 <span class="field-label">Modelo</span>
                                 <select id="modelo" class="chk-plain-sel">
                                     <option value="">Selecione…</option>
-                                    <option value="EL5P">EL5P</option>
-                                    <option value="EL6P">EL6P</option>
-                                    <option value="EL8P">EL8P</option>
-                                    <option value="EL10P">EL10P</option>
-                                    <option value="EL11P">EL11P</option>
-                                    <option value="EL13P">EL13P</option>
-                                    <option value="EL15P">EL15P</option>
                                 </select>
                             </div>
                         </div>
@@ -1800,20 +1802,76 @@
             document.body.style.overflow = '';
         }
 
+        const chkModelOptions = {
+            elevador: [
+                'EL5P', 'EL6P', 'EL8P', 'EL10P', 'EL11P', 'EL13P', 'EL15P'
+            ],
+            rosca: [
+                'RT150P', 'RT200P', 'RT250P', 'RT300P', 'RT350P', 'RT400P', 'RT500P'
+            ]
+        };
+
+        function renderChecklistModelOptions(mode) {
+            const select = document.getElementById('modelo');
+            if (!select) return;
+            const models = chkModelOptions[mode] || [];
+            select.innerHTML = '<option value="">Selecione…</option>';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                select.appendChild(option);
+            });
+        }
+
         function selectEquipamentoChecklist(tipo) {
             closeChecklistTipo();
             if (tipo === 'elevador-canecas') {
                 openChecklistElevador();
             }
-            // Outros tipos de equipamento serão adicionados aqui futuramente.
+            if (tipo === 'rosca-transportadora') {
+                openChecklistRosca();
+            }
         }
 
         function openChecklistElevador() {
+            currentChecklistMode = 'elevador';
+            renderChecklistModelOptions('elevador');
+            document.getElementById('checklistTitle').innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M8 12.5l2.5 2.5L17 8"/>
+                </svg>
+                Checklist de Entrega — Elevador de Canecas
+            `;
             const modal = document.getElementById('modal-checklist-elevador');
             populateSupervisorSelect('supervisorNome');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
+            renderChecklistColumns('elevador');
+            requestAnimationFrame(() => {
+                chkInitSignaturePad('sigSupervisor');
+                chkInitSignaturePad('sigCliente');
+            });
+        }
+
+        function openChecklistRosca() {
+            currentChecklistMode = 'rosca';
+            renderChecklistModelOptions('rosca');
+            document.getElementById('checklistTitle').innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M8 12.5l2.5 2.5L17 8"/>
+                </svg>
+                Checklist de Entrega — Rosca Transportadora
+            `;
+            const modal = document.getElementById('modal-checklist-elevador');
+            populateSupervisorSelect('supervisorNome');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            renderChecklistColumns('rosca');
             requestAnimationFrame(() => {
                 chkInitSignaturePad('sigSupervisor');
                 chkInitSignaturePad('sigCliente');
@@ -1832,8 +1890,10 @@
             openChecklistTipo();
         }
 
-        // --- Conteúdo do Checklist de Entrega (Elevador de Canecas) ---
-        const chkLeftItems = [
+        // --- Conteúdo do Checklist de Entrega ---
+        let currentChecklistMode = 'elevador';
+
+        const chkElevadorLeftItems = [
           {group:'Conjunto Pé', label:'União da correia'},
           {group:'Conjunto Pé', label:'Esticamento da correia'},
           {group:'Conjunto Pé', label:'Fixação do pé (chumbadores)'},
@@ -1850,7 +1910,7 @@
           {group:'Conjunto Cabeça', label:'Lado acionamento oposto ao alçapão'},
           {group:'Conjunto Cabeça', label:'Fixação do acionamento (arruelas de pressão)'},
         ];
-        const chkRightItems = [
+        const chkElevadorRightItems = [
           {group:'Conjunto Cabeça', label:'Nível de óleo e posição do motoredutor'},
           {group:'Conjunto Cabeça', label:'Plataformas (alçapão / corrimão)'},
           {group:'Conjunto Cabeça', label:'Respiro do motoredutor destravado'},
@@ -1865,6 +1925,56 @@
           {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
           {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
         ];
+
+        const chkRoscaLeftItems = [
+        // Análise Mecânica Geral
+        { group: 'Análise Mecânica Geral', label: 'Localização e comprimento conforme projeto' },
+        { group: 'Análise Mecânica Geral', label: 'Alinhamento dos módulos' },
+        { group: 'Análise Mecânica Geral', label: 'Posicionamento das tampas' },
+        { group: 'Análise Mecânica Geral', label: 'Fechamento e vedação das tampas superiores' },
+        { group: 'Análise Mecânica Geral', label: 'Remoção do excesso de massa de calafetar' },
+        { group: 'Análise Mecânica Geral', label: 'Pontos de carga e descarga conforme projeto' },
+        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de carga' },
+        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de descarga' },
+        { group: 'Análise Mecânica Geral', label: 'Pontos de captação de pó' },
+        { group: 'Análise Mecânica Geral', label: 'Fixação do equipamento' },
+        { group: 'Análise Mecânica Geral', label: 'Vedação (equipamento externo)' },
+
+        // Acionamento
+        { group: 'Acionamento', label: 'Posição do acionamento conforme projeto' },
+        { group: 'Acionamento', label: 'Fixação dos acionamentos por arruelas de pressão' },
+        { group: 'Acionamento', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+        { group: 'Acionamento', label: 'Nível do óleo do motoredutor' },
+        ];
+
+        const chkRoscaRightItems = [
+        // Acionamento
+        { group: 'Acionamento', label: 'Respiro do redutor destravado' },
+        { group: 'Acionamento', label: 'Montagem e alinhamento do acoplamento' },
+        { group: 'Acionamento', label: 'Lubrificação e fixação dos mancais externos' },
+
+        // Sem Tampas
+        { group: 'Sem Tampas', label: 'Posição de montagem dos helicóides (início/fim)' },
+        { group: 'Sem Tampas', label: 'Alinhamento dos helicóides' },
+        { group: 'Sem Tampas', label: 'Altura dos helicóides' },
+        { group: 'Sem Tampas', label: 'Montagem correta dos helicóides com reforço' },
+        { group: 'Sem Tampas', label: 'Lubrificação dos mancais intermediários' },
+
+        // Teste
+        { group: 'Teste', label: 'Sentido de rotação (fluxo)' },
+        { group: 'Teste', label: 'Alinhamento/ruído do helicoide' },
+
+        // Geral
+        { group: 'Geral', label: 'Funcionamento de acessórios especiais' },
+        { group: 'Geral', label: 'Acabamento e pintura do equipamento' },
+        ];
+
+        function getChecklistItems(mode) {
+            if (mode === 'rosca') {
+                return { left: chkRoscaLeftItems, right: chkRoscaRightItems };
+            }
+            return { left: chkElevadorLeftItems, right: chkElevadorRightItems };
+        }
 
         function chkBuildColumn(container, items, prefix) {
             let lastGroup = null;
@@ -1898,8 +2008,17 @@
                 container.appendChild(row);
             });
         }
-        chkBuildColumn(document.getElementById('colLeft'), chkLeftItems, 'L');
-        chkBuildColumn(document.getElementById('colRight'), chkRightItems, 'R');
+
+        function renderChecklistColumns(mode) {
+            const { left, right } = getChecklistItems(mode);
+            const leftCol = document.getElementById('colLeft');
+            const rightCol = document.getElementById('colRight');
+            leftCol.innerHTML = '';
+            rightCol.innerHTML = '';
+            chkBuildColumn(leftCol, left, mode === 'rosca' ? 'RL' : 'L');
+            chkBuildColumn(rightCol, right, mode === 'rosca' ? 'RR' : 'R');
+            chkUpdateProgress();
+        }
 
         // Segurança extra: impede que o formulário do checklist seja enviado
         // (o que recarregaria a página e apagaria os dados) caso o navegador
@@ -1908,18 +2027,22 @@
             e.preventDefault();
         });
 
-        const chkTotal = chkLeftItems.length + chkRightItems.length;
-
         function chkUpdateProgress() {
+            const { left, right } = getChecklistItems(currentChecklistMode);
+            const chkTotal = left.length + right.length;
             let filled = 0, ok = 0, nc = 0, na = 0;
-            chkLeftItems.forEach((_, i) => {
-                const v = document.getElementById('L-'+i).value;
+
+            left.forEach((_, i) => {
+                const prefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
+                const v = document.getElementById(prefix + '-' + i)?.value;
                 if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
             });
-            chkRightItems.forEach((_, i) => {
-                const v = document.getElementById('R-'+i).value;
+            right.forEach((_, i) => {
+                const prefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
+                const v = document.getElementById(prefix + '-' + i)?.value;
                 if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
             });
+
             document.getElementById('progressFill').style.width = (filled/chkTotal*100) + '%';
             document.getElementById('progressText').textContent = `${filled} de ${chkTotal} itens preenchidos`;
             document.getElementById('cntOK').textContent = `OK: ${ok}`;
@@ -1928,14 +2051,15 @@
         }
 
         // Auto-formatação do campo TAG: usuário digita apenas o número (ex: 1) e o campo
-        // exibe automaticamente no padrão EL-01 (prefixo de elevador).
+        // exibe automaticamente no padrão EL-01 para elevador e RT-01 para rosca.
         (function(){
             const tagInput = document.getElementById('tag');
             tagInput.addEventListener('input', () => {
                 const digits = tagInput.value.replace(/\D/g, '');
                 if (!digits) { tagInput.value = ''; return; }
                 const num = parseInt(digits, 10);
-                tagInput.value = 'EL-' + (num < 10 ? '0' + num : String(num));
+                const prefix = currentChecklistMode === 'rosca' ? 'RT-' : 'EL-';
+                tagInput.value = prefix + (num < 10 ? '0' + num : String(num));
             });
         })();
 
@@ -2065,6 +2189,9 @@
             try {
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
+                const checklistTitle = currentChecklistMode === 'rosca'
+                    ? 'Check-List de Entrega — Rosca Transportadora'
+                    : 'Check-List de Entrega — Elevador de Canecas';
 
                 // --- CARREGANDO A LOGO DO GITHUB ---
                 const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
@@ -2130,7 +2257,7 @@
                     width: logoWidth,
                     height: logoHeight,
                 });
-                txt('Check-List de Entrega — Elevador de Canecas', mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
+                txt(checklistTitle, mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
                 txt('TAG: '+chkVal('tag')+'   Código: '+chkVal('codigo')+'   Máscara: '+chkVal('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
                 y = pageH - headerH - 14;
 
@@ -2173,8 +2300,10 @@
                     });
                     return yy;
                 };
-                const leftEnd = drawChecks(chkLeftItems, lX, 'L');
-                const rightEnd = drawChecks(chkRightItems, rX, 'R');
+                const leftPrefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
+                const rightPrefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
+                const leftEnd = drawChecks(getChecklistItems(currentChecklistMode).left, lX, leftPrefix);
+                const rightEnd = drawChecks(getChecklistItems(currentChecklistMode).right, rX, rightPrefix);
                 y = Math.min(leftEnd, rightEnd) - 10;
 
                 ensure(90);
@@ -2240,7 +2369,7 @@
 
                 // ── Closing ──
                 ensure(45);
-                hline(mg,y,pageW-mg); y -= 16;
+                hline(mg,y,pageW-mg); y -= 20;
                 txt(chkVal('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
                 txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
                 txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('Grupo SR',mg+240,y-13,{size:7,color:muted});
@@ -2251,7 +2380,8 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 const tagPart = chkVal('tag').replace(/[^a-zA-Z0-9_-]/g,'');
-                a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+'elevador_canecas.pdf';
+                const fileSuffix = currentChecklistMode === 'rosca' ? 'rosca_transportadora.pdf' : 'elevador_canecas.pdf';
+                a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+fileSuffix;
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(()=>URL.revokeObjectURL(url), 5000);
                 msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
