@@ -486,7 +486,7 @@
                         </svg>
                         Inconformidades
                     </button>
-                    <button type="button" class="form-card" onclick="openChecklistTipo()">
+                    <button type="button" class="form-card" onclick="openForm('checklist')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5dcaa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 11l3 3L22 4"/>
                             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -1377,29 +1377,29 @@
             cronograma: 'Cronograma de Obra'
         };
 
-      // Ícones do cabeçalho — cada um espelha o ícone correspondente da nav inferior
-const HEADER_ICONS = {
-    localizador: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
-    formularios: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
-    cronograma: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-};
+        // Ícones do cabeçalho — cada um espelha o ícone correspondente da nav inferior
+        const HEADER_ICONS = {
+            localizador: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
+            formularios: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
+            cronograma: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        };
 
-function switchPage(page) {
-    pageLocalizador.classList.toggle('hidden', page !== 'localizador');
-    pageFormularios.classList.toggle('hidden', page !== 'formularios');
-    pageCronograma.classList.toggle('hidden', page !== 'cronograma');
+        function switchPage(page) {
+            pageLocalizador.classList.toggle('hidden', page !== 'localizador');
+            pageFormularios.classList.toggle('hidden', page !== 'formularios');
+            pageCronograma.classList.toggle('hidden', page !== 'cronograma');
 
-    navLocalizador.classList.toggle('active', page === 'localizador');
-    navFormularios.classList.toggle('active', page === 'formularios');
-    navCronograma.classList.toggle('active', page === 'cronograma');
+            navLocalizador.classList.toggle('active', page === 'localizador');
+            navFormularios.classList.toggle('active', page === 'formularios');
+            navCronograma.classList.toggle('active', page === 'cronograma');
 
-    headerTitle.textContent = PAGE_TITLES[page] || '';
+            headerTitle.textContent = PAGE_TITLES[page] || '';
 
-    const currentIcon = document.getElementById('headerIcon');
-    if (currentIcon && HEADER_ICONS[page]) {
-        currentIcon.outerHTML = HEADER_ICONS[page];
-    }
-}
+            const currentIcon = document.getElementById('headerIcon');
+            if (currentIcon && HEADER_ICONS[page]) {
+                currentIcon.outerHTML = HEADER_ICONS[page];
+            }
+        }
 
         // --- Formulários (Inconformidades / Melhorias) ---
 
@@ -1504,10 +1504,12 @@ function switchPage(page) {
         async function gerarNumeroRegistro() {
             const input = document.getElementById('inc_registro');
             const button = document.getElementById('inc_gerarRegistroButton');
-            if (!input || !button) return;
+            if (!input) return;
 
-            button.disabled = true;
-            button.textContent = 'GERANDO...';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'GERANDO...';
+            }
 
             try {
                 const response = await fetch(`${INCONFORMIDADES_URL}?action=getSequence`);
@@ -1528,18 +1530,22 @@ function switchPage(page) {
                 console.warn('Apps Script não respondeu com protocolo; usando fallback local.', error);
                 input.value = getNextLocalRegistro();
             } finally {
-                button.disabled = false;
-                button.textContent = 'GERAR REGISTRO';
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'GERAR REGISTRO';
+                }
             }
         }
 
         async function gerarNumeroRegistroMelhoria() {
             const input = document.getElementById('mel_registro');
             const button = document.getElementById('mel_gerarRegistroButton');
-            if (!input || !button) return;
+            if (!input) return;
 
-            button.disabled = true;
-            button.textContent = 'GERANDO...';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'GERANDO...';
+            }
 
             try {
                 const response = await fetch(`${MELHORIAS_URL}?action=getSequence`);
@@ -1560,8 +1566,10 @@ function switchPage(page) {
                 console.warn('Apps Script não respondeu com registro; usando fallback local.', error);
                 input.value = getNextLocalRegistroMelhoria();
             } finally {
-                button.disabled = false;
-                button.textContent = 'GERAR REGISTRO';
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'GERAR REGISTRO';
+                }
             }
         }
 
@@ -1658,6 +1666,13 @@ function switchPage(page) {
             const submitButton = document.getElementById('inc_submitButton');
             const status = document.getElementById('inc_formStatus');
 
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+
+            await gerarNumeroRegistro();
+
             const payload = {
                 registro: document.getElementById('inc_registro').value.trim(),
                 pedido: document.getElementById('inc_pedido').value.trim(),
@@ -1672,17 +1687,14 @@ function switchPage(page) {
             };
 
             if (!payload.registro) {
-                status.textContent = 'Gere primeiro o número de protocolo antes de enviar.';
+                status.textContent = 'Não foi possível gerar o número de protocolo. Tente novamente.';
                 status.classList.add('text-red-400');
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Enviar';
                 return;
             }
 
-            submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-            status.textContent = '';
-            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
 
             try {
                 const taskResult = await createAsanaTaskFromInconformidade(payload);
@@ -1718,6 +1730,13 @@ function switchPage(page) {
             const submitButton = document.getElementById('mel_submitButton');
             const status = document.getElementById('mel_formStatus');
 
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+
+            await gerarNumeroRegistroMelhoria();
+
             const payload = {
                 registro: document.getElementById('mel_registro').value.trim(),
                 pedido: document.getElementById('mel_pedido').value.trim(),
@@ -1734,17 +1753,14 @@ function switchPage(page) {
             };
 
             if (!payload.registro) {
-                status.textContent = 'Gere primeiro o número de registro antes de enviar.';
+                status.textContent = 'Não foi possível gerar o número de registro. Tente novamente.';
                 status.classList.add('text-red-400');
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Enviar';
                 return;
             }
 
-            submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-            status.textContent = '';
-            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
 
             try {
                 const taskResult = await createAsanaTaskFromMelhoria(payload);
@@ -1766,10 +1782,6 @@ function switchPage(page) {
         }
 
         function openForm(tipo) {
-            if (tipo === 'checklist') {
-                openChecklistTipo();
-                return;
-            }
             const modal = document.getElementById(`modal-${tipo}`);
             if (!modal) {
                 console.log(`Formulário ainda não implementado: ${tipo}`);
