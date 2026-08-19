@@ -421,6 +421,134 @@
             font-size: 10.5px; color: var(--chk-muted);
         }
         #checklistElevadorRoot .sig-status.signed { color: var(--chk-ok); }
+
+        /* ============================================================
+           Retorno de Obra (escopado)
+           Prefixadas com #retornoObraRoot para não vazar estilos.
+        ============================================================ */
+        #retornoObraRoot {
+            --ret-card:       #2e2e2e;
+            --ret-border:     #3d3d3d;
+            --ret-border-2:   #444;
+            --ret-input-bg:   #1f1f1f;
+            --ret-text:       #e0e0e0;
+            --ret-muted:      #9ca3af;
+            --ret-green:      #4ade80;
+            --ret-green-hover:#22c55e;
+            --ret-radius:     8px;
+        }
+        #retornoObraRoot input[type=text],
+        #retornoObraRoot input[type=number],
+        #retornoObraRoot select,
+        #retornoObraRoot textarea {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--ret-border-2);
+            border-radius: var(--ret-radius);
+            background: var(--ret-input-bg);
+            color: var(--ret-text);
+            width: 100%;
+            transition: border-color .15s;
+        }
+        #retornoObraRoot input:focus,
+        #retornoObraRoot select:focus,
+        #retornoObraRoot textarea:focus {
+            outline: none; border-color: var(--ret-green);
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+        }
+        #retornoObraRoot select {
+            appearance: none; -webkit-appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 30px;
+        }
+        #retornoObraRoot .ret-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+        #retornoObraRoot .ret-items-table th {
+            background: #262626;
+            color: var(--ret-muted);
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            padding: 7px 6px;
+            border: 1px solid var(--ret-border);
+            text-align: left;
+        }
+        #retornoObraRoot .ret-items-table td {
+            border: 1px solid var(--ret-border);
+            padding: 4px;
+        }
+        #retornoObraRoot .ret-items-table input {
+            border: none;
+            border-radius: 4px;
+            padding: 6px 7px;
+            font-size: 12.5px !important;
+            background: var(--ret-input-bg);
+        }
+        #retornoObraRoot .ret-items-table td.ret-col-remove {
+            width: 34px;
+            text-align: center;
+        }
+        #retornoObraRoot .ret-remove-row {
+            background: none; border: none; cursor: pointer;
+            color: #f87171; font-size: 16px; line-height: 1;
+            padding: 4px; border-radius: 6px;
+        }
+        #retornoObraRoot .ret-remove-row:hover { background: rgba(248,113,113,.12); }
+        #retornoObraRoot .ret-add-row-wrap { padding: 8px 0 0; }
+        #retornoObraRoot .ret-add-row {
+            background: #3d3d3d;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 7px 14px;
+            border-radius: var(--ret-radius);
+            cursor: pointer;
+        }
+        #retornoObraRoot .ret-add-row:hover { background: #454545; }
+        #retornoObraRoot .ret-items-scroll {
+            overflow-x: auto;
+            border-radius: var(--ret-radius);
+        }
+        #retornoObraRoot .ret-sig-wrap {
+            position: relative;
+            border: 1px dashed var(--ret-border-2);
+            border-radius: var(--ret-radius);
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        #retornoObraRoot .ret-sig-pad {
+            display: block; width: 100%; height: 110px;
+            touch-action: none; cursor: crosshair;
+        }
+        #retornoObraRoot .ret-sig-placeholder {
+            position: absolute; top: 50%; left: 12px;
+            transform: translateY(-50%);
+            font-size: 11px; color: #9aa0a6;
+            pointer-events: none; font-style: italic;
+        }
+        #retornoObraRoot .ret-sig-actions {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 4px;
+        }
+        #retornoObraRoot .ret-sig-clear {
+            background: none; border: none; padding: 2px 4px;
+            font-size: 11px; font-weight: 600; color: var(--ret-muted);
+            cursor: pointer; text-decoration: underline;
+        }
+        #retornoObraRoot .ret-sig-clear:hover { color: var(--ret-text); }
+        #retornoObraRoot .ret-sig-status { font-size: 10.5px; color: var(--ret-muted); }
+        #retornoObraRoot .ret-sig-status.signed { color: var(--ret-green); }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -652,6 +780,104 @@
                 <button type="submit" id="inc_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
                     Enviar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Formulário de Retorno de Obra -->
+    <div id="modal-retorno" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="retornoObraRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 1 3 6.7"/>
+                        <path d="M3 12V7"/>
+                        <path d="M3 12h5"/>
+                    </svg>
+                    Retorno de Obra
+                </h2>
+                <button type="button" onclick="closeForm('retorno')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <form id="formRetorno" class="p-4" onsubmit="submitRetorno(event)">
+
+                <div class="mb-2.5">
+                    <label for="ret_tipoItem" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Item de Retorno <span class="text-red-500">*</span></label>
+                    <select id="ret_tipoItem" required>
+                        <option value="">Escolha...</option>
+                        <option value="Comprados">Comprados</option>
+                        <option value="Fabricados">Fabricados</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="ret_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_pedido" required placeholder="Digite um número">
+                    </div>
+                    <div>
+                        <label for="ret_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_cliente" required placeholder="Digite um nome">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="ret_localidade" class="block text-sm font-medium text-gray-400 mb-0.5">Localidade <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_localidade" required placeholder="Cidade / UF">
+                    </div>
+                    <div>
+                        <label for="ret_responsavel" class="block text-sm font-medium text-gray-400 mb-0.5">Responsável pelo Envio <span class="text-red-500">*</span></label>
+                        <select id="ret_responsavel" required>
+                            <option value="">Escolha...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-2.5">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Itens de Retorno <span class="text-red-500">*</span></label>
+                    <div class="ret-items-scroll">
+                        <table class="ret-items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:16%">Código</th>
+                                    <th style="width:16%">Máscara (ID)</th>
+                                    <th style="width:14%">Quantidade</th>
+                                    <th style="width:14%">Unidade</th>
+                                    <th>Nome/Descrição</th>
+                                    <th class="ret-col-remove"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ret_itemsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="ret-add-row-wrap">
+                        <button type="button" class="ret-add-row" onclick="retAddRow()">+ Adicionar item</button>
+                    </div>
+                </div>
+
+                <div class="mb-2.5" style="margin-top:16px;">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Assinatura do Responsável</label>
+                    <div class="ret-sig-wrap">
+                        <canvas id="sigRetorno" class="ret-sig-pad"></canvas>
+                        <span class="ret-sig-placeholder" id="sigRetornoPlaceholder">Assine aqui com o dedo ou o mouse</span>
+                    </div>
+                    <div class="ret-sig-actions">
+                        <span class="ret-sig-status" id="sigRetornoStatus">Sem assinatura — pode enviar normalmente e assinar depois</span>
+                        <button type="button" class="ret-sig-clear" onclick="chkClearSignature('sigRetorno')">Limpar assinatura</button>
+                    </div>
+                </div>
+
+                <p id="ret_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight" style="margin-top:10px;"></p>
+
+                <button type="submit" id="ret_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
+                    Enviar Lista de Retorno
                 </button>
             </form>
         </div>
@@ -1831,6 +2057,16 @@
                 populateSupervisorSelect('mel_supervisor');
                 setupDropzone('mel_dropzone', 'mel_anexos', 'mel_fileNames');
             }
+            if (tipo === 'retorno') {
+                populateSupervisorSelect('ret_responsavel');
+                if (!document.getElementById('ret_itemsBody').dataset.initialized) {
+                    retAddRow();
+                    retAddRow();
+                    retAddRow();
+                    document.getElementById('ret_itemsBody').dataset.initialized = 'true';
+                }
+                requestAnimationFrame(() => chkInitSignaturePad('sigRetorno'));
+            }
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -1848,6 +2084,110 @@
             if (tipo === 'melhorias') {
                 resetMelhoriaForm();
             }
+            if (tipo === 'retorno') {
+                resetRetornoForm();
+            }
+        }
+
+        // ============================================================
+        // Retorno de Obra — tabela dinâmica de itens + assinatura
+        // ============================================================
+
+        let retRowCounter = 0;
+
+        function retAddRow() {
+            retRowCounter++;
+            const rowId = 'ret-row-' + retRowCounter;
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.innerHTML = `
+                <td><input type="text" class="ret-codigo" placeholder="Código"></td>
+                <td><input type="text" class="ret-mascara" placeholder="Máscara"></td>
+                <td><input type="number" class="ret-quantidade" placeholder="Qtde"></td>
+                <td><input type="text" class="ret-unidade" placeholder="Unidade"></td>
+                <td><input type="text" class="ret-descricao" placeholder="Nome/Descrição"></td>
+                <td class="ret-col-remove">
+                    <button type="button" class="ret-remove-row" onclick="retRemoveRow('${rowId}')" title="Remover item">✕</button>
+                </td>
+            `;
+            document.getElementById('ret_itemsBody').appendChild(tr);
+        }
+
+        function retRemoveRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+
+        function retCollectItems() {
+            const rows = document.querySelectorAll('#ret_itemsBody tr');
+            const items = [];
+            rows.forEach(row => {
+                const codigo = row.querySelector('.ret-codigo').value.trim();
+                const mascara = row.querySelector('.ret-mascara').value.trim();
+                const quantidade = row.querySelector('.ret-quantidade').value.trim();
+                const unidade = row.querySelector('.ret-unidade').value.trim();
+                const descricao = row.querySelector('.ret-descricao').value.trim();
+                if (codigo || mascara || quantidade || unidade || descricao) {
+                    items.push({ codigo, mascara, quantidade, unidade, descricao });
+                }
+            });
+            return items;
+        }
+
+        function resetRetornoForm() {
+            const form = document.getElementById('formRetorno');
+            form.reset();
+            document.getElementById('ret_itemsBody').innerHTML = '';
+            document.getElementById('ret_itemsBody').dataset.initialized = '';
+            retAddRow();
+            retAddRow();
+            retAddRow();
+            document.getElementById('ret_itemsBody').dataset.initialized = 'true';
+            chkClearSignature('sigRetorno');
+            const status = document.getElementById('ret_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+        }
+
+        async function submitRetorno(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('ret_submitButton');
+            const status = document.getElementById('ret_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+
+            const items = retCollectItems();
+            if (items.length === 0) {
+                status.textContent = 'Informe ao menos um item na lista de retorno.';
+                status.classList.add('text-red-400');
+                return;
+            }
+
+            const payload = {
+                tipoItem: document.getElementById('ret_tipoItem').value,
+                pedido: document.getElementById('ret_pedido').value.trim(),
+                cliente: document.getElementById('ret_cliente').value.trim(),
+                localidade: document.getElementById('ret_localidade').value.trim(),
+                responsavel: document.getElementById('ret_responsavel').value,
+                itens: items,
+                assinatura: chkGetSignatureDataUrl('sigRetorno')
+            };
+
+            // Envio ainda não conectado a um backend — dados prontos em "payload"
+            // para quando a geração de PDF / integração for implementada.
+            console.log('Retorno de Obra pronto para envio:', payload);
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+
+            setTimeout(() => {
+                status.textContent = 'Lista de retorno registrada!';
+                status.classList.add('text-green-400');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar Lista de Retorno';
+                setTimeout(() => closeForm('retorno'), 1200);
+            }, 400);
         }
 
         // ============================================================
