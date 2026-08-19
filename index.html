@@ -473,14 +473,14 @@
             font-size: 12.5px;
         }
         #retornoObraRoot .ret-items-table th {
-            background: linear-gradient(180deg, rgba(74,222,128,0.22), rgba(34,197,94,0.10));
-            color: #ecfdf5;
+            background: #262626;
+            color: var(--ret-muted);
             font-size: 10.5px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .4px;
             padding: 7px 6px;
-            border: 1px solid rgba(74,222,128,0.45);
+            border: 1px solid var(--ret-border);
             text-align: left;
         }
         #retornoObraRoot .ret-items-table td {
@@ -662,9 +662,20 @@
     </div>
 </div>
         <div id="page-cronograma" class="hidden">
-            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
-                <h2 class="text-base font-semibold mb-2 text-gray-200">Cronograma de Obra</h2>
-                <p class="text-sm text-gray-400">Conteúdo em breve.</p>
+            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+                <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+                <label for="cronogramaClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+                    Pedido (com nome do Cliente)
+                </label>
+                <select id="cronogramaClientSelect" onchange="onCronogramaPedidoChange(this.value)"
+                        class="w-full compact-input border border-[#444] rounded-lg text-base font-medium focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                    <option value="">Carregando Pedidos...</option>
+                </select>
+            </div>
+
+            <div id="cronogramaResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Cronograma do Pedido</h2>
+                <div id="cronogramaResults" class="flex flex-col gap-2"></div>
             </div>
         </div>
     </div>
@@ -846,10 +857,10 @@
                             <thead>
                                 <tr>
                                     <th style="width:16%">Código</th>
-                                    <th style="width:16%">Máscara</th>
+                                    <th style="width:16%">Máscara (ID)</th>
                                     <th style="width:14%">Quantidade</th>
                                     <th style="width:14%">Unidade</th>
-                                    <th>Descrição</th>
+                                    <th>Nome/Descrição</th>
                                     <th class="ret-col-remove"></th>
                                 </tr>
                             </thead>
@@ -877,7 +888,7 @@
 
                 <button type="submit" id="ret_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
-                    Enviar Lista
+                    Enviar Lista de Retorno
                 </button>
             </form>
         </div>
@@ -1288,6 +1299,9 @@
         const resultsDiv = document.getElementById('results');
         const searchButton = document.getElementById('searchButton');
         const clientSelect = document.getElementById('clientSelect');
+        const cronogramaClientSelect = document.getElementById('cronogramaClientSelect');
+        const cronogramaResultsBlock = document.getElementById('cronogramaResultsBlock');
+        const cronogramaResults = document.getElementById('cronogramaResults');
         const resultsBlock = document.getElementById('resultsBlock'); 
         const cacheStatus = document.getElementById('cacheStatus');
       const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
@@ -1424,25 +1438,98 @@
             loadPedidosFromServer(true);
         }
         
-        function populateClientSelect(pedidos) {
-            const previousValue = clientSelect.value;
-            clientSelect.innerHTML = '';
-            
+        function populateSelectWithPedidos(selectEl, pedidos) {
+            if (!selectEl) return;
+            const previousValue = selectEl.value;
+            selectEl.innerHTML = '';
+
             const defaultOption = document.createElement('option');
-            defaultOption.value = ""; 
+            defaultOption.value = "";
             defaultOption.textContent = "--- Selecione um Pedido ---";
-            clientSelect.appendChild(defaultOption);
+            selectEl.appendChild(defaultOption);
 
             [...pedidos].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.PEDIDO;
-                option.textContent = `${item.PEDIDO} (${item.CLIENTE})`; 
-                clientSelect.appendChild(option);
+                option.textContent = `${item.PEDIDO} (${item.CLIENTE})`;
+                selectEl.appendChild(option);
             });
 
-            if (previousValue) clientSelect.value = previousValue;
+            if (previousValue) selectEl.value = previousValue;
         }
-        
+
+        function populateClientSelect(pedidos) {
+            populateSelectWithPedidos(clientSelect, pedidos);
+            populateSelectWithPedidos(cronogramaClientSelect, pedidos);
+        }
+
+        // --- Cronograma de Obra: busca a aba da planilha com o nome do Pedido ---
+        // Cada Pedido tem sua própria aba na planilha (ex: aba "1120" para o Pedido 1120).
+        // O Apps Script deve responder a ?mode=cronograma&pedido=XXXX lendo essa aba
+        // e retornando um array de objetos (uma linha da aba = um objeto, chaves = cabeçalhos).
+        async function onCronogramaPedidoChange(pedidoValue) {
+            const pedido = pedidoValue.trim().toUpperCase();
+
+            if (!pedido) {
+                cronogramaResultsBlock.classList.add('hidden');
+                cronogramaResults.innerHTML = '';
+                return;
+            }
+
+            cronogramaResultsBlock.classList.remove('hidden');
+            cronogramaResults.innerHTML = `
+                <div class="flex items-center justify-center p-4">
+                    <div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div>
+                </div>
+            `;
+
+            try {
+                const fullUrl = `${APPS_SCRIPT_URL}?mode=cronograma&pedido=${encodeURIComponent(pedido)}`;
+                const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
+                const data = await response.json();
+
+                if (Array.isArray(data) && data.length > 0) {
+                    renderCronograma(data);
+                } else if (data && data.error) {
+                    renderCronogramaError(data.error);
+                } else {
+                    renderCronogramaError(`Nenhum cronograma encontrado para o Pedido ${pedido}.`);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar cronograma:', error);
+                renderCronogramaError(`Erro ao carregar o cronograma. Detalhes: ${error.message}.`);
+            }
+        }
+
+        function renderCronograma(rows) {
+            const columns = Object.keys(rows[0]);
+            let html = '<div class="overflow-x-auto rounded-lg border border-[#333]"><table class="w-full text-sm border-collapse">';
+            html += '<thead><tr>';
+            columns.forEach(col => {
+                html += `<th class="text-left text-xs font-semibold uppercase text-gray-400 border border-[#3d3d3d] px-2 py-1.5 bg-[#1f1f1f] whitespace-nowrap">${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            rows.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const value = row[col] !== undefined && row[col] !== null ? row[col] : '';
+                    html += `<td class="border border-[#3d3d3d] px-2 py-1.5 text-gray-200 whitespace-nowrap">${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+            cronogramaResults.innerHTML = html;
+        }
+
+        function renderCronogramaError(message) {
+            cronogramaResults.innerHTML = `
+                <div class="text-center p-3">
+                    <p class="text-base font-bold text-red-500 mb-1">❌ Erro:</p>
+                    <p class="text-gray-400 break-words text-sm">${message}</p>
+                </div>
+            `;
+        }
+
         function enableItemSearch(pedidoValue) {
             selectedPedido = pedidoValue.trim().toUpperCase();
             
@@ -2101,11 +2188,11 @@
             const tr = document.createElement('tr');
             tr.id = rowId;
             tr.innerHTML = `
-                <td><input type="text" class="ret-codigo" placeholder="Cód"></td>
-                <td><input type="text" class="ret-mascara" placeholder="Másc"></td>
+                <td><input type="text" class="ret-codigo" placeholder="Código"></td>
+                <td><input type="text" class="ret-mascara" placeholder="Máscara"></td>
                 <td><input type="number" class="ret-quantidade" placeholder="Qtde"></td>
-                <td><input type="text" class="ret-unidade" placeholder="Un"></td>
-                <td><input type="text" class="ret-descricao" placeholder="Descrição"></td>
+                <td><input type="text" class="ret-unidade" placeholder="Unidade"></td>
+                <td><input type="text" class="ret-descricao" placeholder="Nome/Descrição"></td>
                 <td class="ret-col-remove">
                     <button type="button" class="ret-remove-row" onclick="retRemoveRow('${rowId}')" title="Remover item">✕</button>
                 </td>
@@ -2185,7 +2272,7 @@
                 status.textContent = 'Lista de retorno registrada!';
                 status.classList.add('text-green-400');
                 submitButton.disabled = false;
-                submitButton.innerHTML = 'Enviar Lista';
+                submitButton.innerHTML = 'Enviar Lista de Retorno';
                 setTimeout(() => closeForm('retorno'), 1200);
             }, 400);
         }
