@@ -82,6 +82,19 @@
             font-size: 0.95rem !important;
             font-weight: 500 !important;
         }
+        /* Foco verde nos campos de Inconformidades, Melhorias, Localizador de Itens
+           e Cronograma de Obra (mesmo padrão visual usado no Retorno de Obra) */
+        #formInconformidades input:focus,
+        #formInconformidades select:focus,
+        #formMelhorias input:focus,
+        #formMelhorias select:focus,
+        #clientSelect:focus,
+        #itemCode:focus,
+        #cronogramaClientSelect:focus {
+            outline: none !important;
+            border-color: #4ade80 !important;
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15) !important;
+        }
         .compact-button {
              padding-top: 0.5rem; 
              padding-bottom: 0.5rem;
@@ -888,7 +901,7 @@
 
                 <button type="submit" id="ret_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
-                    Enviar Lista de Retorno
+                    Enviar Lista de Retorno de Obra
                 </button>
             </form>
         </div>
@@ -2272,7 +2285,7 @@
                 status.textContent = 'Lista de retorno registrada!';
                 status.classList.add('text-green-400');
                 submitButton.disabled = false;
-                submitButton.innerHTML = 'Enviar Lista de Retorno';
+                submitButton.innerHTML = 'Enviar Lista de Retorno de Obra';
                 setTimeout(() => closeForm('retorno'), 1200);
             }, 400);
         }
