@@ -562,6 +562,89 @@
         #retornoObraRoot .ret-sig-clear:hover { color: var(--ret-text); }
         #retornoObraRoot .ret-sig-status { font-size: 10.5px; color: var(--ret-muted); }
         #retornoObraRoot .ret-sig-status.signed { color: var(--ret-green); }
+                /* ============================================================
+           Cronograma de Obra — tabela com Gantt de rolagem lateral
+           A primeira coluna fica presa à esquerda; a grade de dias rola.
+           As cores vêm do Apps Script, para acompanharem a planilha.
+        ============================================================ */
+        #cronogramaResults { display: block; }
+        .cro-info {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 10px; margin-bottom: 14px;
+        }
+        .cro-info > div {
+            background: #1f1f1f; border: 1px solid #333;
+            border-radius: 8px; padding: 8px 10px; min-width: 0;
+        }
+        .cro-info .cro-pedido  { grid-column: span 1; }
+        .cro-info .cro-cliente { grid-column: span 3; }
+        .cro-info .cro-data    { grid-column: span 2; }
+        .cro-info span {
+            display: block; font-size: 10px; font-weight: 700; letter-spacing: .5px;
+            text-transform: uppercase; color: #9ca3af; margin-bottom: 2px;
+        }
+        .cro-info strong {
+            font-size: 14px; font-weight: 600; color: #fff; display: block;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cro-info strong.vence { color: #ff6b6b; }
+
+        .cro-scroll {
+            overflow-x: auto; border: 1px solid #333; border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .cro-table { border-collapse: separate; border-spacing: 0; font-size: 12px; }
+        .cro-table th, .cro-table td {
+            border-right: 1px solid #333; border-bottom: 1px solid #333;
+            padding: 6px 8px; white-space: nowrap;
+        }
+        .cro-table thead th {
+            background: #1f4e79; color: #fff; font-size: 10.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .3px;
+            position: sticky; top: 0; z-index: 2;
+        }
+        .cro-fix {
+            position: sticky; left: 0; z-index: 3;
+            background: #1f1f1f; box-shadow: 1px 0 0 #333;
+        }
+        .cro-table thead th.cro-fix { background: #1f4e79; z-index: 4; }
+        .cro-table tbody td { color: #d1d5db; }
+        .cro-desc { color: #9ca3af; }
+        .cro-num  { text-align: right; }
+        .cro-venc { color: #ff6b6b; font-weight: 700; }
+
+        .cro-prog { min-width: 148px; }
+        .cro-prog-in { display: flex; align-items: center; gap: 8px; }
+        .cro-pct {
+            font-weight: 700; min-width: 34px; text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .cro-barra {
+            flex: 1; height: 12px; border-radius: 3px;
+            background: #e0e0e0; overflow: hidden; min-width: 70px;
+        }
+        .cro-barra i { display: block; height: 100%; border-radius: 3px 0 0 3px; }
+        .cro-feito {
+            flex: 1; text-align: center; font-weight: 700; font-size: 11px;
+            color: #fff; border-radius: 3px; padding: 2px 0; min-width: 70px;
+        }
+
+        .cro-dia {
+            width: 36px; min-width: 36px; padding: 6px 2px !important;
+            text-align: center; font-size: 9.5px;
+        }
+        .cro-fds { background: #262626 !important; }
+        .cro-hoje-cab { background: #cc0000 !important; color: #fff; font-weight: 700; }
+        .cro-cel { padding: 0 !important; height: 30px; }
+
+        .cro-legenda {
+            display: flex; flex-wrap: wrap; gap: 12px;
+            margin-top: 12px; font-size: 11px; color: #9ca3af;
+        }
+        .cro-legenda i {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 3px; margin-right: 5px; vertical-align: -2px;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -688,7 +771,7 @@
 
             <div id="cronogramaResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
                 <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Cronograma do Pedido</h2>
-                <div id="cronogramaResults" class="flex flex-col gap-2"></div>
+                <div id="cronogramaResults"></div>
             </div>
         </div>
     </div>
