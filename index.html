@@ -1559,35 +1559,30 @@
             populateSelectWithPedidos(cronogramaClientSelect, pedidos);
         }
 
-        // --- Cronograma de Obra: busca a aba da planilha com o nome do Pedido ---
-        // Cada Pedido tem sua própria aba na planilha (ex: aba "1120" para o Pedido 1120).
-        // O Apps Script deve responder a ?mode=cronograma&pedido=XXXX lendo essa aba
-        // e retornando um array de objetos (uma linha da aba = um objeto, chaves = cabeçalhos).
+               // --- Cronograma de Obra: busca a aba da planilha com o nome do Pedido ---
+        // O Apps Script responde a ?mode=cronograma&pedido=XXXX com um OBJETO
+        // contendo os dados da obra, a lista de tarefas e as cores da planilha.
         async function onCronogramaPedidoChange(pedidoValue) {
             const pedido = pedidoValue.trim().toUpperCase();
-
             if (!pedido) {
                 cronogramaResultsBlock.classList.add('hidden');
                 cronogramaResults.innerHTML = '';
                 return;
             }
-
             cronogramaResultsBlock.classList.remove('hidden');
             cronogramaResults.innerHTML = `
                 <div class="flex items-center justify-center p-4">
                     <div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div>
                 </div>
             `;
-
             try {
                 const fullUrl = `${APPS_SCRIPT_URL}?mode=cronograma&pedido=${encodeURIComponent(pedido)}`;
                 const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
                 const data = await response.json();
-
-                if (Array.isArray(data) && data.length > 0) {
-                    renderCronograma(data);
-                } else if (data && data.error) {
+                if (data && data.error) {
                     renderCronogramaError(data.error);
+                } else if (data && Array.isArray(data.tarefas)) {
+                    renderCronograma(data);
                 } else {
                     renderCronogramaError(`Nenhum cronograma encontrado para o Pedido ${pedido}.`);
                 }
@@ -1596,27 +1591,121 @@
                 renderCronogramaError(`Erro ao carregar o cronograma. Detalhes: ${error.message}.`);
             }
         }
-
-        function renderCronograma(rows) {
-            const columns = Object.keys(rows[0]);
-            let html = '<div class="overflow-x-auto rounded-lg border border-[#333]"><table class="w-full text-sm border-collapse">';
-            html += '<thead><tr>';
-            columns.forEach(col => {
-                html += `<th class="text-left text-xs font-semibold uppercase text-gray-400 border border-[#3d3d3d] px-2 py-1.5 bg-[#1f1f1f] whitespace-nowrap">${col}</th>`;
+        // Converte "aaaa-mm-dd" em Date local, sem passar pelo fuso horário —
+        // usar new Date("2026-08-21") direto joga a data um dia para trás no Brasil.
+        function croIsoParaData(iso) {
+            if (!iso) return null;
+            const p = String(iso).split('-');
+            if (p.length !== 3) return null;
+            return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+        }
+        function croSomaDias(data, n) {
+            const d = new Date(data.getTime());
+            d.setDate(d.getDate() + n);
+            return d;
+        }
+        function croDiaMes(data) {
+            return String(data.getDate()).padStart(2, '0') + '/' +
+                   String(data.getMonth() + 1).padStart(2, '0');
+        }
+        function croMesmoDia(a, b) {
+            return a && b && a.getFullYear() === b.getFullYear() &&
+                   a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        }
+        function croEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+        function renderCronograma(dados) {
+            const tarefas = dados.tarefas || [];
+            if (tarefas.length === 0) {
+                cronogramaResults.innerHTML =
+                    '<p class="text-sm text-gray-400 italic">Nenhuma tarefa cadastrada neste cronograma.</p>';
+                return;
+            }
+            const hoje = croIsoParaData(dados.hoje);
+            const inicioGrade = croIsoParaData(dados.inicioGrade) || hoje;
+            const nDias = dados.diasGrade || 120;
+            const corVazia = dados.corBarraVazia || '#E0E0E0';
+            // --- Cabeçalho da obra ---
+            const prazoVenceHoje = dados.prazoEntregaISO && dados.prazoEntregaISO === dados.hoje;
+            let html = '<div class="cro-info">';
+            html += `<div class="cro-pedido"><span>Pedido</span><strong>${croEsc(dados.pedido)}</strong></div>`;
+            if (dados.cliente) {
+                html += `<div class="cro-cliente"><span>Cliente</span><strong title="${croEsc(dados.cliente)}">${croEsc(dados.cliente)}</strong></div>`;
+            }
+            if (dados.inicioCronograma) {
+                html += `<div class="cro-data"><span>Início do Cronograma</span><strong>${croEsc(dados.inicioCronograma)}</strong></div>`;
+            }
+            if (dados.prazoEntrega) {
+                html += `<div class="cro-data"><span>Prazo de Entrega</span><strong class="${prazoVenceHoje ? 'vence' : ''}">${croEsc(dados.prazoEntrega)}</strong></div>`;
+            }
+            html += '</div>';
+            // --- Dias da grade ---
+            const dias = [];
+            for (let i = 0; i < nDias; i++) dias.push(croSomaDias(inicioGrade, i));
+            html += '<div class="cro-scroll"><table class="cro-table"><thead><tr>';
+            html += '<th class="cro-fix">Equipamento</th>';
+            html += '<th>Descrição</th><th>Data Início</th><th>Duração</th><th>Data Final</th>';
+            html += '<th class="cro-prog">Progresso</th>';
+            dias.forEach(d => {
+                const fds = d.getDay() === 0 || d.getDay() === 6;
+                const eHoje = croMesmoDia(d, hoje);
+                const cls = 'cro-dia' + (eHoje ? ' cro-hoje-cab' : (fds ? ' cro-fds' : ''));
+                html += `<th class="${cls}">${croDiaMes(d)}</th>`;
             });
             html += '</tr></thead><tbody>';
-            rows.forEach(row => {
+            // --- Uma linha por tarefa ---
+            tarefas.forEach(t => {
+                const ini = croIsoParaData(t.inicioISO);
+                const fim = croIsoParaData(t.fimISO);
+                const venceHoje = t.fimISO && t.fimISO === dados.hoje;
                 html += '<tr>';
-                columns.forEach(col => {
-                    const value = row[col] !== undefined && row[col] !== null ? row[col] : '';
-                    html += `<td class="border border-[#3d3d3d] px-2 py-1.5 text-gray-200 whitespace-nowrap">${value}</td>`;
+                html += `<td class="cro-fix"><strong>${croEsc(t.equipamento)}</strong></td>`;
+                html += `<td class="cro-desc">${croEsc(t.descricao)}</td>`;
+                html += `<td>${croEsc(t.inicio)}</td>`;
+                html += `<td class="cro-num">${t.duracao == null ? '' : t.duracao}</td>`;
+                html += `<td class="${venceHoje ? 'cro-venc' : ''}">${croEsc(t.fim)}</td>`;
+                html += '<td class="cro-prog"><div class="cro-prog-in">';
+                if (t.concluido) {
+                    html += `<span class="cro-pct" style="color:${t.cor}">100%</span>`;
+                    html += `<span class="cro-feito" style="background:${t.cor}">Concluído</span>`;
+                } else {
+                    const pct = Math.round((t.progresso || 0) * 100);
+                    const cor = t.cor || '#9ca3af';
+                    html += `<span class="cro-pct" style="color:${cor}">${pct}%</span>`;
+                    html += `<span class="cro-barra" style="background:${corVazia}">`;
+                    html += `<i style="width:${pct}%;background:${cor}"></i></span>`;
+                }
+                html += '</div></td>';
+                dias.forEach(d => {
+                    const dentro = ini && fim && d >= ini && d <= fim;
+                    const eHoje = croMesmoDia(d, hoje);
+                    let fundo = '';
+                    if (dentro) fundo = t.cor || '#9DC3E6';
+                    else if (eHoje) fundo = dados.corHojeColuna;
+                    html += `<td class="cro-dia cro-cel"${fundo ? ` style="background:${fundo}"` : ''}></td>`;
                 });
                 html += '</tr>';
             });
             html += '</tbody></table></div>';
+            // --- Legenda das faixas ---
+            html += '<div class="cro-legenda">';
+            (dados.faixas || []).forEach(f => {
+                const de = Math.round(f.min * 100);
+                const ate = Math.min(100, Math.round(f.max * 100));
+                html += `<span><i style="background:${f.cor}"></i>${de}% a ${ate}%</span>`;
+            });
+            if (dados.corHoje) {
+                html += `<span><i style="background:${dados.corHoje}"></i>hoje</span>`;
+            }
+            html += '</div>';
             cronogramaResults.innerHTML = html;
+            // Abre já rolado até a coluna de hoje
+            const scroll = cronogramaResults.querySelector('.cro-scroll');
+            const idxHoje = dias.findIndex(d => croMesmoDia(d, hoje));
+            if (scroll && idxHoje > 2) scroll.scrollLeft = (idxHoje - 2) * 36;
         }
-
         function renderCronogramaError(message) {
             cronogramaResults.innerHTML = `
                 <div class="text-center p-3">
