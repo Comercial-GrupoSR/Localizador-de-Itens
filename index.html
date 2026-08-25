@@ -110,16 +110,24 @@
            desenhadas por JavaScript (renderMenu), o que faz elas
            entrarem em cascata toda vez que a tela inicial aparece.
         ============================================================ */
+               /* Faixa do logo: atravessa a tela de ponta a ponta e encosta no
+           topo. As margens negativas anulam o respiro do body (p-4 no
+           celular, md:p-6 no computador), que é o que deixava sobrar
+           aquela borda escura dos dois lados. */
         .inicio-topo {
-            display: flex; flex-direction: column; align-items: center;
-            gap: 12px; padding: 26px 0 30px;
+            margin: -1rem -1rem 22px;
+            background: #0c4a31;
+            display: block;
         }
-        /* O logo da tela inicial é o ícone do app (icon-512.png), que é
-           quadrado — por isso a altura maior e o canto arredondado. */
-        .inicio-topo img { height: 88px; width: auto; border-radius: 18px; }
-        .inicio-topo p {
-            font-size: 11px; color: #9ca3af; letter-spacing: .8px;
-            text-transform: uppercase; font-weight: 700; margin: 0;
+        @media (min-width: 768px) {
+            .inicio-topo { margin: -1.5rem -1.5rem 26px; }
+        }
+        /* O logo ocupa toda a largura disponível. O max-height é só uma
+           trava: se um dia o arquivo virar quadrado, ele não vira um
+           bloco gigante — fica centralizado sobre o verde da faixa. */
+        .inicio-topo img {
+            display: block; width: 100%; height: auto;
+            max-height: 200px; object-fit: contain; border-radius: 0;
         }
         .menu-cabecalho {
             display: flex; align-items: center; justify-content: space-between;
@@ -708,7 +716,6 @@
         <div id="page-inicio">
             <div class="inicio-topo">
                 <img src="icon-512.png" alt="ObraFlow">
-                <p>Aplicativo de Montagem</p>
             </div>
             <div class="bg-[#2e2e2e] p-5 rounded-xl shadow-lg border border-[#3d3d3d]">
                 <div class="menu-cabecalho">
