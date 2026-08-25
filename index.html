@@ -9,6 +9,10 @@
     <link rel="apple-touch-icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
     <meta name="theme-color" content="#0c4a31">
+    <!-- Avisa o sistema que o app é escuro. É isto que faz a lista de
+         Pedidos do celular (desenhada pelo Android, não pelo CSS) sair
+         preta com letra branca, em vez de branca. -->
+    <meta name="color-scheme" content="dark">
     <meta name="apple-mobile-web-app-title" content="Localizador SR">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
@@ -32,7 +36,16 @@
             to { transform: rotate(360deg); }
         }
         :root {
+            /* Faz os controles nativos (lista de Pedidos, calendário,
+               barra de rolagem) nascerem no tema escuro. */
+            color-scheme: dark;
             --green-title: #4ade80;
+        }
+        /* Reforço para os navegadores que pintam as opções da lista pelo
+           CSS. No Android quem manda é o color-scheme acima. */
+        option {
+            background-color: #1f1f1f;
+            color: #ffffff;
         }
         .btn-green-custom {
             background-color: var(--green-title);
