@@ -24,7 +24,7 @@
  * isso não é necessário — a tela do app já é rede-primeiro.
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = "obraflow-" + CACHE_VERSION;
 
 // Arquivos que o app precisa para abrir sem internet.
@@ -35,6 +35,7 @@ const ARQUIVOS_DO_APP = [
   "./index.html",
   "./manifest.json",
   "./sr-sem-fundo.png",
+  "./fundo-topo.png",
   "./favicon.ico",
   "./icon-192.png",
   "./icon-512.png"
