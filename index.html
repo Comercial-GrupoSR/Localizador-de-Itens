@@ -3,24 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
 
     <link rel="icon" type="image/x-icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="shortcut icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="apple-touch-icon" href="/Localizador-de-Itens/favicon.ico">
     <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
-
     <meta name="theme-color" content="#0c4a31">
-
     <meta name="apple-mobile-web-app-title" content="Localizador SR">
-
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
     <meta name="application-name" content="Localizador SR">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
@@ -39,7 +32,7 @@
             to { transform: rotate(360deg); }
         }
         :root {
-            --green-title: #4ade80; 
+            --green-title: #4ade80;
         }
         .btn-green-custom {
             background-color: var(--green-title);
@@ -48,7 +41,7 @@
             background-color: #22c55e;
         }
         .compact-input {
-             padding: 0.625rem 0.75rem; 
+             padding: 0.625rem 0.75rem;
         }
         .modal-input {
              padding: 0.5rem 0.75rem;
@@ -96,7 +89,7 @@
             box-shadow: 0 0 0 3px rgba(74,222,128,.15) !important;
         }
         .compact-button {
-             padding-top: 0.5rem; 
+             padding-top: 0.5rem;
              padding-bottom: 0.5rem;
              font-size: 0.875rem;
         }
@@ -109,68 +102,115 @@
             transition: opacity 0.3s ease;
         }
         body {
-            padding-bottom: 6.5rem;
+            padding-bottom: 2rem;
         }
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: #242424;
-            border-top: 1px solid #333;
-            display: flex;
-            justify-content: center;
-            z-index: 50;
-            padding-top: 0.55rem;
-            padding-bottom: calc(0.55rem + env(safe-area-inset-bottom, 0));
+        /* ============================================================
+           Página inicial — logo e menu de opções
+           Substitui a antiga barra de abas do rodapé. As opções são
+           desenhadas por JavaScript (renderMenu), o que faz elas
+           entrarem em cascata toda vez que a tela inicial aparece.
+        ============================================================ */
+        .inicio-topo {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 12px; padding: 26px 0 30px;
         }
-        .bottom-nav-inner {
-            display: flex;
-            gap: 0.25rem;
-            max-width: 48rem;
-            width: 100%;
-            justify-content: space-between;
-            align-items: center;
+        /* O logo da tela inicial é o ícone do app (icon-512.png), que é
+           quadrado — por isso a altura maior e o canto arredondado. */
+        .inicio-topo img { height: 88px; width: auto; border-radius: 18px; }
+        .inicio-topo p {
+            font-size: 11px; color: #9ca3af; letter-spacing: .8px;
+            text-transform: uppercase; font-weight: 700; margin: 0;
         }
-        .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    padding: 0.5rem 0.25rem;
-    color: #888;
-    background: none;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.62rem;
-    line-height: 1.15;
-    text-align: center;
-    flex: 1 1 0;
-    min-width: 0;
-    transition: color 0.2s ease;
-}
-.nav-item svg {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-}
-        .nav-item svg {
-            width: 22px;
-            height: 22px;
-            flex-shrink: 0;
+        .menu-cabecalho {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; margin-bottom: 16px;
+            padding-bottom: 12px; border-bottom: 1px solid #3a3a3a;
         }
-        .nav-item.active {
-            color: var(--green-title);
-        
+        .menu-titulo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        /* Risquinho verde à esquerda da palavra: dá peso ao título sem
+           precisar aumentar a fonte. */
+        .menu-titulo::before {
+            content: ""; flex: 0 0 3px; width: 3px; height: 15px;
+            border-radius: 2px;
+            background: linear-gradient(180deg, #4ade80, #22c55e);
+        }
+        .menu-cabecalho h2 {
+            font-size: 12px; font-weight: 800; color: #d1d5db; margin: 0;
+            text-transform: uppercase; letter-spacing: 1.7px;
+        }
+        .menu-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #262626; border: 1px solid #3d3d3d; cursor: pointer;
+            color: #9ca3af; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            padding: 5px 11px; border-radius: 999px;
+            transition: color .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .menu-toggle:hover { color: #e5e7eb; background: #303030; border-color: #4a4a4a; }
+        .menu-toggle svg {
+            width: 15px; height: 15px; transition: transform .25s ease;
+        }
+        .menu-toggle.recolhido svg { transform: rotate(-90deg); }
+        .menu-lista { display: flex; flex-direction: column; gap: 10px; }
+        .menu-lista.recolhida { display: none; }
+        .menu-item {
+            display: flex; align-items: center; gap: 14px;
+            width: 100%; text-align: left;
+            background: #2e2e2e; border: 1px solid #3d3d3d;
+            border-radius: 12px; padding: 13px 15px;
+            color: #e0e0e0; cursor: pointer;
+            transition: border-color .18s ease, background .18s ease, transform .1s ease;
+            opacity: 0; transform: translateY(10px);
+            animation: menuEntra .34s ease forwards;
+        }
+        .menu-item:hover { border-color: #4ade80; background: #333; }
+        .menu-item:active { transform: scale(.995); }
+        .menu-item-icone {
+            flex: 0 0 42px; height: 42px; border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
             background: rgba(74,222,128,.10);
-            border: 1px solid rgba(74,222,128,.25);
-            border-radius: 10px;
-        
-            box-shadow:
-                inset 0 2px 4px rgba(0,0,0,.35);
+            border: 1px solid rgba(74,222,128,.22);
+            color: var(--green-title);
         }
+        .menu-item-icone svg { width: 21px; height: 21px; }
+        .menu-item-texto { flex: 1; min-width: 0; }
+        .menu-item-texto strong {
+            display: block; font-size: 14.5px; font-weight: 600; color: #f3f4f6;
+        }
+        .menu-item-texto span {
+            display: block; font-size: 11.5px; color: #9ca3af;
+            margin-top: 2px; line-height: 1.35;
+        }
+        .menu-item-seta { flex: 0 0 auto; color: #6b7280; display: flex; }
+        .menu-item-seta svg { width: 16px; height: 16px; }
+        @keyframes menuEntra {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Respeita quem desligou animações no sistema */
+        @media (prefers-reduced-motion: reduce) {
+            .menu-item { animation-duration: .01ms; animation-delay: 0ms !important; }
+        }
+        .btn-voltar {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; margin-right: 8px; flex: 0 0 auto;
+            border-radius: 8px; border: 1px solid #4a4a4a; background: #333;
+            color: #d1d5db; cursor: pointer;
+            transition: background .15s ease, color .15s ease;
+        }
+        .btn-voltar:hover { background: #414141; color: #fff; }
+        .btn-voltar svg { width: 16px; height: 16px; }
+        /* O ícone do cabeçalho é trocado por JavaScript a cada página;
+           esta regra garante que ele mantenha o tamanho certo. */
+        #headerIcon {
+            display: inline-flex; width: 1rem; height: 1rem;
+            flex: 0 0 auto; margin-right: .5rem;
+        }
+        #headerIcon svg { width: 100%; height: 100%; display: block; }
+        /* Rede de segurança: "hidden" vem do Tailwind, que é carregado de
+           um CDN. Se ele demorar ou falhar, sem esta regra todas as
+           páginas apareceriam empilhadas de uma vez. */
+        .hidden { display: none; }
         .form-card {
             background-color: #2e2e2e;
             border: 1px solid #3d3d3d;
@@ -205,7 +245,6 @@
             display: inline-flex;
             align-items: center;
         }
-
         /* ============================================================
            Checklist de Entrega — Elevador de Canecas (escopado)
            Todas as regras abaixo são prefixadas com #checklistElevadorRoot
@@ -434,7 +473,6 @@
             font-size: 10.5px; color: var(--chk-muted);
         }
         #checklistElevadorRoot .sig-status.signed { color: var(--chk-ok); }
-
         /* ============================================================
            Retorno de Obra (escopado)
            Prefixadas com #retornoObraRoot para não vazar estilos.
@@ -588,7 +626,6 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .cro-info strong.vence { color: #ff6b6b; }
-
         .cro-scroll {
             overflow-x: auto; border: 1px solid #333; border-radius: 8px;
             -webkit-overflow-scrolling: touch;
@@ -612,7 +649,6 @@
         .cro-desc { color: #9ca3af; }
         .cro-num  { text-align: right; }
         .cro-venc { color: #ff6b6b; font-weight: 700; }
-
         .cro-prog { min-width: 148px; }
         .cro-prog-in { display: flex; align-items: center; gap: 8px; }
         .cro-pct {
@@ -628,7 +664,6 @@
             flex: 1; text-align: center; font-weight: 700; font-size: 11px;
             color: #fff; border-radius: 3px; padding: 2px 0; min-width: 70px;
         }
-
         .cro-dia {
             width: 36px; min-width: 36px; padding: 6px 2px !important;
             text-align: center; font-size: 9.5px;
@@ -636,7 +671,6 @@
         .cro-fds { background: #262626 !important; }
         .cro-hoje-cab { background: #cc0000 !important; color: #fff; font-weight: 700; }
         .cro-cel { padding: 0 !important; height: 30px; }
-
         .cro-legenda {
             display: flex; flex-wrap: wrap; gap: 12px;
             margin-top: 12px; font-size: 11px; color: #9ca3af;
@@ -648,22 +682,49 @@
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
-
     <div id="app" class="max-w-3xl mx-auto">
-        
-        <header class="flex items-center justify-between bg-[#3d3d3d] p-3 mb-4 rounded-lg shadow-xl border border-[#444]">
-            <h1 class="text-base font-bold text-green-400 flex items-center">
-                <svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                </svg>
-                <span id="headerTitle">Localizador de Itens</span>
-            </h1>
+
+        <header id="appHeader" class="flex items-center justify-between bg-[#3d3d3d] p-3 mb-4 rounded-lg shadow-xl border border-[#444]">
+            <div class="flex items-center min-w-0">
+                <button type="button" id="btnVoltar" class="btn-voltar hidden" onclick="voltarInicio()" title="Voltar ao menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12 19 5 12 12 5"/>
+                    </svg>
+                </button>
+                <h1 class="text-base font-bold text-green-400 flex items-center min-w-0">
+                    <svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>
+                    </svg>
+                    <span id="headerTitle" class="truncate">ObraFlow</span>
+                </h1>
+            </div>
             <div>
-                <img src="sr-sem-fundo.png" alt="Grupo SR Logo" class="h-7 md:h-8">
+                <img id="headerLogo" src="sr-sem-fundo.png" alt="Grupo SR Logo" class="h-7 md:h-8">
             </div>
         </header>
 
-        <div id="page-localizador">
+        <!-- ===================== PÁGINA INICIAL ===================== -->
+        <div id="page-inicio">
+            <div class="inicio-topo">
+                <img src="icon-512.png" alt="ObraFlow">
+                <p>Aplicativo de Montagem</p>
+            </div>
+            <div class="bg-[#2e2e2e] p-5 rounded-xl shadow-lg border border-[#3d3d3d]">
+                <div class="menu-cabecalho">
+                    <div class="menu-titulo"><h2>Menu</h2></div>
+                    <button type="button" id="menuToggle" class="menu-toggle" onclick="alternarMenu()">
+                        <span id="menuToggleTexto">Recolher</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="menuLista" class="menu-lista"></div>
+            </div>
+        </div>
+
+        <div id="page-localizador" class="hidden">
             <div id="clientFilterBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
                 <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
                 <label for="clientSelect" class="block text-sm font-medium text-gray-400 mb-1">
@@ -675,10 +736,9 @@
                 </select>
                 <p id="cacheStatus" class="cache-badge"></p>
             </div>
-
             <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
                 <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Buscar Item (do Pedido Selecionado)</h2>
-                
+
                 <div class="mb-4">
                     <label for="itemCode" class="block text-sm font-medium text-gray-400 mb-1">
                         Código do Item (COD ITEM)
@@ -686,7 +746,6 @@
                     <input type="text" id="itemCode" placeholder="Informe o código do item"
                             class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
                 </div>
-
                 <button id="searchButton" onclick="searchItem()" disabled
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center opacity-50 cursor-not-allowed">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -695,15 +754,14 @@
                     Buscar
                 </button>
             </div>
-            
+
             <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
                 <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
-                
+
                 <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
                     </div>
             </div>
         </div>
-
         <div id="page-formularios" class="hidden">
             <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
                 <h2 class="text-base font-semibold mb-4 text-gray-200">Selecione um formulário</h2>
@@ -757,6 +815,12 @@
         <p class="text-sm text-gray-400">Em breve: informe o código do item para descobrir a qual conjunto de montagem ele pertence.</p>
     </div>
 </div>
+<div id="page-documentos" class="hidden">
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">Documentos de Montagem</h2>
+        <p class="text-sm text-gray-400">Em breve: desenhos, manuais e procedimentos do pedido, para consulta na obra.</p>
+    </div>
+</div>
         <div id="page-cronograma" class="hidden">
             <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
                 <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
@@ -768,14 +832,12 @@
                     <option value="">Carregando Pedidos...</option>
                 </select>
             </div>
-
             <div id="cronogramaResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
                 <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Cronograma do Pedido</h2>
                 <div id="cronogramaResults"></div>
             </div>
         </div>
     </div>
-
     <!-- Modal: Formulário de Inconformidades -->
     <div id="modal-inconformidades" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
@@ -794,7 +856,6 @@
                     </svg>
                 </button>
             </div>
-
             <form id="formInconformidades" class="p-4" onsubmit="submitInconformidade(event)">
                 <div class="mb-3 hidden">
                     <div class="flex items-center justify-between gap-2 mb-1">
@@ -807,7 +868,6 @@
                     <input type="text" id="inc_registro" readonly required placeholder="Clique em GERAR REGISTRO"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
@@ -820,7 +880,6 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
@@ -833,7 +892,6 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
@@ -846,19 +904,16 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="mb-2.5">
                     <label for="inc_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a inconformidade encontrada? <span class="text-red-500">*</span></label>
                     <input type="text" id="inc_descricao" required placeholder="Digite a sua resposta"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
-
                 <div class="mb-2.5">
                     <label for="inc_acao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a ação tomada para correção? <span class="text-red-500">*</span></label>
                     <input type="text" id="inc_acao" required placeholder="Digite a sua resposta"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
-
                 <div class="mb-2.5">
                     <label for="inc_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
                     <select id="inc_supervisor" required
@@ -866,7 +921,6 @@
                         <option value="">Escolha...</option>
                     </select>
                 </div>
-
                 <div class="mb-2">
                     <label class="block text-sm font-medium text-gray-400 mb-0.5">Anexos <span class="text-red-500">*</span></label>
                     <div id="inc_dropzone"
@@ -881,9 +935,7 @@
                     </div>
                     <input type="file" id="inc_anexos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
                 </div>
-
                 <p id="inc_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
-
                 <button type="submit" id="inc_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
                     Enviar
@@ -891,7 +943,6 @@
             </form>
         </div>
     </div>
-
     <!-- Modal: Formulário de Retorno de Obra -->
     <div id="modal-retorno" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="retornoObraRoot">
@@ -910,9 +961,7 @@
                     </svg>
                 </button>
             </div>
-
             <form id="formRetorno" class="p-4" onsubmit="submitRetorno(event)">
-
                 <div class="mb-2.5">
                     <label for="ret_tipoItem" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Item de Retorno <span class="text-red-500">*</span></label>
                     <select id="ret_tipoItem" required>
@@ -921,7 +970,6 @@
                         <option value="Fabricados">Fabricados</option>
                     </select>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="ret_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
@@ -932,7 +980,6 @@
                         <input type="text" id="ret_cliente" required placeholder="Digite um nome">
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="ret_localidade" class="block text-sm font-medium text-gray-400 mb-0.5">Localidade <span class="text-red-500">*</span></label>
@@ -945,7 +992,6 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="mb-2.5">
                     <label class="block text-sm font-medium text-gray-400 mb-1">Itens de Retorno <span class="text-red-500">*</span></label>
                     <div class="ret-items-scroll">
@@ -967,7 +1013,6 @@
                         <button type="button" class="ret-add-row" onclick="retAddRow()">+ Adicionar item</button>
                     </div>
                 </div>
-
                 <div class="mb-2.5" style="margin-top:16px;">
                     <label class="block text-sm font-medium text-gray-400 mb-1">Assinatura do Responsável</label>
                     <div class="ret-sig-wrap">
@@ -979,9 +1024,7 @@
                         <button type="button" class="ret-sig-clear" onclick="chkClearSignature('sigRetorno')">Limpar assinatura</button>
                     </div>
                 </div>
-
                 <p id="ret_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight" style="margin-top:10px;"></p>
-
                 <button type="submit" id="ret_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
                     Enviar Lista de Retorno de Obra
@@ -989,7 +1032,6 @@
             </form>
         </div>
     </div>
-
     <!-- Modal: Formulário de Melhorias -->
     <div id="modal-melhorias" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
@@ -1010,7 +1052,6 @@
                     </svg>
                 </button>
             </div>
-
             <form id="formMelhorias" class="p-4" onsubmit="submitMelhoria(event)">
                 <div class="mb-3 hidden">
                     <div class="flex items-center justify-between gap-2 mb-1">
@@ -1023,7 +1064,6 @@
                     <input type="text" id="mel_registro" readonly required placeholder="Clique em GERAR REGISTRO"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
@@ -1036,7 +1076,6 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="mb-2.5">
                     <label for="mel_tipoEquipamento" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Equipamento <span class="text-red-500">*</span></label>
                     <select id="mel_tipoEquipamento" required
@@ -1047,7 +1086,6 @@
                     </select>
                     <p class="text-xs text-gray-500 mt-1">Define para qual projeto do Asana a tarefa será enviada.</p>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="mel_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
@@ -1060,7 +1098,6 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="mel_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
@@ -1073,13 +1110,11 @@
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                     </div>
                 </div>
-
                 <div class="mb-2.5">
                     <label for="mel_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Inconformidade encontrada <span class="text-red-500">*</span></label>
                     <input type="text" id="mel_descricao" required placeholder="Digite a sua resposta"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
-
                 <div class="mb-2.5">
                     <label for="mel_recorrencia" class="block text-sm font-medium text-gray-400 mb-0.5">A inconformidade é pontual, ou recorrente? <span class="text-red-500">*</span></label>
                     <select id="mel_recorrencia" required
@@ -1089,13 +1124,11 @@
                         <option value="Recorrente">Recorrente</option>
                     </select>
                 </div>
-
                 <div class="mb-2.5">
                     <label for="mel_melhoria" class="block text-sm font-medium text-gray-400 mb-0.5">Melhoria proposta/realizada <span class="text-red-500">*</span></label>
                     <input type="text" id="mel_melhoria" required placeholder="Digite a sua resposta"
                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
                 </div>
-
                 <div class="mb-2.5">
                     <label for="mel_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
                     <select id="mel_supervisor" required
@@ -1103,7 +1136,6 @@
                         <option value="">Escolha...</option>
                     </select>
                 </div>
-
                 <div class="mb-2">
                     <label class="block text-sm font-medium text-gray-400 mb-0.5">Fotos em Anexo <span class="text-red-500">*</span></label>
                     <div id="mel_dropzone"
@@ -1118,9 +1150,7 @@
                     </div>
                     <input type="file" id="mel_anexos" multiple accept="image/*" class="hidden">
                 </div>
-
                 <p id="mel_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
-
                 <button type="submit" id="mel_submitButton"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
                     Enviar
@@ -1128,7 +1158,6 @@
             </form>
         </div>
     </div>
-
     <!-- Modal: Seleção do Tipo de Equipamento (Checklist de Entrega) -->
     <div id="modal-checklist-tipo" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
@@ -1170,7 +1199,6 @@
             </div>
         </div>
     </div>
-
     <!-- Modal: Checklist de Entrega — Elevador de Canecas -->
     <div id="modal-checklist-elevador" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="checklistElevadorRoot">
@@ -1193,7 +1221,6 @@
                     </button>
                 </div>
             </div>
-
             <div class="p-4">
                 <!-- Progress -->
                 <div class="progress-wrap">
@@ -1207,9 +1234,7 @@
                         </span>
                     </div>
                 </div>
-
                 <form id="checklistForm" onsubmit="return false;">
-
                     <!-- 1. Identificação -->
                     <div class="card">
                         <div class="card-header">
@@ -1233,7 +1258,6 @@
                             <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="local"></div>
                         </div>
                     </div>
-
                     <!-- 2. Montagem -->
                     <div class="card">
                         <div class="card-header">
@@ -1241,12 +1265,10 @@
                             <p class="card-title">Conferência do processo de montagem</p>
                         </div>
                         <p class="hint">Marque cada item com OK, NC (não conforme) ou NA (não aplicável)</p>
-
                         <div class="checklist-cols">
                             <div id="colLeft"></div>
                             <div id="colRight"></div>
                         </div>
-
                         <div class="sign-row">
                             <div class="sign-fields">
                                 <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
@@ -1270,7 +1292,6 @@
                             <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
                         </div>
                     </div>
-
                     <!-- 3. Desempenho -->
                     <div class="card">
                         <div class="card-header">
@@ -1301,7 +1322,6 @@
                         </div>
                         <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
                     </div>
-
                     <!-- 4. Observações -->
                     <div class="card">
                         <div class="card-header">
@@ -1310,7 +1330,6 @@
                         </div>
                         <textarea id="observacoes" placeholder="Escreva observações ou deixe em branco para preencher à mão após a impressão"></textarea>
                     </div>
-
                     <!-- 5. Encerramento -->
                     <div class="card">
                         <div class="card-header">
@@ -1332,9 +1351,7 @@
                             <p>* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.</p>
                         </div>
                     </div>
-
                 </form>
-
                 <div class="action-bar">
                     <button id="btnPdf" type="button">⬇ Gerar PDF</button>
                     <button id="btnReset" type="button">Limpar</button>
@@ -1344,51 +1361,10 @@
         </div>
     </div>
 
-    <nav class="bottom-nav">
-        <div class="bottom-nav-inner">
-            <button type="button" id="navLocalizador" class="nav-item active" onclick="switchPage('localizador')">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                </svg>
-                Localizador de Itens
-            </button>
-            <button type="button" id="navSeparador" class="nav-item" onclick="switchPage('separador')">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="3" width="6" height="6" rx="1"/>
-        <rect x="3" y="15" width="6" height="6" rx="1"/>
-        <rect x="15" y="15" width="6" height="6" rx="1"/>
-        <path d="M12 9v3"/>
-        <path d="M12 12H6v3"/>
-        <path d="M12 12h6v3"/>
-    </svg>
-    Separador de Obra
-</button>
-            <button type="button" id="navFormularios" class="nav-item" onclick="switchPage('formularios')">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-                    <line x1="9" y1="12" x2="15" y2="12"/>
-                    <line x1="9" y1="16" x2="13" y2="16"/>
-                </svg>
-                Formulários de Obra
-            </button>
-            <button type="button" id="navCronograma" class="nav-item" onclick="switchPage('cronograma')">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                Cronograma de Obra
-            </button>
-        </div>
-    </nav>
-    
     <script>
         // Variáveis globais (inalteradas)
-        let allPedidos = []; 
-        let selectedPedido = null; 
-
+        let allPedidos = [];
+        let selectedPedido = null;
         // Elementos DOM (inalterados)
         const codeInput = document.getElementById('itemCode');
         const itemSearchBlock = document.getElementById('itemSearchBlock');
@@ -1398,26 +1374,23 @@
         const cronogramaClientSelect = document.getElementById('cronogramaClientSelect');
         const cronogramaResultsBlock = document.getElementById('cronogramaResultsBlock');
         const cronogramaResults = document.getElementById('cronogramaResults');
-        const resultsBlock = document.getElementById('resultsBlock'); 
+        const resultsBlock = document.getElementById('resultsBlock');
         const cacheStatus = document.getElementById('cacheStatus');
       const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
       const INCONFORMIDADES_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec"; // Inconformidades
-      const MELHORIAS_URL = "https://script.google.com/macros/s/AKfycbwaxjUek9kNu_EwX4LIfNdKoD6-xTP_ZAHtc199O3_2rmedKzWhoYb_giBH_ieZZYcB/exec"; // Melhorias 
-
+      const MELHORIAS_URL = "https://script.google.com/macros/s/AKfycbwaxjUek9kNu_EwX4LIfNdKoD6-xTP_ZAHtc199O3_2rmedKzWhoYb_giBH_ieZZYcB/exec"; // Melhorias
         const DISPLAY_ORDER = [
-            "CARREGAMENTO", 
-            "CODIGO VOL", 
-            "COD ITEM", 
-            "DESC TECNICA", 
+            "CARREGAMENTO",
+            "CODIGO VOL",
+            "COD ITEM",
+            "DESC TECNICA",
             "QTDE"
         ];
-
         // --- Configuração de cache e performance ---
         const CACHE_KEY = "localizador_pedidos_cache_v1";
         const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
         const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
         const SEARCH_TIMEOUT_MS = 90000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
-
         // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
         async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
             const controller = new AbortController();
@@ -1434,7 +1407,6 @@
                 clearTimeout(id);
             }
         }
-
         function getCachedPedidos() {
             try {
                 const raw = localStorage.getItem(CACHE_KEY);
@@ -1446,7 +1418,6 @@
                 return null;
             }
         }
-
         function setCachedPedidos(data) {
             try {
                 localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
@@ -1455,26 +1426,21 @@
                 console.warn("Não foi possível salvar cache local:", e);
             }
         }
-
         function showCacheStatus(text) {
             cacheStatus.textContent = text;
             if (text) {
                 setTimeout(() => { cacheStatus.textContent = ""; }, 4000);
             }
         }
-
         // --- Funções de Lógica ---
-
         // Carrega pedidos: mostra cache local instantaneamente (se existir e válido)
         // e sempre revalida em segundo plano, atualizando a lista silenciosamente.
         async function fetchAllPedidos() {
             const cached = getCachedPedidos();
-
             if (cached) {
                 allPedidos = cached.data;
                 populateClientSelect(cached.data);
                 itemSearchBlock.classList.add('hidden');
-
                 const ageMs = Date.now() - cached.timestamp;
                 if (ageMs < CACHE_TTL_MS) {
                     showCacheStatus("Carregado do cache local");
@@ -1485,24 +1451,18 @@
                 refreshPedidosInBackground();
                 return;
             }
-
             // Sem cache: carregamento normal, com o spinner já visível na tela
             await loadPedidosFromServer(false);
         }
-
         async function loadPedidosFromServer(isBackground) {
             try {
                 const fullUrl = `${APPS_SCRIPT_URL}?mode=pedidos`;
                 const response = await fetchWithTimeout(fullUrl);
-
                 if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
-
                 const data = await response.json();
-
                 if (Array.isArray(data) && data.length > 0) {
                     allPedidos = data;
                     setCachedPedidos(data);
-
                     if (isBackground) {
                         // Preserva a seleção atual do usuário ao atualizar a lista
                         const currentSelection = clientSelect.value;
@@ -1517,7 +1477,6 @@
                 } else {
                     if (!isBackground) displayError("Nenhum pedido encontrado. Verifique se a planilha tem dados.", true);
                 }
-
             } catch (error) {
                 console.error("Erro na requisição de pedidos:", error);
                 if (!isBackground) {
@@ -1527,38 +1486,32 @@
                 }
             }
         }
-
         function refreshPedidosInBackground() {
             // Não bloqueia a interface; falhas aqui são silenciosas para o usuário,
             // já que ele já está vendo os dados do cache.
             loadPedidosFromServer(true);
         }
-        
+
         function populateSelectWithPedidos(selectEl, pedidos) {
             if (!selectEl) return;
             const previousValue = selectEl.value;
             selectEl.innerHTML = '';
-
             const defaultOption = document.createElement('option');
             defaultOption.value = "";
             defaultOption.textContent = "--- Selecione um Pedido ---";
             selectEl.appendChild(defaultOption);
-
             [...pedidos].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.PEDIDO;
                 option.textContent = `${item.PEDIDO} (${item.CLIENTE})`;
                 selectEl.appendChild(option);
             });
-
             if (previousValue) selectEl.value = previousValue;
         }
-
         function populateClientSelect(pedidos) {
             populateSelectWithPedidos(clientSelect, pedidos);
             populateSelectWithPedidos(cronogramaClientSelect, pedidos);
         }
-
                // --- Cronograma de Obra: busca a aba da planilha com o nome do Pedido ---
         // O Apps Script responde a ?mode=cronograma&pedido=XXXX com um OBJETO
         // contendo os dados da obra, a lista de tarefas e as cores da planilha.
@@ -1714,19 +1667,17 @@
                 </div>
             `;
         }
-
         function enableItemSearch(pedidoValue) {
             selectedPedido = pedidoValue.trim().toUpperCase();
-            
+
             resultsBlock.classList.add('hidden');
             resultsDiv.innerHTML = "";
-            codeInput.value = ""; 
-
+            codeInput.value = "";
             if (selectedPedido) {
                 itemSearchBlock.classList.remove('hidden');
                 searchButton.disabled = false;
                 searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                
+
                 displayAwaitingSelection(`Pronto para buscar itens no Pedido: ${selectedPedido}. Digite o Código do Item acima.`, true);
                 codeInput.focus();
             } else {
@@ -1736,19 +1687,16 @@
                 displayAwaitingSelection("Selecione um Pedido para começar.", true);
             }
         }
-
         async function searchItem() {
             if (!selectedPedido) {
                 displayError("Erro: Nenhum Pedido selecionado. Por favor, selecione um Pedido primeiro.", false);
                 return;
             }
-
             resultsBlock.classList.add('hidden');
             searchButton.disabled = true;
             searchButton.innerHTML = `<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...`;
-            
-            const itemCode = codeInput.value.trim().toUpperCase();
 
+            const itemCode = codeInput.value.trim().toUpperCase();
             if (!itemCode) {
                 displayError("Por favor, informe o Código do Item para buscar.", false);
                 searchButton.disabled = false;
@@ -1757,18 +1705,14 @@
                 </svg> Buscar`;
                 return;
             }
-
             const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
-
             try {
                 const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
                 const data = await response.json();
-
                 if (Array.isArray(data) && data.length > 0) {
-                    const filteredItems = data.filter(item => 
+                    const filteredItems = data.filter(item =>
                         String(item.PEDIDO || '').trim().toUpperCase() === selectedPedido
                     );
-
                     if (filteredItems.length > 0) {
                         resultsBlock.classList.remove('hidden');
                         displaySuccess(filteredItems);
@@ -1780,7 +1724,6 @@
                 } else {
                     displayError(`Código de Item ${itemCode} não encontrado na planilha.`, false);
                 }
-
             } catch (error) {
                 console.error("Erro na requisição searchItem:", error);
                 displayError(`Erro de Conexão ou Requisição. Detalhes: ${error.message}.`, false);
@@ -1791,46 +1734,44 @@
                 </svg> Buscar`;
             }
         }
-        
+
         function displayAwaitingSelection(message, isInitial) {
             resultsDiv.classList.remove('border-green-600', 'border-red-600', 'border-2', 'bg-transparent');
-            
-            if (isInitial) {
-                 resultsBlock.classList.add('hidden'); 
-            }
 
+            if (isInitial) {
+                 resultsBlock.classList.add('hidden');
+            }
             resultsDiv.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'p-3', 'rounded-lg', 'border', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
-            
+
             resultsDiv.innerHTML = `<p class="text-sm text-gray-500 italic text-center" id="initialMessage">${message}</p>`;
         }
-
         function displaySuccess(items) {
             resultsDiv.classList.remove('flex', 'items-center', 'justify-center', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
             resultsDiv.classList.add('border-green-600', 'border-2', 'p-3', 'bg-transparent');
-            
+
             let htmlContent = '';
-            
+
             items.forEach(item => {
                 let cardContent = '';
-                let validContentFoundInCard = false; 
-                
+                let validContentFoundInCard = false;
+
                 DISPLAY_ORDER.forEach(key => {
                     if (item.hasOwnProperty(key)) {
-                        const value = item[key]; 
-                        
+                        const value = item[key];
+
                         cardContent += `
                             <div class="flex flex-col mb-1">
                                 <span class="text-xs font-medium uppercase text-gray-400">${key.toUpperCase()}:</span>
                                 <span class="text-sm text-white font-medium break-words">${value}</span>
                             </div>
                         `;
-                        
+
                         if (value !== null && value !== undefined && String(value).trim() !== "") {
                             validContentFoundInCard = true;
                         }
                     }
                 });
-                
+
                 if (validContentFoundInCard) {
                     htmlContent += `
                         <div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">
@@ -1841,7 +1782,7 @@
                     `;
                 }
             });
-            
+
             if (htmlContent === '') {
                 resultsBlock.classList.add('hidden');
                 displayError("Nenhum item com dados para exibição encontrado.", false);
@@ -1849,15 +1790,14 @@
                 resultsDiv.innerHTML = htmlContent;
             }
         }
-
         function displayError(message, isCritical) {
             resultsBlock.classList.remove('hidden');
-            
+
             resultsDiv.classList.remove('flex', 'flex-col', 'items-center', 'justify-center', 'border-dashed', 'border-green-600', 'bg-transparent');
             resultsDiv.classList.add('p-3', 'rounded-lg', 'border-red-600', 'border-2', 'bg-[#1a1a1a]');
-            
+
             let logMessage = isCritical ? `<p class="text-xs text-red-400 mt-2">Verifique a URL e a Implantação do Apps Script.</p>` : "";
-            
+
             resultsDiv.innerHTML = `
                 <div class="text-center">
                     <p class="text-base font-bold text-red-500 mb-2">❌ Erro na Busca:</p>
@@ -1871,10 +1811,9 @@
                 itemSearchBlock.classList.add('hidden');
             }
         }
-
         // Inicializa a tela de resultados
         document.addEventListener('DOMContentLoaded', initializeApp);
-        
+
         function initializeApp() {
             const hasCache = !!getCachedPedidos();
             if (!hasCache) {
@@ -1882,68 +1821,124 @@
             }
             itemSearchBlock.classList.add('hidden');
             resultsBlock.classList.add('hidden');
-            fetchAllPedidos(); 
+            switchPage('inicio');   // a tela inicial passa a ser o menu
+            fetchAllPedidos();
         }
-        
+
         function copyToClipboard(text) {
             console.log("Cópia de texto não implementada na interface.");
             return false;
         }
-
-        // --- Navegação entre páginas (Localizador / Formulários de Obra) ---
-        const pageLocalizador = document.getElementById('page-localizador');
-        const pageSeparador = document.getElementById('page-separador');
-        const pageFormularios = document.getElementById('page-formularios');
-        const pageCronograma = document.getElementById('page-cronograma');
-        const navLocalizador = document.getElementById('navLocalizador');
-        const navSeparador = document.getElementById('navSeparador');
-        const navFormularios = document.getElementById('navFormularios');
-        const navCronograma = document.getElementById('navCronograma');
+        /* ============================================================
+           Navegação — página inicial com menu
+           A barra de abas do rodapé foi substituída por um menu na
+           tela inicial. Cada opção abre uma página; o botão de voltar
+           no cabeçalho traz de volta para o menu.
+        ============================================================ */
+        const PAGINAS = ['inicio', 'localizador', 'separador', 'documentos', 'formularios', 'cronograma'];
+        const appHeader = document.getElementById('appHeader');
+        const btnVoltar = document.getElementById('btnVoltar');
+        const headerLogo = document.getElementById('headerLogo');
         const headerTitle = document.getElementById('headerTitle');
-
         const PAGE_TITLES = {
+            inicio: 'ObraFlow',
             localizador: 'Localizador de Itens',
             separador: 'Separador de Obra',
+            documentos: 'Documentos de Montagem',
             formularios: 'Formulários de Obra',
             cronograma: 'Cronograma de Obra'
         };
-
-        // Ícones do cabeçalho — cada um espelha o ícone correspondente da nav inferior
-        const HEADER_ICONS = {
-            localizador: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
-            separador: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
-            formularios: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
-            cronograma: '<svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        // Os desenhos são os mesmos que estavam nas abas do rodapé.
+        // Ficam sem cor fixa (currentColor) para servirem tanto no
+        // cabeçalho quanto dentro do quadrinho verde do menu.
+        const ICONES = {
+            inicio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
+            localizador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
+            separador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
+            documentos: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
+            formularios: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
+            cronograma: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
         };
-
-        function switchPage(page) {
-            pageLocalizador.classList.toggle('hidden', page !== 'localizador');
-            pageSeparador.classList.toggle('hidden', page !== 'separador');
-            pageFormularios.classList.toggle('hidden', page !== 'formularios');
-            pageCronograma.classList.toggle('hidden', page !== 'cronograma');
-
-            navLocalizador.classList.toggle('active', page === 'localizador');
-            navSeparador.classList.toggle('active', page === 'separador');
-            navFormularios.classList.toggle('active', page === 'formularios');
-            navCronograma.classList.toggle('active', page === 'cronograma');
-
-            headerTitle.textContent = PAGE_TITLES[page] || '';
-
-            const currentIcon = document.getElementById('headerIcon');
-            if (currentIcon && HEADER_ICONS[page]) {
-                currentIcon.outerHTML = HEADER_ICONS[page];
+        const SETA_MENU = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+        // A ORDEM DESTA LISTA é a ordem do menu na tela.
+        // Para acrescentar uma opção nova, basta incluir aqui e criar
+        // a <div id="page-XXX"> correspondente lá em cima.
+        const MENU_ITENS = [
+            { pagina: 'localizador', titulo: 'Localizador de Itens',    descricao: 'Identifique o volume pelo código do item' },
+            { pagina: 'separador',   titulo: 'Separador de Obra',       descricao: 'Identifique o conjunto pelo código do item' },
+            { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montegem e links 3D' },
+            { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retornode Obra, Checklists e Melhorias' },
+            { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' }
+        ];
+        let menuRecolhido = false;
+        /**
+         * Desenha as opções do menu. É chamada toda vez que a tela
+         * inicial aparece — é isso que faz as opções entrarem em
+         * cascata, uma depois da outra, como uma lista carregando.
+         */
+        function renderMenu() {
+            const lista = document.getElementById('menuLista');
+            if (!lista) return;
+            lista.innerHTML = '';
+            MENU_ITENS.forEach((item, i) => {
+                const botao = document.createElement('button');
+                botao.type = 'button';
+                botao.className = 'menu-item';
+                botao.style.animationDelay = (i * 70) + 'ms';
+                botao.addEventListener('click', () => switchPage(item.pagina));
+                botao.innerHTML =
+                    '<span class="menu-item-icone">' + (ICONES[item.pagina] || '') + '</span>' +
+                    '<span class="menu-item-texto"><strong>' + item.titulo + '</strong>' +
+                    '<span>' + item.descricao + '</span></span>' +
+                    '<span class="menu-item-seta">' + SETA_MENU + '</span>';
+                lista.appendChild(botao);
+            });
+        }
+        /** Recolhe ou mostra as opções. Ao mostrar, a cascata roda de novo. */
+        function alternarMenu() {
+            menuRecolhido = !menuRecolhido;
+            const lista = document.getElementById('menuLista');
+            const botao = document.getElementById('menuToggle');
+            const texto = document.getElementById('menuToggleTexto');
+            botao.classList.toggle('recolhido', menuRecolhido);
+            texto.textContent = menuRecolhido ? 'Mostrar' : 'Recolher';
+            if (menuRecolhido) {
+                lista.classList.add('recolhida');
+            } else {
+                lista.classList.remove('recolhida');
+                renderMenu();
             }
         }
-
+        function voltarInicio() {
+            switchPage('inicio');
+        }
+        function switchPage(page) {
+            PAGINAS.forEach(nome => {
+                const el = document.getElementById('page-' + nome);
+                if (el) el.classList.toggle('hidden', nome !== page);
+            });
+            headerTitle.textContent = PAGE_TITLES[page] || '';
+            const currentIcon = document.getElementById('headerIcon');
+            if (currentIcon && ICONES[page]) {
+                currentIcon.outerHTML =
+                    '<span id="headerIcon" class="h-4 w-4 mr-2 flex-shrink-0 inline-flex">' +
+                    ICONES[page] + '</span>';
+            }
+            // A tela inicial não usa a barra do topo: o logo dela já fica
+            // acima do menu, e não há para onde voltar.
+            appHeader.classList.toggle('hidden', page === 'inicio');
+            btnVoltar.classList.toggle('hidden', page === 'inicio');
+            headerLogo.classList.toggle('hidden', page === 'inicio');
+            window.scrollTo(0, 0);
+            if (page === 'inicio' && !menuRecolhido) renderMenu();
+        }
         // --- Formulários (Inconformidades / Melhorias) ---
-
         const SUPERVISORES = [
             "Jocélio Almeida",
             "Juarez Barasuol",
             "Marcelo de Oliveira",
             "Jair Milbradt"
         ];
-
         function populateSupervisorSelect(selectId) {
             const select = document.getElementById(selectId);
             if (!select || select.dataset.populated) return;
@@ -1955,22 +1950,18 @@
             });
             select.dataset.populated = "true";
         }
-
         function setupDropzone(dropzoneId, fileInputId, fileNamesId) {
             const dropzone = document.getElementById(dropzoneId);
             const fileInput = document.getElementById(fileInputId);
             const fileNames = document.getElementById(fileNamesId);
             if (!dropzone || dropzone.dataset.bound) return;
-
             function updateFileNames() {
                 const files = fileInput.files;
                 fileNames.textContent = files.length > 0
                     ? Array.from(files).map(f => f.name).join(', ')
                     : '';
             }
-
             fileInput.addEventListener('change', updateFileNames);
-
             ['dragenter', 'dragover'].forEach(evt => {
                 dropzone.addEventListener(evt, (e) => {
                     e.preventDefault();
@@ -1978,7 +1969,6 @@
                     dropzone.classList.add('border-green-500');
                 });
             });
-
             ['dragleave', 'drop'].forEach(evt => {
                 dropzone.addEventListener(evt, (e) => {
                     e.preventDefault();
@@ -1986,17 +1976,14 @@
                     dropzone.classList.remove('border-green-500');
                 });
             });
-
             dropzone.addEventListener('drop', (e) => {
                 if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                     fileInput.files = e.dataTransfer.files;
                     updateFileNames();
                 }
             });
-
             dropzone.dataset.bound = "true";
         }
-
         function getNextLocalRegistro() {
             const key = 'localizador_inconformidade_protocolo';
             const current = Number(localStorage.getItem(key) || 0);
@@ -2004,7 +1991,6 @@
             localStorage.setItem(key, String(next));
             return String(next).padStart(5, '0');
         }
-
         function getNextLocalRegistroMelhoria() {
             const key = 'localizador_melhoria_registro';
             const current = Number(localStorage.getItem(key) || 0);
@@ -2012,11 +1998,9 @@
             localStorage.setItem(key, String(next));
             return String(next).padStart(5, '0');
         }
-
         async function filesToBase64Array(fileList) {
             const files = Array.from(fileList || []);
             const filesData = [];
-
             for (const file of files) {
                 const base64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -2024,41 +2008,33 @@
                     reader.onerror = () => reject(new Error(`Não foi possível ler o arquivo ${file.name}`));
                     reader.readAsDataURL(file);
                 });
-
                 filesData.push({
                     name: file.name,
                     type: file.type,
                     data: base64
                 });
             }
-
             return filesData;
         }
-
         async function gerarNumeroRegistro() {
             const input = document.getElementById('inc_registro');
             const button = document.getElementById('inc_gerarRegistroButton');
             if (!input) return;
-
             if (button) {
                 button.disabled = true;
                 button.textContent = 'GERANDO...';
             }
-
             try {
                 const response = await fetch(`${INCONFORMIDADES_URL}?action=getSequence`);
                 if (!response.ok) {
                     throw new Error(`Falha ao consultar o protocolo (${response.status})`);
                 }
-
                 const data = await response.json();
                 const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
-
                 if (nextRegistro) {
                     input.value = String(nextRegistro).trim();
                     return;
                 }
-
                 throw new Error('Resposta do Apps Script sem número de protocolo.');
             } catch (error) {
                 console.warn('Apps Script não respondeu com protocolo; usando fallback local.', error);
@@ -2070,31 +2046,25 @@
                 }
             }
         }
-
         async function gerarNumeroRegistroMelhoria() {
             const input = document.getElementById('mel_registro');
             const button = document.getElementById('mel_gerarRegistroButton');
             if (!input) return;
-
             if (button) {
                 button.disabled = true;
                 button.textContent = 'GERANDO...';
             }
-
             try {
                 const response = await fetch(`${MELHORIAS_URL}?action=getSequence`);
                 if (!response.ok) {
                     throw new Error(`Falha ao consultar o registro (${response.status})`);
                 }
-
                 const data = await response.json();
                 const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
-
                 if (nextRegistro) {
                     input.value = String(nextRegistro).trim();
                     return;
                 }
-
                 throw new Error('Resposta do Apps Script sem número de registro.');
             } catch (error) {
                 console.warn('Apps Script não respondeu com registro; usando fallback local.', error);
@@ -2106,10 +2076,8 @@
                 }
             }
         }
-
         async function createAsanaTaskFromInconformidade(payload) {
             const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
-
            const response = await fetch(INCONFORMIDADES_URL, {
     method: 'POST',
     headers: {
@@ -2129,25 +2097,20 @@
                     arquivos
                 })
             });
-
             const contentType = response.headers.get('content-type') || '';
             const body = contentType.includes('application/json')
                 ? await response.json()
                 : await response.text();
-
             if (!response.ok) {
                 const message = typeof body === 'object' && body && body.message
                     ? body.message
                     : (typeof body === 'string' ? body : `HTTP ${response.status}`);
                 throw new Error(message);
             }
-
             return body;
         }
-
         async function createAsanaTaskFromMelhoria(payload) {
             const arquivos = await filesToBase64Array(document.getElementById('mel_anexos').files);
-
             const response = await fetch(MELHORIAS_URL, {
                 method: 'POST',
                 headers: {
@@ -2169,22 +2132,18 @@
                     arquivos
                 })
             });
-
             const contentType = response.headers.get('content-type') || '';
             const body = contentType.includes('application/json')
                 ? await response.json()
                 : await response.text();
-
             if (!response.ok) {
                 const message = typeof body === 'object' && body && body.message
                     ? body.message
                     : (typeof body === 'string' ? body : `HTTP ${response.status}`);
                 throw new Error(message);
             }
-
             return body;
         }
-
         function resetInconformidadeForm() {
             const form = document.getElementById('formInconformidades');
             form.reset();
@@ -2193,20 +2152,15 @@
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
-
         async function submitInconformidade(event) {
             event.preventDefault();
-
             const submitButton = document.getElementById('inc_submitButton');
             const status = document.getElementById('inc_formStatus');
-
             submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
-
             await gerarNumeroRegistro();
-
             const payload = {
                 registro: document.getElementById('inc_registro').value.trim(),
                 pedido: document.getElementById('inc_pedido').value.trim(),
@@ -2219,7 +2173,6 @@
                 acaoCorrecao: document.getElementById('inc_acao').value.trim(),
                 supervisor: document.getElementById('inc_supervisor').value
             };
-
             if (!payload.registro) {
                 status.textContent = 'Não foi possível gerar o número de protocolo. Tente novamente.';
                 status.classList.add('text-red-400');
@@ -2227,13 +2180,10 @@
                 submitButton.innerHTML = 'Enviar';
                 return;
             }
-
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-
             try {
                 const taskResult = await createAsanaTaskFromInconformidade(payload);
                 console.log('Inconformidade enviada e tarefa criada no Asana:', payload, taskResult);
-
                 status.textContent = 'Inconformidade registrada com sucesso e tarefa enviada para o Asana!';
                 status.classList.add('text-green-400');
                 setTimeout(() => {
@@ -2248,7 +2198,6 @@
                 submitButton.innerHTML = 'Enviar';
             }
         }
-
         function resetMelhoriaForm() {
             const form = document.getElementById('formMelhorias');
             form.reset();
@@ -2257,20 +2206,15 @@
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
-
         async function submitMelhoria(event) {
             event.preventDefault();
-
             const submitButton = document.getElementById('mel_submitButton');
             const status = document.getElementById('mel_formStatus');
-
             submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
-
             await gerarNumeroRegistroMelhoria();
-
             const payload = {
                 registro: document.getElementById('mel_registro').value.trim(),
                 pedido: document.getElementById('mel_pedido').value.trim(),
@@ -2285,7 +2229,6 @@
                 melhoria: document.getElementById('mel_melhoria').value.trim(),
                 supervisor: document.getElementById('mel_supervisor').value
             };
-
             if (!payload.registro) {
                 status.textContent = 'Não foi possível gerar o número de registro. Tente novamente.';
                 status.classList.add('text-red-400');
@@ -2293,13 +2236,10 @@
                 submitButton.innerHTML = 'Enviar';
                 return;
             }
-
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-
             try {
                 const taskResult = await createAsanaTaskFromMelhoria(payload);
                 console.log('Melhoria enviada e tarefa criada no Asana:', payload, taskResult);
-
                 status.textContent = 'Melhoria registrada com sucesso e tarefa enviada para o Asana!';
                 status.classList.add('text-green-400');
                 setTimeout(() => {
@@ -2314,7 +2254,6 @@
                 submitButton.innerHTML = 'Enviar';
             }
         }
-
         function openForm(tipo) {
             const modal = document.getElementById(`modal-${tipo}`);
             if (!modal) {
@@ -2343,7 +2282,6 @@
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
         }
-
         function closeForm(tipo) {
             const modal = document.getElementById(`modal-${tipo}`);
             if (!modal) return;
@@ -2360,13 +2298,10 @@
                 resetRetornoForm();
             }
         }
-
         // ============================================================
         // Retorno de Obra — tabela dinâmica de itens + assinatura
         // ============================================================
-
         let retRowCounter = 0;
-
         function retAddRow() {
             retRowCounter++;
             const rowId = 'ret-row-' + retRowCounter;
@@ -2384,12 +2319,10 @@
             `;
             document.getElementById('ret_itemsBody').appendChild(tr);
         }
-
         function retRemoveRow(rowId) {
             const row = document.getElementById(rowId);
             if (row) row.remove();
         }
-
         function retCollectItems() {
             const rows = document.querySelectorAll('#ret_itemsBody tr');
             const items = [];
@@ -2405,7 +2338,6 @@
             });
             return items;
         }
-
         function resetRetornoForm() {
             const form = document.getElementById('formRetorno');
             form.reset();
@@ -2420,22 +2352,18 @@
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
-
         async function submitRetorno(event) {
             event.preventDefault();
-
             const submitButton = document.getElementById('ret_submitButton');
             const status = document.getElementById('ret_formStatus');
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
-
             const items = retCollectItems();
             if (items.length === 0) {
                 status.textContent = 'Informe ao menos um item na lista de retorno.';
                 status.classList.add('text-red-400');
                 return;
             }
-
             const payload = {
                 tipoItem: document.getElementById('ret_tipoItem').value,
                 pedido: document.getElementById('ret_pedido').value.trim(),
@@ -2445,14 +2373,11 @@
                 itens: items,
                 assinatura: chkGetSignatureDataUrl('sigRetorno')
             };
-
             // Envio ainda não conectado a um backend — dados prontos em "payload"
             // para quando a geração de PDF / integração for implementada.
             console.log('Retorno de Obra pronto para envio:', payload);
-
             submitButton.disabled = true;
             submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-
             setTimeout(() => {
                 status.textContent = 'Lista de retorno registrada!';
                 status.classList.add('text-green-400');
@@ -2461,25 +2386,21 @@
                 setTimeout(() => closeForm('retorno'), 1200);
             }, 400);
         }
-
         // ============================================================
         // Checklist de Entrega — seleção de equipamento + Elevador de Canecas
         // ============================================================
-
         function openChecklistTipo() {
             const modal = document.getElementById('modal-checklist-tipo');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
         }
-
         function closeChecklistTipo() {
             const modal = document.getElementById('modal-checklist-tipo');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.style.overflow = '';
         }
-
         const chkModelOptions = {
             elevador: [
                 'EL5P', 'EL6P', 'EL8P', 'EL10P', 'EL11P', 'EL13P', 'EL15P'
@@ -2488,7 +2409,6 @@
                 'RT150P', 'RT200P', 'RT250P', 'RT300P', 'RT350P', 'RT400P', 'RT500P'
             ]
         };
-
         function renderChecklistModelOptions(mode) {
             const select = document.getElementById('modelo');
             if (!select) return;
@@ -2501,7 +2421,6 @@
                 select.appendChild(option);
             });
         }
-
         function selectEquipamentoChecklist(tipo) {
             closeChecklistTipo();
             if (tipo === 'elevador-canecas') {
@@ -2511,7 +2430,6 @@
                 openChecklistRosca();
             }
         }
-
         function openChecklistElevador() {
             currentChecklistMode = 'elevador';
             renderChecklistModelOptions('elevador');
@@ -2533,7 +2451,6 @@
                 chkInitSignaturePad('sigCliente');
             });
         }
-
         function openChecklistRosca() {
             currentChecklistMode = 'rosca';
             renderChecklistModelOptions('rosca');
@@ -2555,22 +2472,18 @@
                 chkInitSignaturePad('sigCliente');
             });
         }
-
         function closeChecklistElevador() {
             const modal = document.getElementById('modal-checklist-elevador');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.style.overflow = '';
         }
-
         function voltarTipoChecklist() {
             closeChecklistElevador();
             openChecklistTipo();
         }
-
         // --- Conteúdo do Checklist de Entrega ---
         let currentChecklistMode = 'elevador';
-
         const chkElevadorLeftItems = [
           {group:'Conjunto Pé', label:'União da correia'},
           {group:'Conjunto Pé', label:'Esticamento da correia'},
@@ -2603,7 +2516,6 @@
           {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
           {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
         ];
-
         const chkRoscaLeftItems = [
         // Análise Mecânica Geral
         { group: 'Análise Mecânica Geral', label: 'Localização e comprimento conforme projeto' },
@@ -2617,43 +2529,36 @@
         { group: 'Análise Mecânica Geral', label: 'Pontos de captação de pó' },
         { group: 'Análise Mecânica Geral', label: 'Fixação do equipamento' },
         { group: 'Análise Mecânica Geral', label: 'Vedação (equipamento externo)' },
-
         // Acionamento
         { group: 'Acionamento', label: 'Posição do acionamento conforme projeto' },
         { group: 'Acionamento', label: 'Fixação dos acionamentos por arruelas de pressão' },
         { group: 'Acionamento', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
         { group: 'Acionamento', label: 'Nível do óleo do motoredutor' },
         ];
-
         const chkRoscaRightItems = [
         // Acionamento
         { group: 'Acionamento', label: 'Respiro do redutor destravado' },
         { group: 'Acionamento', label: 'Montagem e alinhamento do acoplamento' },
         { group: 'Acionamento', label: 'Lubrificação e fixação dos mancais externos' },
-
         // Sem Tampas
         { group: 'Sem Tampas', label: 'Posição de montagem dos helicóides (início/fim)' },
         { group: 'Sem Tampas', label: 'Alinhamento dos helicóides' },
         { group: 'Sem Tampas', label: 'Altura dos helicóides' },
         { group: 'Sem Tampas', label: 'Montagem correta dos helicóides com reforço' },
         { group: 'Sem Tampas', label: 'Lubrificação dos mancais intermediários' },
-
         // Teste
         { group: 'Teste', label: 'Sentido de rotação (fluxo)' },
         { group: 'Teste', label: 'Alinhamento/ruído do helicoide' },
-
         // Geral
         { group: 'Geral', label: 'Funcionamento de acessórios especiais' },
         { group: 'Geral', label: 'Acabamento e pintura do equipamento' },
         ];
-
         function getChecklistItems(mode) {
             if (mode === 'rosca') {
                 return { left: chkRoscaLeftItems, right: chkRoscaRightItems };
             }
             return { left: chkElevadorLeftItems, right: chkElevadorRightItems };
         }
-
         function chkBuildColumn(container, items, prefix) {
             let lastGroup = null;
             items.forEach((item, i) => {
@@ -2686,7 +2591,6 @@
                 container.appendChild(row);
             });
         }
-
         function renderChecklistColumns(mode) {
             const { left, right } = getChecklistItems(mode);
             const leftCol = document.getElementById('colLeft');
@@ -2697,19 +2601,16 @@
             chkBuildColumn(rightCol, right, mode === 'rosca' ? 'RR' : 'R');
             chkUpdateProgress();
         }
-
         // Segurança extra: impede que o formulário do checklist seja enviado
         // (o que recarregaria a página e apagaria os dados) caso o navegador
         // dispare um submit implícito, por exemplo ao confirmar uma data com Enter.
         document.getElementById('checklistForm').addEventListener('submit', (e) => {
             e.preventDefault();
         });
-
         function chkUpdateProgress() {
             const { left, right } = getChecklistItems(currentChecklistMode);
             const chkTotal = left.length + right.length;
             let filled = 0, ok = 0, nc = 0, na = 0;
-
             left.forEach((_, i) => {
                 const prefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
                 const v = document.getElementById(prefix + '-' + i)?.value;
@@ -2720,14 +2621,12 @@
                 const v = document.getElementById(prefix + '-' + i)?.value;
                 if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
             });
-
             document.getElementById('progressFill').style.width = (filled/chkTotal*100) + '%';
             document.getElementById('progressText').textContent = `${filled} de ${chkTotal} itens preenchidos`;
             document.getElementById('cntOK').textContent = `OK: ${ok}`;
             document.getElementById('cntNC').textContent = `NC: ${nc}`;
             document.getElementById('cntNA').textContent = `NA: ${na}`;
         }
-
         // Auto-formatação do campo TAG: usuário digita apenas o número (ex: 1) e o campo
         // exibe automaticamente no padrão EL-01 para elevador e RT-01 para rosca.
         (function(){
@@ -2740,7 +2639,6 @@
                 tagInput.value = prefix + (num < 10 ? '0' + num : String(num));
             });
         })();
-
         function chkVal(id){ return document.getElementById(id).value.trim(); }
         function chkFmtDate(iso){
             if(!iso) return '____/____/______';
@@ -2751,17 +2649,14 @@
             for(const el of document.getElementsByName(name)) if(el.checked) return el.value;
             return '';
         }
-
         // ── Quadro de assinatura digital (desenho na tela) ──
         // Assinar é opcional: se o campo ficar em branco, o PDF é gerado normalmente
         // com a linha vazia para assinatura à mão, exatamente como já era antes.
         const chkSignaturePads = {};
-
         function chkInitSignaturePad(canvasId) {
             const canvas = document.getElementById(canvasId);
             if (!canvas || canvas.dataset.bound === 'true') return;
             canvas.dataset.bound = 'true';
-
             const ctx = canvas.getContext('2d');
             const ratio = window.devicePixelRatio || 1;
             const displayWidth = canvas.clientWidth || 300;
@@ -2773,10 +2668,8 @@
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.strokeStyle = '#1a1a1a';
-
             const state = { drawing: false, hasDrawn: false };
             chkSignaturePads[canvasId] = { canvas, ctx, state };
-
             function getPos(e) {
                 const rect = canvas.getBoundingClientRect();
                 const p = e.touches && e.touches.length ? e.touches[0] : e;
@@ -2801,7 +2694,6 @@
                 ctx.stroke();
             }
             function end() { state.drawing = false; }
-
             canvas.addEventListener('mousedown', start);
             canvas.addEventListener('mousemove', move);
             window.addEventListener('mouseup', end);
@@ -2809,7 +2701,6 @@
             canvas.addEventListener('touchmove', move, { passive: false });
             canvas.addEventListener('touchend', end);
         }
-
         function chkUpdateSignatureStatus(canvasId) {
             const pad = chkSignaturePads[canvasId];
             const placeholder = document.getElementById(canvasId + 'Placeholder');
@@ -2823,7 +2714,6 @@
                 status.classList.toggle('signed', signed);
             }
         }
-
         function chkClearSignature(canvasId) {
             const pad = chkSignaturePads[canvasId];
             if (!pad) return;
@@ -2831,14 +2721,12 @@
             pad.state.hasDrawn = false;
             chkUpdateSignatureStatus(canvasId);
         }
-
         // Retorna a assinatura em PNG (data URL) ou null se o campo estiver vazio.
         function chkGetSignatureDataUrl(canvasId) {
             const pad = chkSignaturePads[canvasId];
             if (!pad || !pad.state.hasDrawn) return null;
             return pad.canvas.toDataURL('image/png');
         }
-
         function chkDataUrlToBytes(dataUrl) {
             const base64 = dataUrl.split(',')[1];
             const binary = atob(base64);
@@ -2846,7 +2734,6 @@
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             return bytes;
         }
-
         document.getElementById('btnReset').addEventListener('click', () => {
             if(confirm('Limpar todos os campos preenchidos?')){
                 document.getElementById('checklistForm').reset();
@@ -2857,9 +2744,7 @@
                 chkUpdateProgress();
             }
         });
-
         document.getElementById('btnPdf').addEventListener('click', chkGerarPDF);
-
         async function chkGerarPDF(){
             const btn = document.getElementById('btnPdf');
             const msg = document.getElementById('statusMsg');
@@ -2870,7 +2755,6 @@
                 const checklistTitle = currentChecklistMode === 'rosca'
                     ? 'Check-List de Entrega — Rosca Transportadora'
                     : 'Check-List de Entrega — Elevador de Canecas';
-
                 // --- CARREGANDO A LOGO DO GITHUB ---
                 const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
                 const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
@@ -2878,7 +2762,6 @@
                 const logoHeight = 24;
                 const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
                 // -----------------------------------
-
                 // --- Assinaturas desenhadas na tela (opcionais) ---
                 // Se a pessoa não assinou, os "Img" ficam null e o PDF é gerado
                 // normalmente, apenas com a linha em branco para assinar depois.
@@ -2886,11 +2769,9 @@
                 const sigClienteDataUrl = chkGetSignatureDataUrl('sigCliente');
                 const sigSupervisorImg = sigSupervisorDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigSupervisorDataUrl)) : null;
                 const sigClienteImg = sigClienteDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigClienteDataUrl)) : null;
-
                 const font = await doc.embedFont(StandardFonts.Helvetica);
                 const bold = await doc.embedFont(StandardFonts.HelveticaBold);
                 const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
-
                 const pageW = 595.28, pageH = 841.89, mg = 26;
                 const headerH = 58;
                 const green = rgb(0.102, 0.322, 0.251);
@@ -2899,14 +2780,11 @@
                 const muted = rgb(0.46, 0.47, 0.44);
                 const lineC = rgb(0.84, 0.85, 0.82);
                 const white = rgb(1,1,1);
-
                 let page = doc.addPage([pageW, pageH]);
                 let y = pageH - mg;
                 let firstPage = true;
-
                 const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; firstPage = false; };
                 const ensure = h => { if(y - h < mg) newPage(); };
-
                 const txt = (str, x, yy, opts={}) => {
                     page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
                 };
@@ -2926,7 +2804,6 @@
                     if(cur) lines.push(cur);
                     return lines.length ? lines : [''];
                 };
-
                 // ── Header block ──
                 hline(0, pageH-headerH, pageW, {t:2.5, color: greenDark});
                 page.drawImage(logoImage, {
@@ -2938,25 +2815,21 @@
                 txt(checklistTitle, mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
                 txt('TAG: '+chkVal('tag')+'   Código: '+chkVal('codigo')+'   Máscara: '+chkVal('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
                 y = pageH - headerH - 14;
-
                 txt('Pedido: '+chkVal('pedido'), mg, y, {size:9});
                 txt('Cliente: '+chkVal('cliente'), mg+140, y, {size:9});
                 txt('Modelo: '+chkVal('modelo'), mg+330, y, {size:9});
                 y -= 12;
                 txt('Local: '+chkVal('local'), mg, y, {size:9});
                 y -= 18;
-
                 // ── Section 1 ──
                 txt('CONFERÊNCIA DO PROCESSO DE MONTAGEM', mg, y, {size:10, font:bold, color:greenDark});
                 y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 11;
                 txt('Marque cada item com OK, NC (não conforme) ou NA (não aplicável)', mg, y, {size:8, font:italic, color:muted});
                 y -= 13;
-
                 const colTop = y;
                 const colW = (pageW-2*mg-20)/2;
                 const lX = mg, rX = mg+colW+20;
                 const rowH = 13;
-
                 const drawChecks = (items, x, prefix) => {
                     let yy = colTop;
                     let lastG = null;
@@ -2983,7 +2856,6 @@
                 const leftEnd = drawChecks(getChecklistItems(currentChecklistMode).left, lX, leftPrefix);
                 const rightEnd = drawChecks(getChecklistItems(currentChecklistMode).right, rX, rightPrefix);
                 y = Math.min(leftEnd, rightEnd) - 10;
-
                 ensure(90);
                 txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 50;
                 if (sigSupervisorImg) {
@@ -2994,7 +2866,6 @@
                 hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
                 y -= 32;
-
                 // ── Section 2 ──
                 ensure(90);
                 txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
@@ -3018,7 +2889,6 @@
                 hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
                 y -= 32;
-
                 // ── Section 3 ──
                 ensure(60);
                 txt('OBSERVAÇÕES / PARECER TÉCNICO', mg, y, {size:10, font:bold, color:greenDark});
@@ -3030,7 +2900,6 @@
                     for(let i=0;i<4;i++){ ensure(16); hline(mg,y,pageW-mg); y-=16; }
                 }
                 y -= 8;
-
                 // ── Notes ──
                 ensure(70);
                 const notes = [
@@ -3044,7 +2913,6 @@
                     wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
                 });
                 y -= 25;
-
                 // ── Closing ──
                 ensure(45);
                 hline(mg,y,pageW-mg); y -= 20;
@@ -3052,7 +2920,6 @@
                 txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
                 txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('Grupo SR',mg+240,y-13,{size:7,color:muted});
                 txt(chkVal('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
-
                 const bytes = await doc.save();
                 const blob = new Blob([bytes], {type:'application/pdf'});
                 const url = URL.createObjectURL(blob);
@@ -3071,7 +2938,7 @@
             }
         }
     </script>
-    
+
         <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
