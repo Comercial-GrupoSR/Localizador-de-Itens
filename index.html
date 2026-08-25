@@ -110,24 +110,27 @@
            desenhadas por JavaScript (renderMenu), o que faz elas
            entrarem em cascata toda vez que a tela inicial aparece.
         ============================================================ */
-               /* Faixa do logo: atravessa a tela de ponta a ponta e encosta no
+        /* Faixa do logo: atravessa a tela de ponta a ponta e encosta no
            topo. As margens negativas anulam o respiro do body (p-4 no
            celular, md:p-6 no computador), que é o que deixava sobrar
            aquela borda escura dos dois lados. */
         .inicio-topo {
             margin: -1rem -1rem 22px;
-            background: #0c4a31;
-            display: block;
+            /* A faixa acompanha a proporção da arte (1939 x 733), então a
+               imagem aparece inteira em qualquer largura de tela, sem corte.
+               Trocar o arquivo por outro de proporção diferente? Ajuste
+               estes dois números para os do arquivo novo. */
+            aspect-ratio: 1939 / 733;
+            /* A cor fica como reserva: é o que aparece enquanto a imagem
+               carrega, e se o arquivo faltar. */
+            background-color: #0c4a31;
+            background-image: url('fundo-topo.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         @media (min-width: 768px) {
             .inicio-topo { margin: -1.5rem -1.5rem 26px; }
-        }
-        /* O logo ocupa toda a largura disponível. O max-height é só uma
-           trava: se um dia o arquivo virar quadrado, ele não vira um
-           bloco gigante — fica centralizado sobre o verde da faixa. */
-        .inicio-topo img {
-            display: block; width: 100%; height: auto;
-            max-height: 200px; object-fit: contain; border-radius: 0;
         }
         .menu-cabecalho {
             display: flex; align-items: center; justify-content: space-between;
@@ -714,9 +717,7 @@
 
         <!-- ===================== PÁGINA INICIAL ===================== -->
         <div id="page-inicio">
-            <div class="inicio-topo">
-                <img src="icon-512.png" alt="ObraFlow">
-            </div>
+            <div class="inicio-topo" role="img" aria-label="ObraFlow — Grupo SR"></div>
             <div class="bg-[#2e2e2e] p-5 rounded-xl shadow-lg border border-[#3d3d3d]">
                 <div class="menu-cabecalho">
                     <div class="menu-titulo"><h2>Menu</h2></div>
@@ -1873,8 +1874,8 @@
         const MENU_ITENS = [
             { pagina: 'localizador', titulo: 'Localizador de Itens',    descricao: 'Identifique o volume pelo código do item' },
             { pagina: 'separador',   titulo: 'Separador de Obra',       descricao: 'Identifique o conjunto pelo código do item' },
-            { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montegem e links 3D' },
-            { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retornode Obra, Checklists e Melhorias' },
+            { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montagem e links 3D' },
+            { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
             { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' }
         ];
         let menuRecolhido = false;
