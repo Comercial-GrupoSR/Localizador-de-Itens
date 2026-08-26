@@ -97,6 +97,57 @@
         .sel-opcao.ativa {
             background: rgba(74,222,128,.14); color: #4ade80; font-weight: 600;
         }
+        /* Abre para cima quando não há espaço embaixo (campo no fim de um
+           formulário longo, por exemplo). */
+        .sel-lista.acima { top: auto; bottom: calc(100% + 6px); }
+
+        /* Versão compacta: os OK / NC / NA do Checklist de Entrega. */
+        .sel-mini { flex: 0 0 56px; width: 56px; }
+        .sel-mini .sel-botao {
+            width: 56px; padding: 4px 2px; gap: 0; justify-content: center;
+            font-size: 11px; font-weight: 700; border-radius: 6px; color: #9ca3af;
+        }
+        .sel-mini .sel-botao svg { display: none; }
+        .sel-mini .sel-rotulo { text-align: center; }
+        .sel-mini .sel-lista { left: 0; right: auto; min-width: 76px; padding: 4px; }
+        .sel-mini .sel-opcao { padding: 9px 10px; text-align: center; font-weight: 700; }
+        .sel-mini .sel-botao[data-valor="OK"] {
+            background: rgba(74,222,128,.15); color: #4ade80; border-color: #4ade80;
+        }
+        .sel-mini .sel-botao[data-valor="NC"] {
+            background: rgba(248,113,113,.15); color: #f87171; border-color: #f87171;
+        }
+        .sel-mini .sel-botao[data-valor="NA"] {
+            background: rgba(156,163,175,.15); color: #9ca3af; border-color: #6b7280;
+        }
+        /* O checklist tem uma regra genérica para "button" que atropelaria
+           a lista aqui dentro. Estas quatro devolvem o visual certo. */
+        #checklistElevadorRoot .sel-botao {
+            padding: 0.625rem 0.75rem; font-size: 0.95rem; font-weight: 500;
+            border-radius: 0.5rem; justify-content: flex-start; gap: 10px;
+            background: #1f1f1f; border: 1px solid #444; color: #fff;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao {
+            padding: 4px 2px; font-size: 11px; font-weight: 700;
+            border-radius: 6px; justify-content: center; gap: 0;
+            color: #9ca3af;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="OK"] {
+            background: rgba(74,222,128,.15); color: #4ade80; border-color: #4ade80;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="NC"] {
+            background: rgba(248,113,113,.15); color: #f87171; border-color: #f87171;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="NA"] {
+            background: rgba(156,163,175,.15); color: #9ca3af; border-color: #6b7280;
+        }
+        #checklistElevadorRoot .sel-opcao {
+            padding: 11px 12px; font-size: 0.9rem; font-weight: 400;
+            border-radius: 7px; justify-content: flex-start; display: block;
+        }
+        #checklistElevadorRoot .sel-mini .sel-opcao {
+            padding: 9px 10px; font-weight: 700; text-align: center;
+        }
         .btn-green-custom {
             background-color: var(--green-title);
         }
@@ -1609,13 +1660,54 @@
            visível e devolvem a escolha para ele — nada da lógica do app
            precisou mudar por causa disso.
         ============================================================ */
+        const SEL_SETA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
         function selCaixa(el) { return el.closest('.sel'); }
+        /**
+         * Transforma um <select> comum na lista própria: cria o botão e o
+         * painel, e esconde o original. O <select> continua guardando o
+         * valor, então validação, form.reset() e o onchange seguem iguais.
+         */
+        function selPreparar(select) {
+            if (!select || select.dataset.selPronto === '1') return;
+            if (selCaixa(select)) { select.dataset.selPronto = '1'; return; } // já veio pronto do HTML
+
+            const caixa = document.createElement('div');
+            caixa.className = 'sel' + (select.classList.contains('status-sel') ? ' sel-mini' : '');
+            select.parentNode.insertBefore(caixa, select);
+
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'sel-botao';
+            botao.innerHTML = '<span class="sel-rotulo"></span>' + SEL_SETA;
+            botao.addEventListener('click', () => selAlternar(botao));
+
+            const lista = document.createElement('div');
+            lista.className = 'sel-lista hidden';
+
+            caixa.appendChild(botao);
+            caixa.appendChild(lista);
+            caixa.appendChild(select);
+
+            select.classList.add('sel-nativo');
+            select.setAttribute('tabindex', '-1');
+            select.dataset.selPronto = '1';
+            selSincronizar(select);
+        }
+        /** Prepara todos os <select> que ainda não foram trocados. */
+        function selPrepararTodos(raiz) {
+            (raiz || document).querySelectorAll('select').forEach(selPreparar);
+        }
+        /** Redesenha todas as listas de um trecho da tela (depois de reset). */
+        function selSincronizarTodos(raiz) {
+            (raiz || document).querySelectorAll('select').forEach(selSincronizar);
+        }
         /** Redesenha o botão e a lista a partir das opções do <select>. */
         function selSincronizar(select) {
             const caixa = selCaixa(select);
             if (!caixa) return;
             const lista = caixa.querySelector('.sel-lista');
             const rotulo = caixa.querySelector('.sel-rotulo');
+            const botao = caixa.querySelector('.sel-botao');
             lista.innerHTML = '';
             Array.from(select.options).forEach(op => {
                 const item = document.createElement('button');
@@ -1626,7 +1718,10 @@
                 lista.appendChild(item);
             });
             const atual = select.options[select.selectedIndex];
-            rotulo.textContent = atual ? atual.textContent : '--- Selecione um Pedido ---';
+            rotulo.textContent = atual ? atual.textContent : '';
+            // usado pelas cores de OK / NC / NA
+            if (select.value) botao.dataset.valor = select.value;
+            else delete botao.dataset.valor;
         }
         /** Grava a escolha no <select> e dispara o onchange original. */
         function selEscolher(select, valor) {
@@ -1647,7 +1742,14 @@
             selFecharTodas();
             if (!abrindo) return;
             caixa.classList.add('aberta');
-            caixa.querySelector('.sel-lista').classList.remove('hidden');
+            const lista = caixa.querySelector('.sel-lista');
+            lista.classList.remove('hidden', 'acima');
+            // Sem espaço embaixo (campo no fim de um formulário)? abre para cima.
+            const r = botao.getBoundingClientRect();
+            const alturaLista = lista.offsetHeight;
+            if (r.bottom + alturaLista + 12 > window.innerHeight && r.top > alturaLista + 12) {
+                lista.classList.add('acima');
+            }
             // deixa a opção já escolhida à vista ao abrir
             const ativa = caixa.querySelector('.sel-opcao.ativa');
             if (ativa) ativa.scrollIntoView({ block: 'nearest' });
@@ -1968,6 +2070,7 @@
             }
             itemSearchBlock.classList.add('hidden');
             resultsBlock.classList.add('hidden');
+            selPrepararTodos();     // troca todas as listas nativas pelas nossas
             switchPage('inicio');   // a tela inicial passa a ser o menu
             fetchAllPedidos();
         }
@@ -2096,6 +2199,8 @@
                 select.appendChild(option);
             });
             select.dataset.populated = "true";
+            selPreparar(select);
+            selSincronizar(select);
         }
         function setupDropzone(dropzoneId, fileInputId, fileNamesId) {
             const dropzone = document.getElementById(dropzoneId);
@@ -2294,6 +2399,7 @@
         function resetInconformidadeForm() {
             const form = document.getElementById('formInconformidades');
             form.reset();
+            selSincronizarTodos(form);
             document.getElementById('inc_fileNames').textContent = '';
             const status = document.getElementById('inc_formStatus');
             status.textContent = '';
@@ -2348,6 +2454,7 @@
         function resetMelhoriaForm() {
             const form = document.getElementById('formMelhorias');
             form.reset();
+            selSincronizarTodos(form);
             document.getElementById('mel_fileNames').textContent = '';
             const status = document.getElementById('mel_formStatus');
             status.textContent = '';
@@ -2488,6 +2595,7 @@
         function resetRetornoForm() {
             const form = document.getElementById('formRetorno');
             form.reset();
+            selSincronizarTodos(form);
             document.getElementById('ret_itemsBody').innerHTML = '';
             document.getElementById('ret_itemsBody').dataset.initialized = '';
             retAddRow();
@@ -2567,6 +2675,8 @@
                 option.textContent = model;
                 select.appendChild(option);
             });
+            selPreparar(select);
+            selSincronizar(select);
         }
         function selectEquipamentoChecklist(tipo) {
             closeChecklistTipo();
@@ -2746,6 +2856,8 @@
             rightCol.innerHTML = '';
             chkBuildColumn(leftCol, left, mode === 'rosca' ? 'RL' : 'L');
             chkBuildColumn(rightCol, right, mode === 'rosca' ? 'RR' : 'R');
+            selPrepararTodos(leftCol);   // OK / NC / NA também trocam de lista
+            selPrepararTodos(rightCol);
             chkUpdateProgress();
         }
         // Segurança extra: impede que o formulário do checklist seja enviado
@@ -2885,6 +2997,7 @@
             if(confirm('Limpar todos os campos preenchidos?')){
                 document.getElementById('checklistForm').reset();
                 document.querySelectorAll('#checklistElevadorRoot select.status-sel').forEach(s => s.classList.remove('v-OK','v-NC','v-NA'));
+                selSincronizarTodos(document.getElementById('checklistElevadorRoot'));
                 chkClearSignature('sigSupervisor');
                 chkClearSignature('sigCliente');
                 document.getElementById('statusMsg').textContent = '';
