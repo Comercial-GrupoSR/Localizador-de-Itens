@@ -973,6 +973,13 @@
             transition: border-color .15s ease, background .15s ease;
         }
         .sep-camera:hover { border-color: #4ade80; background: #262626; }
+        /* O campo é uppercase para o que o supervisor digita, mas o
+           texto de exemplo herdava isso e não cabia na tela do celular. */
+        #sepCodigo::placeholder {
+            text-transform: none;
+            font-size: 0.9rem;
+            opacity: .75;
+        }
         .sep-camera svg { width: 22px; height: 22px; }
         .sep-leitor-video {
             width: 100%; max-height: 62vh; background: #000;
@@ -1020,7 +1027,7 @@
             </label>
             <div class="sep-busca">
                 <input type="text" id="sepCodigo" inputmode="numeric"
-                       placeholder="Bipe a etiqueta ou digite o código"
+                       placeholder="Etiqueta ou código"
                        class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
                 <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
@@ -1100,7 +1107,7 @@
     /* Campos do resultado, na ordem em que aparecem.
        Esquerda: nome da coluna na aba Dados. Direita: o rótulo lido. */
     const SEP_CAMPOS = [
-        ['NUM_PEDIDO',    'NÚMERO DO PEDIDO'],
+        ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
         ['QTDE_CARGA',    'QTDE'],
         ['COD_PECA',      'CÓDIGO PEÇA'],
         ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
