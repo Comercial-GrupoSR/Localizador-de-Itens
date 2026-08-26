@@ -940,11 +940,419 @@
                 </div>
             </div>
         </div>
+        
+<!-- =====================================================================
+     SEPARADOR DE OBRA
+
+     COMO USAR: no index.html, substitua TODO o bloco
+
+         <div id="page-separador" class="hidden">
+             ... (o texto "Em breve") ...
+         </div>
+
+     por tudo que está neste arquivo. Não é preciso mexer em mais
+     nenhum lugar do index.html — o estilo, a tela, o leitor e o
+     JavaScript estão todos aqui dentro.
+
+     A URL do Separador_Item.gs já está preenchida no <script>.
+===================================================================== -->
+
 <div id="page-separador" class="hidden">
-    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
-        <h2 class="text-base font-semibold mb-2 text-gray-200">Separador de Obra</h2>
-        <p class="text-sm text-gray-400">Em breve: informe o código do item para descobrir a qual conjunto de montagem ele pertence.</p>
+
+    <style>
+        /* Campo de busca com o botão da câmera ao lado.
+           Os cartões de resultado não têm estilo próprio: usam as
+           mesmas classes do Localizador de Itens. */
+        .sep-busca { display: flex; gap: 8px; align-items: stretch; }
+        .sep-busca input { flex: 1; min-width: 0; }
+        .sep-camera {
+            flex: 0 0 46px; width: 46px;
+            display: flex; align-items: center; justify-content: center;
+            background: #1f1f1f; border: 1px solid #444; border-radius: 0.5rem;
+            color: #4ade80; cursor: pointer;
+            transition: border-color .15s ease, background .15s ease;
+        }
+        .sep-camera:hover { border-color: #4ade80; background: #262626; }
+        .sep-camera svg { width: 22px; height: 22px; }
+        .sep-leitor-video {
+            width: 100%; max-height: 62vh; background: #000;
+            border-radius: 10px; display: block; object-fit: cover;
+        }
+        .sep-leitor-mira {
+            position: absolute; left: 8%; right: 8%; top: 50%;
+            height: 2px; background: rgba(74,222,128,.85);
+            transform: translateY(-50%); pointer-events: none;
+            box-shadow: 0 0 12px rgba(74,222,128,.7);
+        }
+        .sep-leitor-dica {
+            font-size: 12px; color: #9ca3af; text-align: center;
+            margin-top: 10px; line-height: 1.5;
+        }
+    </style>
+
+    <!-- 1. Pedido -->
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+        <label for="separadorClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+            Pedido (com nome do Cliente)
+        </label>
+        <div class="sel">
+            <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                <span class="sel-rotulo">Carregando Pedidos...</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+            <div class="sel-lista hidden"></div>
+            <select id="separadorClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                    onchange="onSeparadorPedidoChange(this.value)">
+                <option value="">Carregando Pedidos...</option>
+            </select>
+        </div>
     </div>
+
+    <!-- 2. Código -->
+    <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+        <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Bipar ou digitar o código</h2>
+        <div class="mb-4">
+            <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
+                Etiqueta ou código do item
+            </label>
+            <div class="sep-busca">
+                <input type="text" id="sepCodigo" inputmode="numeric"
+                       placeholder="Bipe a etiqueta ou digite o código"
+                       class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
+                <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                        <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <button id="sepBotao" onclick="buscarSeparador()"
+                class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+            </svg>
+            Buscar
+        </button>
+    </div>
+
+    <!-- 3. Resultado -->
+    <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+        <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
+        <div id="sepResults"></div>
+    </div>
+
+    <!-- Leitor de código de barras -->
+    <div id="modal-leitor" class="fixed inset-0 z-[70] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.85);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
+                    </svg>
+                    Ler etiqueta
+                </h2>
+                <button type="button" onclick="fecharLeitor()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <div style="position:relative;">
+                    <video id="sepLeitorVideo" class="sep-leitor-video" playsinline muted></video>
+                    <div class="sep-leitor-mira"></div>
+                </div>
+                <p class="sep-leitor-dica" id="sepLeitorDica">Preparando a câmera...</p>
+                <div class="flex gap-2" style="margin-top:12px;">
+                    <button type="button" onclick="document.getElementById('sepLeitorFoto').click()"
+                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
+                        Ler por foto
+                    </button>
+                    <button type="button" onclick="fecharLeitor()"
+                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
+                        Cancelar
+                    </button>
+                </div>
+                <input type="file" id="sepLeitorFoto" accept="image/*" capture="environment" class="hidden"
+                       onchange="sepLerPorFoto(this)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* =================================================================
+       SEPARADOR DE OBRA
+       Tudo desta página vive aqui: nada precisa ser tocado no resto
+       do index.html.
+    ================================================================= */
+
+    /* URL /exec do Separador_Item.gs. Ao republicar o Apps Script com
+       'Nova versão', esta URL NÃO muda — só muda se você criar uma
+       implantação nova em vez de editar a existente. */
+    const SEPARADOR_URL = "https://script.google.com/macros/s/AKfycbwd47cNVd98nGiHTE7ZRw1vuJfJx8eRlS1ZeKiKv1IQZHXOaGyTSVncwiXpGn9KtkJV/exec";
+
+    /* Campos do resultado, na ordem em que aparecem.
+       Esquerda: nome da coluna na aba Dados. Direita: o rótulo lido. */
+    const SEP_CAMPOS = [
+        ['NUM_PEDIDO',    'NÚMERO DO PEDIDO'],
+        ['QTDE_CARGA',    'QTDE'],
+        ['COD_PECA',      'CÓDIGO PEÇA'],
+        ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
+        ['CARREGAMENTO',  'CARREGAMENTO'],
+        ['COD_FANTASMA',  'COD FANTASMA'],
+        ['DESC_FANTASMA', 'DESCRIÇÃO FANTASMA']
+    ];
+
+    let sepPedido = null;
+
+    /* ---------------------------------------------------------------
+       Lista de pedidos
+       Em vez de alterar o populateClientSelect do app, esta página
+       preenche a própria lista toda vez que é aberta, a partir do
+       allPedidos que o app já carregou. Assim o bloco fica isolado.
+    --------------------------------------------------------------- */
+    function sepAtualizarPedidos() {
+        const select = document.getElementById('separadorClientSelect');
+        if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
+        if (select.dataset.carregado === String(allPedidos.length)) return;
+        populateSelectWithPedidos(select, allPedidos);
+        select.dataset.carregado = String(allPedidos.length);
+    }
+
+    function onSeparadorPedidoChange(valor) {
+        sepPedido = (valor || '').trim().toUpperCase();
+        document.getElementById('sepResultsBlock').classList.add('hidden');
+        document.getElementById('sepCodigo').value = '';
+        const busca = document.getElementById('sepBuscaBlock');
+        if (sepPedido) {
+            busca.classList.remove('hidden');
+            document.getElementById('sepCodigo').focus();
+        } else {
+            busca.classList.add('hidden');
+        }
+    }
+
+    /* ---------------------------------------------------------------
+       Busca
+    --------------------------------------------------------------- */
+    async function buscarSeparador() {
+        const codigo = document.getElementById('sepCodigo').value.trim();
+        const botao = document.getElementById('sepBotao');
+        const alvo = document.getElementById('sepResults');
+
+        if (!codigo) {
+            sepMensagem('Bipe a etiqueta ou digite o código do item.', false);
+            return;
+        }
+
+        const htmlBotao = botao.innerHTML;
+        botao.disabled = true;
+        botao.innerHTML = '<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...';
+        document.getElementById('sepResultsBlock').classList.remove('hidden');
+        alvo.className = '';
+        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+
+        try {
+            const url = SEPARADOR_URL + '?mode=separador'
+                      + '&pedido=' + encodeURIComponent(sepPedido || '')
+                      + '&codigo=' + encodeURIComponent(codigo);
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const dados = await resposta.json();
+
+            if (dados && dados.error) {
+                sepMensagem(dados.error, true);
+            } else if (dados && Array.isArray(dados.itens) && dados.itens.length) {
+                sepDesenhar(dados.itens);
+            } else {
+                sepMensagem('Nenhum resultado.', true);
+            }
+        } catch (erro) {
+            sepMensagem('Erro de conexão. ' + erro.message, true);
+        } finally {
+            botao.disabled = false;
+            botao.innerHTML = htmlBotao;
+        }
+    }
+
+    /* Mesmo cartão do Localizador de Itens. */
+    function sepDesenhar(itens) {
+        const alvo = document.getElementById('sepResults');
+        alvo.className = 'border-green-600 border-2 p-3 rounded-lg';
+
+        let html = '';
+        itens.forEach(item => {
+            let campos = '';
+            SEP_CAMPOS.forEach(function (par) {
+                const valor = item[par[0]];
+                campos += '<div class="flex flex-col mb-1">'
+                        + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
+                        + '<span class="text-sm text-white font-medium break-words">'
+                        + sepEsc(valor === '' || valor === null || valor === undefined ? '—' : valor)
+                        + '</span></div>';
+            });
+            html += '<div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
+                  + '<div class="p-1 text-white">' + campos + '</div></div>';
+        });
+        alvo.innerHTML = html;
+    }
+
+    function sepMensagem(texto, erro) {
+        const alvo = document.getElementById('sepResults');
+        document.getElementById('sepResultsBlock').classList.remove('hidden');
+        if (erro) {
+            alvo.className = 'p-3 rounded-lg border-red-600 border-2 bg-[#1a1a1a]';
+            alvo.innerHTML = '<div class="text-center">'
+                + '<p class="text-base font-bold text-red-500 mb-2">❌ Não encontrado:</p>'
+                + '<p class="text-gray-400 break-words text-sm">' + sepEsc(texto) + '</p></div>';
+        } else {
+            alvo.className = 'p-3 rounded-lg border border-dashed border-[#444] bg-[#1a1a1a]';
+            alvo.innerHTML = '<p class="text-sm text-gray-500 italic text-center">' + sepEsc(texto) + '</p>';
+        }
+    }
+
+    function sepEsc(t) {
+        return String(t === null || t === undefined ? '' : t).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        });
+    }
+
+    /* ---------------------------------------------------------------
+       Leitor de código de barras
+       A biblioteca só é baixada quando a câmera abre pela primeira
+       vez — não pesa no carregamento do app.
+    --------------------------------------------------------------- */
+    const SEP_ZXING_URL = 'https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js';
+    let sepZxing = null;
+    let sepControles = null;
+
+    function sepCarregarZXing() {
+        if (sepZxing) return sepZxing;
+        sepZxing = new Promise(function (ok, erro) {
+            if (window.ZXingBrowser) return ok();
+            const s = document.createElement('script');
+            s.src = SEP_ZXING_URL;
+            s.onload = function () {
+                window.ZXingBrowser ? ok() : erro(new Error('A biblioteca carregou mas não inicializou.'));
+            };
+            s.onerror = function () {
+                erro(new Error('Não foi possível baixar o leitor. Verifique a internet.'));
+            };
+            document.head.appendChild(s);
+        });
+        return sepZxing;
+    }
+
+    /* Os hints precisam ir no CONSTRUTOR: é ele que chama setHints por
+       dentro. Passar depois não tem efeito. O TRY_HARDER (chave 3) é o
+       que faz ler a etiqueta deitada. */
+    function sepHints() {
+        const H = new Map();
+        const F = ZXingBrowser.BarcodeFormat || {};
+        H.set(2, [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8,
+                  F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.QR_CODE]
+                 .filter(function (v) { return v !== undefined; }));
+        H.set(3, true);
+        return H;
+    }
+
+    async function abrirLeitor() {
+        const modal = document.getElementById('modal-leitor');
+        const dica = document.getElementById('sepLeitorDica');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        dica.textContent = 'Preparando a câmera...';
+
+        try {
+            await sepCarregarZXing();
+        } catch (e) {
+            dica.textContent = e.message + ' Use o botão "Ler por foto".';
+            return;
+        }
+
+        try {
+            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints(), {
+                delayBetweenScanAttempts: 120
+            });
+            dica.textContent = 'Aponte para o código. Funciona também com a etiqueta deitada.';
+            sepControles = await leitor.decodeFromConstraints(
+                { video: { facingMode: { ideal: 'environment' } } },
+                document.getElementById('sepLeitorVideo'),
+                function (resultado) { if (resultado) sepAceitar(resultado.getText()); }
+            );
+        } catch (e) {
+            const negada = e && (e.name === 'NotAllowedError' ||
+                                 /permission|denied/i.test(e.message || ''));
+            dica.textContent = negada
+                ? 'Permissão de câmera negada. Libere nas configurações do navegador.'
+                : 'Não foi possível abrir a câmera. Use o botão "Ler por foto".';
+        }
+    }
+
+    function sepAceitar(texto) {
+        const limpo = String(texto || '').trim().replace(/^0+(?=\d)/, '');
+        if (!limpo) return;
+        if (navigator.vibrate) navigator.vibrate(60);
+        document.getElementById('sepCodigo').value = limpo;
+        fecharLeitor();
+        buscarSeparador();
+    }
+
+    function fecharLeitor() {
+        /* stop() e não reset(): reset() não existe na 0.2.x e o erro
+           era engolido, deixando a câmera ligada. */
+        try { if (sepControles) sepControles.stop(); } catch (e) {}
+        try { if (window.ZXingBrowser) ZXingBrowser.BrowserCodeReader.releaseAllStreams(); } catch (e) {}
+        sepControles = null;
+        const modal = document.getElementById('modal-leitor');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+
+    async function sepLerPorFoto(input) {
+        const arquivo = input.files && input.files[0];
+        input.value = '';
+        if (!arquivo) return;
+        const dica = document.getElementById('sepLeitorDica');
+        dica.textContent = 'Lendo a foto...';
+        try {
+            await sepCarregarZXing();
+            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints());
+            const url = URL.createObjectURL(arquivo);
+            const resultado = await leitor.decodeFromImageUrl(url);
+            URL.revokeObjectURL(url);
+            sepAceitar(resultado.getText());
+        } catch (e) {
+            dica.textContent = 'Não consegui ler o código nesta foto. Tente mais perto, com a etiqueta reta e boa luz.';
+        }
+    }
+
+    /* ---------------------------------------------------------------
+       Ligação com o app, sem alterar o código dele
+       O switchPage original é embrulhado: continua fazendo tudo o que
+       fazia, e passa a avisar esta página quando ela é aberta.
+    --------------------------------------------------------------- */
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof switchPage === 'function' && !switchPage.sepLigado) {
+            const original = switchPage;
+            switchPage = function (pagina) {
+                original(pagina);
+                if (pagina === 'separador') sepAtualizarPedidos();
+            };
+            switchPage.sepLigado = true;
+        }
+    });
+    </script>
+
+</div>
+    
 </div>
 <div id="page-documentos" class="hidden">
     <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
