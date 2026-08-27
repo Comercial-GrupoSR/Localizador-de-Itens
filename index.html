@@ -995,6 +995,62 @@
             font-size: 12px; color: #9ca3af; text-align: center;
             margin-top: 10px; line-height: 1.5;
         }
+
+        /* ---- corrente até o topo ---- */
+        .sep-destaque {
+            background: #14301f; border: 1px solid #2f6b46;
+            border-radius: 9px; padding: 11px 13px; margin-bottom: 12px;
+        }
+        .sep-destaque > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #6ee7a8; margin-bottom: 4px;
+        }
+        .sep-destaque strong {
+            display: block; font-size: 14.5px; font-weight: 600;
+            color: #fff; line-height: 1.35;
+        }
+        .sep-destaque em {
+            display: block; font-style: normal; font-size: 12px;
+            color: #9ca3af; margin-top: 4px;
+        }
+        .sep-tag {
+            display: inline-block; margin-top: 6px;
+            background: #2f6b46; color: #eafff2;
+            font-size: 12px; font-weight: 700; letter-spacing: .4px;
+            padding: 2px 9px; border-radius: 999px;
+        }
+ 
+        .sep-caminho { margin-bottom: 12px; }
+        .sep-caminho > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #9ca3af; margin-bottom: 6px;
+        }
+        .sep-passo {
+            display: flex; gap: 8px; align-items: baseline;
+            padding: 5px 0 5px 12px;
+            border-left: 2px solid #2f6b46;
+        }
+        .sep-passo:first-of-type { border-left-color: #4ade80; }
+        .sep-passo-cod {
+            flex: 0 0 auto; font-size: 12.5px; font-weight: 600; color: #fff;
+        }
+        .sep-passo-desc {
+            flex: 1; min-width: 0; font-size: 11.5px; color: #b8b8b8;
+            line-height: 1.35; word-break: break-word;
+        }
+        .sep-mais {
+            margin-top: 8px; font-size: 12px; color: #6ee7a8;
+            background: none; border: none; padding: 0; cursor: pointer;
+            text-decoration: underline;
+        }
+        .sep-obs {
+            margin-top: 10px; font-size: 11.5px; color: #fac775;
+            background: #2a2417; border: 1px solid #4a3f22;
+            border-radius: 7px; padding: 7px 10px; line-height: 1.45;
+        }
+        
     </style>
 
     <!-- 1. Pedido -->
@@ -1108,12 +1164,17 @@
        Esquerda: nome da coluna na aba Dados. Direita: o rótulo lido. */
     const SEP_CAMPOS = [
         ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
-        ['QTDE_CARGA',    'QTDE'],
+        ['ID',            'ETIQUETA'],
         ['COD_PECA',      'CÓDIGO PEÇA'],
         ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
-        ['CARREGAMENTO',  'CARREGAMENTO'],
+        ['QTDE_CARGA',    'QTDE NESTA CARGA'],
+        ['QTDE_TOTAL',    'QTDE NO CONJUNTO DE CIMA', true],
+        ['CARGA',         'CARGA'],
+        ['PARCIAL',       'EMBARQUE PARCIAL', true],
         ['COD_FANTASMA',  'COD FANTASMA'],
-        ['DESC_FANTASMA', 'DESCRIÇÃO FANTASMA']
+        ['DESC_FANTASMA', 'DESCRIÇÃO FANTASMA'],
+        ['CLIENTE',       'CLIENTE', true],
+        ['PROJETISTA',    'PROJETISTA', true]
     ];
 
     let sepPedido = null;
@@ -1191,22 +1252,116 @@
     function sepDesenhar(itens) {
         const alvo = document.getElementById('sepResults');
         alvo.className = 'border-green-600 border-2 p-3 rounded-lg';
-
+ 
         let html = '';
-        itens.forEach(item => {
-            let campos = '';
+        itens.forEach(function (item, n) {
+            let corpo = '';
+ 
+            /* 1. onde a peça vai — é o que o supervisor precisa saber
+                  com a peça na mão, então vem primeiro */
+            if (item.TOPO) {
+                let sub = 'código ' + sepEsc(item.TOPO);
+                if (item.MASCARA) sub += ' · máscara ' + sepEsc(item.MASCARA);
+                corpo += '<div class="sep-destaque">'
+                       + '<span>Vai em</span>'
+                       + '<strong>' + sepEsc(item.DESC_TOPO || '—') + '</strong>'
+                       + '<em>' + sub + '</em>'
+                       + (item.TAG ? '<span class="sep-tag">' + sepEsc(item.TAG) + '</span>' : '')
+                       + '</div>';
+            }
+ 
+            /* 2. o caminho. Uma peça costuma ter mais de um caminho
+                  dentro do mesmo conjunto de cima — o pé direito do
+                  1644 tem sete, um por passarela. Mostra o primeiro e
+                  guarda os outros atrás de um toque, para não encher a
+                  tela do celular. */
+            const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
+            if (caminhos.length) {
+                corpo += '<div class="sep-caminho">'
+                       + '<span>Caminho' + (caminhos.length > 1 ? ' 1 de ' + caminhos.length : '') + '</span>'
+                       + '<div id="sepCam' + n + '">' + sepPassos(caminhos[0]) + '</div>';
+                if (caminhos.length > 1) {
+                    corpo += '<button type="button" class="sep-mais" '
+                           + 'onclick="sepVerCaminhos(' + n + ')" id="sepMais' + n + '">'
+                           + 'ver os outros ' + (caminhos.length - 1) + ' caminhos</button>';
+                }
+                corpo += '</div>';
+            }
+ 
+            /* 3. os campos, na ordem do SEP_CAMPOS */
             SEP_CAMPOS.forEach(function (par) {
                 const valor = item[par[0]];
-                campos += '<div class="flex flex-col mb-1">'
-                        + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
-                        + '<span class="text-sm text-white font-medium break-words">'
-                        + sepEsc(valor === '' || valor === null || valor === undefined ? '—' : valor)
-                        + '</span></div>';
+                const vazio = (valor === '' || valor === null || valor === undefined);
+                if (vazio && par[2]) return;          /* campo opcional some */
+                corpo += '<div class="flex flex-col mb-1">'
+                       + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
+                       + '<span class="text-sm text-white font-medium break-words">'
+                       + sepEsc(vazio ? '—' : valor)
+                       + '</span></div>';
             });
+ 
+            /* 4. aviso quando o dado não fecha — melhor mostrar com
+                  ressalva do que esconder */
+            const aviso = sepAviso(item.ESTRUTURA_OBS);
+            if (aviso) corpo += '<div class="sep-obs">' + aviso + '</div>';
+ 
             html += '<div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
-                  + '<div class="p-1 text-white">' + campos + '</div></div>';
+                  + '<div class="p-1 text-white">' + corpo + '</div></div>';
         });
+ 
+        window.sepUltimos = itens;   /* guardado para o botão "ver os outros" */
         alvo.innerHTML = html;
+    }
+ 
+    /* Desenha um caminho: do conjunto de cima até o conjunto imediato. */
+    function sepPassos(caminho) {
+        if (!caminho || !Array.isArray(caminho.passos)) return '';
+        let h = '';
+        caminho.passos.forEach(function (p) {
+            h += '<div class="sep-passo">'
+               + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
+               + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
+               + '</div>';
+        });
+        if (caminho.qtde) {
+            h += '<div class="sep-passo" style="border-left-color:#3d3d3d">'
+               + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
+               + '<span class="sep-passo-desc">peças por este caminho</span>'
+               + '</div>';
+        }
+        return h;
+    }
+ 
+    /* Abre os demais caminhos. Uma vez aberto, não fecha — quem está
+       com a peça na mão não vai querer clicar duas vezes. */
+    function sepVerCaminhos(n) {
+        const itens = window.sepUltimos || [];
+        const item = itens[n];
+        if (!item || !Array.isArray(item.CAMINHOS)) return;
+ 
+        let h = '';
+        item.CAMINHOS.forEach(function (c, i) {
+            if (i > 0) h += '<div style="height:10px"></div>';
+            h += sepPassos(c);
+        });
+        document.getElementById('sepCam' + n).innerHTML = h;
+        const botao = document.getElementById('sepMais' + n);
+        if (botao) botao.remove();
+    }
+ 
+    /* O ESTRUTURA_OBS vem da API em código. Aqui vira português. */
+    function sepAviso(obs) {
+        if (!obs) return '';
+        const partes = String(obs).split(',');
+        const texto = {
+            'varios-topos':      'Esta peça entra em mais de um equipamento neste pedido e não deu para saber qual. Confira com o projeto.',
+            'varias-unidades':   'O pedido tem mais de uma unidade deste equipamento. Os dados são do primeiro.',
+            'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
+            'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
+            'sem-aba-corrente':  'A estrutura ainda não foi importada.'
+        };
+        const linhas = partes.map(function (p) { return texto[p.trim()]; }).filter(Boolean);
+        return linhas.join('<br>');
     }
 
     function sepMensagem(texto, erro) {
