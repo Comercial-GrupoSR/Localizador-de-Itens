@@ -1050,12 +1050,24 @@
             letter-spacing: .5px; text-transform: uppercase;
             color: #9ca3af; margin-bottom: 6px;
         }
+        /* Cada caminho numa caixa própria. Sem ela, com sete
+           caminhos na tela, um se confunde com o outro. */
+        .sep-caminho-cx {
+            border: 1px solid #3a3a3a; border-radius: 9px;
+            padding: 8px 10px; margin-bottom: 8px; background: #171717;
+        }
+        .sep-caminho-cx:last-child { margin-bottom: 0; }
         .sep-passo {
             display: flex; gap: 8px; align-items: baseline;
             padding: 5px 0 5px 12px;
             border-left: 2px solid #2f6b46;
         }
         .sep-passo:first-of-type { border-left-color: #4ade80; }
+        /* Tocar num conjunto abre a lista dele no resumo. */
+        .sep-passo.clicavel { cursor: pointer; }
+        .sep-passo.clicavel:active { background: #222; }
+        .sep-passo.clicavel .sep-passo-cod { color: #6ee7a8; text-decoration: underline; }
+        .sep-passo-qt { border-left-color: #3d3d3d !important; }
         .sep-passo-cod {
             flex: 0 0 auto; font-size: 12.5px; font-weight: 600; color: #fff;
         }
@@ -1219,6 +1231,15 @@
         .sep-item-lista b { color: #fff; }
         .sep-item-lista span { display: block; color: #9ca3af; margin-top: 2px; line-height: 1.35; }
 
+        /* Ações da lista no topo: com 300 itens, o botão no fim da
+           página nunca era alcançado. */
+        .sep-lista-acoes { display: flex; gap: 8px; margin-bottom: 12px; }
+        .sep-lista-acoes button {
+            flex: 1; padding: 9px; border-radius: 9px;
+            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-lista-acoes button.pdf { border-color: #2f6b46; color: #6ee7a8; }
         .sep-acao-pdf {
             width: 100%; margin-top: 10px; padding: 10px;
             border-radius: 9px; border: 1px solid #3d3d3d;
@@ -1766,21 +1787,34 @@
     --------------------------------------------------------------- */
     function sepPassos(caminho) {
         if (!caminho || !Array.isArray(caminho.passos)) return '';
-        let h = '';
+        let h = '<div class="sep-caminho-cx">';
         caminho.passos.forEach(function (p) {
-            h += '<div class="sep-passo">'
+            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\')">'
                + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
                + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
                + '</div>';
         });
         if (caminho.qtde) {
-            h += '<div class="sep-passo" style="border-left-color:#3d3d3d">'
+            h += '<div class="sep-passo sep-passo-qt">'
                + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
                + '<span class="sep-passo-desc">'
                + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
                + '</div>';
         }
-        return h;
+        return h + '</div>';
+    }
+
+    /**
+     * Tocar num conjunto do caminho leva para o resumo já filtrado
+     * nele. É o mesmo movimento que o supervisor faz na cabeça: "esta
+     * peça vai no corrimão — o que mais vai no corrimão?".
+     */
+    function sepAbrirConjunto(codigo) {
+        sepFantasma = String(codigo || '').trim();
+        sepFiltro = 'todas';
+        sepTrocarAba('resumo');
+        if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function sepVerCaminhos(n) {
@@ -1800,10 +1834,7 @@
             if (botao)  botao.textContent = 'Ver os outros ' + (total - 1) + ' caminhos';
         } else {
             let h = '';
-            item.CAMINHOS.forEach(function (c, i) {
-                if (i > 0) h += '<div style="height:10px"></div>';
-                h += sepPassos(c);
-            });
+            item.CAMINHOS.forEach(function (c) { h += sepPassos(c); });
             lista.innerHTML = h;
             lista.setAttribute('data-aberto', '1');
             if (rotulo) rotulo.textContent = 'Caminhos (' + total + ')';
@@ -1983,7 +2014,10 @@
             return;
         }
 
-        let h = '';
+        let h = '<div class="sep-lista-acoes">'
+              + '<button type="button" onclick="sepCarregarLista()">Atualizar</button>'
+              + '<button type="button" class="pdf" onclick="sepExportarPDF()">Baixar em PDF</button>'
+              + '</div>';
         sepLista.forEach(function (it, n) {
             h += '<div class="sep-item-lista">'
                + sepCarimbo(it)
@@ -1995,8 +2029,6 @@
             h += sepContador(it, 'lista', n)
                + '</div>';
         });
-        h += '<button type="button" class="sep-acao-pdf" onclick="sepCarregarLista()">Atualizar lista</button>';
-        h += '<button type="button" class="sep-acao-pdf" onclick="sepExportarPDF()">Baixar esta lista em PDF</button>';
         alvo.innerHTML = h;
     }
 
