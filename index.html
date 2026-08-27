@@ -1076,6 +1076,7 @@
 
         /* ---- carimbo e contador ---- */
         .sep-cartao { position: relative; }
+        .sep-carimbo-linha { display: flex; justify-content: flex-end; }
         .sep-carimbo {
             display: inline-block; margin-bottom: 10px;
             font-size: 11px; font-weight: 800; letter-spacing: .1em;
@@ -1135,6 +1136,17 @@
             background: #1f1f1f; border: 1px solid #444; border-radius: 8px;
             color: #fff; font-size: 14px;
         }
+        /* Buscar e Limpar lado a lado. O Limpar é discreto de
+           propósito: é usado entre uma peça e outra, não é a ação
+           principal da tela. */
+        .sep-acoes { display: flex; gap: 8px; }
+        .sep-acoes #sepBotao { flex: 1; }
+        .sep-acoes #sepBotaoLimpar {
+            flex: 0 0 auto; padding: 0 18px; border-radius: 0.5rem;
+            border: 1px solid #4a4a4a; background: #1f1f1f; color: #9ca3af;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .sep-acoes #sepBotaoLimpar:active { background: #2a2a2a; }
         .sep-busca-fant button {
             flex: 0 0 auto; padding: 9px 14px; border-radius: 8px;
             border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
@@ -1246,7 +1258,7 @@
     <div id="sepPainelBipar">
 
         <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Bipar ou digitar o código</h2>
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Ler código de barras ou digitar código</h2>
             <div class="mb-4">
                 <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
                     Etiqueta ou código do item
@@ -1265,13 +1277,16 @@
                     </button>
                 </div>
             </div>
-            <button id="sepBotao" onclick="buscarSeparador()"
-                    class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                </svg>
-                Buscar
-            </button>
+            <div class="sep-acoes">
+                <button id="sepBotao" onclick="buscarSeparador()"
+                        class="btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                    </svg>
+                    Buscar
+                </button>
+                <button type="button" id="sepBotaoLimpar" onclick="sepLimparBusca()">Limpar</button>
+            </div>
         </div>
 
         <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
@@ -1436,6 +1451,17 @@
             botao.disabled = false;
             botao.innerHTML = htmlBotao;
         }
+    }
+
+    /**
+     * Limpa a busca e devolve o foco ao campo, para o supervisor já
+     * bipar a próxima peça sem tocar em mais nada.
+     */
+    function sepLimparBusca() {
+        document.getElementById('sepCodigo').value = '';
+        document.getElementById('sepResultsBlock').classList.add('hidden');
+        sepUltimos = [];
+        document.getElementById('sepCodigo').focus();
     }
 
     /* =================================================================
@@ -1661,7 +1687,8 @@
             texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
                    + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
         }
-        return '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div>';
+        return '<div class="sep-carimbo-linha">'
+             + '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div></div>';
     }
 
     /* ---------------------------------------------------------------
@@ -2165,7 +2192,10 @@
     });
     </script>
 
-</div>    
+</div>
+
+
+        
 </div>
 <div id="page-documentos" class="hidden">
     <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
