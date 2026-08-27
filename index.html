@@ -957,12 +957,12 @@
      Implantar > Gerenciar implantações > editar > Nova versão.
 
      O QUE ESTA VERSÃO TRAZ
-       · duas abas depois de escolher o pedido: Bipar e Resumo
-       · contador de peças separadas em cada etiqueta
+       · duas abas depois de escolher o pedido: Buscar e Resumo
+       · contador de peças, com campo para digitar e botão "todas"
        · botão para declarar o que procurou e não achou
        · carimbo Separado / Não encontrada / Pendente
-       · resumo do pedido em itens, com as cargas separadas
-       · listas de pendentes e de falta, com PDF
+       · resumo em itens, com filtro por conjunto e marcação na lista
+       · exportar em PDF
 
      AINDA NÃO FUNCIONA SEM INTERNET. Cada marcação vai direto à
      planilha. A fila de envio entra numa etapa seguinte.
@@ -1109,13 +1109,37 @@
         .sep-bt:active { opacity: .75; }
         .sep-bt:disabled { opacity: .3; cursor: not-allowed; }
         .sep-bt.mais { background: #2f6b46; }
-        .sep-bt-editar {
-            width: 34px; height: 34px; flex: 0 0 34px;
-            border-radius: 8px; border: 1px solid #4a4a4a;
-            background: #1f1f1f; color: #9ca3af;
-            font-size: 14px; cursor: pointer;
+        .sep-qt-campo {
+            width: 74px; flex: 0 0 74px; text-align: center;
+            background: #141414; border: 1px solid #4a4a4a; border-radius: 9px;
+            color: #fff; font-size: 19px; font-weight: 700; padding: 8px 4px;
+            -moz-appearance: textfield;
         }
-        .sep-bt-editar.ativo { background: #3a2f12; border-color: #fac775; color: #fac775; }
+        .sep-qt-campo::-webkit-outer-spin-button,
+        .sep-qt-campo::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .sep-qt-de { flex: 1; font-size: 13px; color: #9ca3af; }
+        .sep-bt-todas {
+            width: 100%; margin-top: 9px; padding: 9px;
+            border-radius: 9px; border: 1px solid #2f6b46;
+            background: #14301f; color: #6ee7a8;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-bt-todas:active { opacity: .8; }
+        .sep-salvando {
+            font-size: 11px; color: #9ca3af; margin-top: 7px; display: block;
+        }
+        .sep-salvando.erro { color: #f87171; }
+        .sep-busca-fant { display: flex; gap: 8px; margin-bottom: 12px; }
+        .sep-busca-fant input {
+            flex: 1; min-width: 0; padding: 9px 11px;
+            background: #1f1f1f; border: 1px solid #444; border-radius: 8px;
+            color: #fff; font-size: 14px;
+        }
+        .sep-busca-fant button {
+            flex: 0 0 auto; padding: 9px 14px; border-radius: 8px;
+            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
         .sep-falta {
             margin-top: 9px; display: flex; align-items: center;
             justify-content: space-between; gap: 8px;
@@ -1214,7 +1238,7 @@
 
     <!-- Abas, só aparecem depois de escolher o pedido -->
     <div id="sepAbas" class="sep-abas hidden">
-        <button type="button" id="sepAbaBipar" class="ativa" onclick="sepTrocarAba('bipar')">Bipar peça</button>
+        <button type="button" id="sepAbaBipar" class="ativa" onclick="sepTrocarAba('bipar')">Buscar peça</button>
         <button type="button" id="sepAbaResumo" onclick="sepTrocarAba('resumo')">Resumo da obra</button>
     </div>
 
@@ -1328,8 +1352,8 @@
 
     let sepPedido = null;
     let sepAba = 'bipar';
-    let sepUltimos = [];              /* o que está na tela agora */
-    let sepDestravados = {};          /* etiquetas com o "−" liberado */
+    let sepUltimos = [];        /* cartões da aba Buscar */
+    let sepLista = [];          /* itens da lista do Resumo */
 
     /* ---------------------------------------------------------------
        Lista de pedidos e troca de aba
@@ -1345,7 +1369,8 @@
     function onSeparadorPedidoChange(valor) {
         sepPedido = (valor || '').trim().toUpperCase();
         sepUltimos = [];
-        sepDestravados = {};
+        sepLista = [];
+        sepResumoDados = null;
         document.getElementById('sepResultsBlock').classList.add('hidden');
         document.getElementById('sepCodigo').value = '';
         const abas = document.getElementById('sepAbas');
@@ -1367,7 +1392,7 @@
         document.getElementById('sepAbaResumo').classList.toggle('ativa', qual === 'resumo');
         document.getElementById('sepPainelBipar').classList.toggle('hidden', qual !== 'bipar');
         document.getElementById('sepPainelResumo').classList.toggle('hidden', qual !== 'resumo');
-        if (qual === 'resumo') sepCarregarResumo();
+        if (qual === 'resumo' && !sepResumoDados) sepCarregarResumo();
     }
 
     /* ---------------------------------------------------------------
@@ -1413,8 +1438,234 @@
         }
     }
 
+    /* =================================================================
+       MARCAÇÃO
+       Fila com espera, um envio por vez em cada etiqueta.
+
+       Sem isto, apertar o "+" cinco vezes rápido dispara cinco
+       gravações que se cruzam: a resposta da primeira chega depois da
+       terceira e devolve o número velho para a tela. Foi o que
+       aconteceu no app da obra de captação, e a solução de lá é esta.
+
+       A tela muda na hora; o envio espera 600 ms de silêncio. Se
+       chegou toque novo durante um envio, manda de novo no fim.
+    ================================================================= */
+    const SEP_ESPERA_MS = 600;
+    const sepDesejado = {};   /* chave -> {sep, ne} ainda não confirmado */
+    const sepTimer = {};      /* chave -> timeout da espera */
+    const sepIndo = {};       /* chave -> true enquanto o fetch está em curso */
+    const sepErro = {};       /* chave -> mensagem do último erro */
+
+    function sepChave(it) {
+        return String(it.ID) + '|' + String(it.CARREGAMENTO);
+    }
+
+    /** Acha o mesmo item nas duas telas, para as duas ficarem certas. */
+    function sepTodosComChave(chave) {
+        return sepUltimos.concat(sepLista).filter(function (x) {
+            return sepChave(x) === chave;
+        });
+    }
+
+    function sepAplicar(it, sep, ne) {
+        const total = Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
+        sep = Math.max(0, Math.min(Math.round(sep), total));
+        ne  = Math.max(0, Math.min(Math.round(ne), total - sep));
+
+        const chave = sepChave(it);
+        sepTodosComChave(chave).forEach(function (x) {
+            x.SEPARADAS = sep;
+            x.NAO_ENCONTRADAS = ne;
+            x.PENDENTES = Math.max(0, total - sep - ne);
+            x.SITUACAO_SEP = sepSituacao(sep, ne, total);
+        });
+        delete sepErro[chave];
+        sepDesejado[chave] = { sep: sep, ne: ne, pedido: it.PEDIDO, id: it.ID, carga: it.CARREGAMENTO };
+        sepRedesenhar();
+
+        if (sepTimer[chave]) clearTimeout(sepTimer[chave]);
+        sepTimer[chave] = setTimeout(function () {
+            delete sepTimer[chave];
+            sepEnviarFila(chave);
+        }, SEP_ESPERA_MS);
+    }
+
+    async function sepEnviarFila(chave) {
+        if (sepIndo[chave]) return;                 /* já tem um indo; ele reenvia no fim */
+        const alvo = sepDesejado[chave];
+        if (!alvo) return;
+
+        sepIndo[chave] = true;
+        try {
+            const url = SEPARADOR_URL + '?mode=marcar'
+                      + '&pedido=' + encodeURIComponent(alvo.pedido)
+                      + '&id=' + encodeURIComponent(alvo.id)
+                      + '&carga=' + encodeURIComponent(alvo.carga)
+                      + '&sep=' + alvo.sep + '&ne=' + alvo.ne;
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const dados = await resposta.json();
+            if (dados && dados.error) throw new Error(dados.error);
+
+            /* Se o supervisor continuou tocando durante o envio, o que
+               vale é o toque novo — não sobrescreve a tela com o que
+               foi gravado agora. */
+            const aindaIgual = sepDesejado[chave] &&
+                               sepDesejado[chave].sep === alvo.sep &&
+                               sepDesejado[chave].ne === alvo.ne;
+            if (aindaIgual) {
+                delete sepDesejado[chave];
+                sepTodosComChave(chave).forEach(function (x) {
+                    const total = Number(x.QTDE_CARGA !== undefined ? x.QTDE_CARGA : x.QTDE) || 0;
+                    x.SEPARADAS = dados.SEPARADAS;
+                    x.NAO_ENCONTRADAS = dados.NAO_ENCONTRADAS;
+                    x.PENDENTES = Math.max(0, total - dados.SEPARADAS - dados.NAO_ENCONTRADAS);
+                    x.SITUACAO_SEP = dados.SITUACAO_SEP;
+                });
+            }
+            delete sepErro[chave];
+        } catch (e) {
+            sepErro[chave] = e.message || 'falhou';
+        } finally {
+            delete sepIndo[chave];
+            sepRedesenhar();
+            /* chegou valor novo enquanto enviava: manda de novo */
+            if (sepDesejado[chave]) sepEnviarFila(chave);
+        }
+    }
+
+    function sepRedesenhar() {
+        if (sepAba === 'bipar') { if (sepUltimos.length) sepDesenhar(); }
+        else { sepDesenharLista(); }
+    }
+
+    /* A mesma regra do Apps Script, repetida só para a tela responder
+       antes da resposta chegar. Quem manda é o servidor. */
+    function sepSituacao(sep, ne, total) {
+        if (sep === 0 && ne === 0) return '';
+        if (sep >= total) return 'Separado';
+        if (ne  >= total) return 'Não encontrada';
+        return 'Pendente';
+    }
+
+    /* ---- ações dos botões ---- */
+    function sepAchar(onde, n) {
+        return (onde === 'busca' ? sepUltimos : sepLista)[n];
+    }
+    function sepTotal(it) {
+        return Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
+    }
+
+    function sepSomar(onde, n, delta) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, (Number(it.SEPARADAS) || 0) + delta, Number(it.NAO_ENCONTRADAS) || 0);
+    }
+
+    function sepDigitar(onde, n, campo) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        const v = parseInt(campo.value, 10);
+        sepAplicar(it, isNaN(v) ? 0 : v, Number(it.NAO_ENCONTRADAS) || 0);
+    }
+
+    function sepTodas(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, sepTotal(it), 0);
+    }
+
+    function sepMarcarFalta(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        const sep = Number(it.SEPARADAS) || 0;
+        sepAplicar(it, sep, sepTotal(it) - sep);
+    }
+
+    function sepLimparFalta(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, Number(it.SEPARADAS) || 0, 0);
+    }
+
+    /**
+     * O contador. É o mesmo nas duas telas — no cartão da busca e em
+     * cada linha da lista do resumo.
+     *
+     * Some quando a peça não entra na separação: carga que ainda não
+     * embarcou, ou item comprado. Nesses casos o cartão explica o
+     * motivo em vez de deixar o supervisor contando à toa.
+     */
+    function sepContador(it, onde, n) {
+        if (it.EM_OBRA === false) {
+            return '<div class="sep-obs">Esta peça ainda não embarcou. A carga existe no sistema, '
+                 + 'mas o caminhão não saiu — por isso ela não entra na separação.</div>';
+        }
+        if (it.NA_LISTA === false) {
+            return '<div class="sep-obs">Item comprado. Não entra na lista de separação.</div>';
+        }
+
+        const total = sepTotal(it);
+        const sep   = Number(it.SEPARADAS) || 0;
+        const ne    = Number(it.NAO_ENCONTRADAS) || 0;
+        const pend  = Math.max(0, total - sep - ne);
+        const chave = sepChave(it);
+        const a = "'" + onde + "'," + n;
+
+        let h = '<div class="sep-contador"><span>Separação</span>';
+
+        h += '<div class="sep-linha-qt">';
+        h += '<button type="button" class="sep-bt" onclick="sepSomar(' + a + ',-1)"'
+           + (sep <= 0 ? ' disabled' : '') + '>&minus;</button>';
+        h += '<input type="number" class="sep-qt-campo" inputmode="numeric" min="0" max="' + total + '" '
+           + 'value="' + sep + '" onchange="sepDigitar(' + a + ',this)" '
+           + 'onfocus="this.select()">';
+        h += '<span class="sep-qt-de">de ' + total + '</span>';
+        h += '<button type="button" class="sep-bt mais" onclick="sepSomar(' + a + ',1)"'
+           + (pend <= 0 ? ' disabled' : '') + '>+</button>';
+        h += '</div>';
+
+        if (sep < total && ne === 0) {
+            h += '<button type="button" class="sep-bt-todas" onclick="sepTodas(' + a + ')">'
+               + 'Achei todas as ' + total + '</button>';
+        }
+        if (ne > 0) {
+            h += '<div class="sep-falta">'
+               + '<span>' + ne + ' não encontrada' + (ne === 1 ? '' : 's') + '</span>'
+               + '<button type="button" class="sep-bt-texto" onclick="sepLimparFalta(' + a + ')">Desfazer</button>'
+               + '</div>';
+        }
+        if (pend > 0) {
+            h += '<button type="button" class="sep-bt-falta" onclick="sepMarcarFalta(' + a + ')">'
+               + 'Não achei ' + (pend === total ? 'nenhuma' : ('as ' + pend + ' restantes')) + '</button>';
+        }
+
+        if (sepErro[chave]) {
+            h += '<span class="sep-salvando erro">Não salvou: ' + sepEsc(sepErro[chave])
+               + ' — toque de novo com internet.</span>';
+        } else if (sepDesejado[chave] || sepIndo[chave]) {
+            h += '<span class="sep-salvando">salvando…</span>';
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    function sepCarimbo(item) {
+        const s = item.SITUACAO_SEP;
+        if (!s) return '';
+        const classe = s === 'Separado' ? 'ok' : (s === 'Não encontrada' ? 'bad' : 'pend');
+        let texto = s;
+        /* Item fechado com falta continua Pendente, mas mostrando a
+           falta ali no carimbo — senão parece que ainda falta contar. */
+        if (s === 'Pendente' && Number(item.NAO_ENCONTRADAS) > 0) {
+            texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
+                   + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
+        }
+        return '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div>';
+    }
+
     /* ---------------------------------------------------------------
-       O cartão
+       O cartão da busca
     --------------------------------------------------------------- */
     function sepDesenhar() {
         const alvo = document.getElementById('sepResults');
@@ -1422,14 +1673,10 @@
 
         let html = '';
         sepUltimos.forEach(function (item, n) {
-            let corpo = '';
+            let corpo = sepCarimbo(item);
 
-            /* 1. o carimbo, quando a etiqueta já foi tocada */
-            const carimbo = sepCarimbo(item);
-            if (carimbo) corpo += carimbo;
-
-            /* 2. onde a peça vai — é o que o supervisor precisa saber
-                  com a peça na mão, então vem primeiro */
+            /* onde a peça vai — é o que o supervisor precisa saber com
+               a peça na mão, então vem primeiro */
             if (item.TOPO) {
                 let sub = 'Código ' + sepEsc(item.TOPO);
                 if (item.MASCARA) sub += ' · Máscara ' + sepEsc(item.MASCARA);
@@ -1441,9 +1688,6 @@
                        + '</div>';
             }
 
-            /* 3. o caminho. Uma peça costuma ter mais de um caminho
-                  dentro do mesmo conjunto de cima — o pé direito do
-                  1644 tem sete, um por passarela. */
             const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
             if (caminhos.length) {
                 corpo += '<div class="sep-caminho">'
@@ -1467,7 +1711,6 @@
                        + '</div>';
             }
 
-            /* 4. os campos */
             SEP_CAMPOS.forEach(function (par) {
                 const valor = item[par[0]];
                 const vazio = (valor === '' || valor === null || valor === undefined);
@@ -1479,10 +1722,8 @@
                        + '</span></div>';
             });
 
-            /* 5. o contador — o coração da separação */
-            corpo += sepContador(item, n);
+            corpo += sepContador(item, 'busca', n);
 
-            /* 6. aviso quando o dado da estrutura não fecha */
             const aviso = sepAviso(item.ESTRUTURA_OBS);
             if (aviso) corpo += '<div class="sep-obs">' + aviso + '</div>';
 
@@ -1491,161 +1732,6 @@
         });
 
         alvo.innerHTML = html;
-    }
-
-    function sepCarimbo(item) {
-        const s = item.SITUACAO_SEP;
-        if (!s) return '';
-        const classe = s === 'Separado' ? 'ok' : (s === 'Não encontrada' ? 'bad' : 'pend');
-        let texto = s;
-        /* Item fechado com falta continua Pendente, mas mostrando a
-           falta ali no carimbo — senão parece que ainda falta contar. */
-        if (s === 'Pendente' && Number(item.NAO_ENCONTRADAS) > 0) {
-            texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
-                   + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
-        }
-        return '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div>';
-    }
-
-    /**
-     * O contador de peças. Some quando a peça não entra na separação:
-     * carga que ainda não embarcou, ou item comprado (parafuso,
-     * arruela, silicone). Nesses casos o cartão explica o motivo em
-     * vez de deixar o supervisor contando à toa.
-     */
-    function sepContador(item, n) {
-        if (item.EM_OBRA === false) {
-            return '<div class="sep-obs">Esta peça ainda não embarcou. A carga existe no sistema, '
-                 + 'mas o caminhão não saiu — por isso ela não entra na separação.</div>';
-        }
-        if (item.NA_LISTA === false) {
-            return '<div class="sep-obs">Item comprado. Não entra na lista de separação.</div>';
-        }
-
-        const total = Number(item.QTDE_CARGA) || 0;
-        const sep   = Number(item.SEPARADAS) || 0;
-        const ne    = Number(item.NAO_ENCONTRADAS) || 0;
-        const pend  = Math.max(0, total - sep - ne);
-        const chave = String(item.ID) + '|' + String(item.CARREGAMENTO);
-        const destravado = !!sepDestravados[chave];
-        /* O "−" nasce travado quando já há contagem: com a luva na mão
-           é fácil desfazer sem querer. O "+" nunca precisa de trava. */
-        const menosTravado = (sep > 0 && !destravado);
-
-        let h = '<div class="sep-contador"><span>Separação</span>';
-
-        h += '<div class="sep-linha-qt">';
-        if (sep > 0) {
-            h += '<button type="button" class="sep-bt-editar' + (destravado ? ' ativo' : '') + '" '
-               + 'onclick="sepDestravar(' + n + ')" title="Liberar para diminuir">'
-               + (destravado ? '&#128275;' : '&#9998;') + '</button>';
-        }
-        h += '<button type="button" class="sep-bt" onclick="sepSomar(' + n + ',-1)"'
-           + ((menosTravado || sep <= 0) ? ' disabled' : '') + '>&minus;</button>';
-        h += '<span class="sep-qt-valor"><b>' + sep + '</b> de ' + total + '</span>';
-        h += '<button type="button" class="sep-bt mais" onclick="sepSomar(' + n + ',1)"'
-           + (pend <= 0 ? ' disabled' : '') + '>+</button>';
-        h += '</div>';
-
-        if (ne > 0) {
-            h += '<div class="sep-falta">'
-               + '<span>' + ne + ' não encontrada' + (ne === 1 ? '' : 's') + '</span>'
-               + '<button type="button" class="sep-bt-texto" onclick="sepLimparFalta(' + n + ')">Desfazer</button>'
-               + '</div>';
-        }
-        if (pend > 0) {
-            h += '<button type="button" class="sep-bt-falta" onclick="sepMarcarFalta(' + n + ')">'
-               + 'Não achei ' + (pend === total ? 'nenhuma' : ('as ' + pend + ' restantes')) + '</button>';
-        }
-
-        h += '</div>';
-        return h;
-    }
-
-    /* ---------------------------------------------------------------
-       Marcação — vai direto à planilha
-    --------------------------------------------------------------- */
-    function sepSomar(n, delta) {
-        const it = sepUltimos[n];
-        if (!it) return;
-        const total = Number(it.QTDE_CARGA) || 0;
-        const ne = Number(it.NAO_ENCONTRADAS) || 0;
-        let sep = (Number(it.SEPARADAS) || 0) + delta;
-        if (sep < 0) sep = 0;
-        if (sep + ne > total) sep = total - ne;
-        sepEnviar(n, sep, ne);
-    }
-
-    function sepMarcarFalta(n) {
-        const it = sepUltimos[n];
-        if (!it) return;
-        const total = Number(it.QTDE_CARGA) || 0;
-        const sep = Number(it.SEPARADAS) || 0;
-        sepEnviar(n, sep, Math.max(0, total - sep));
-    }
-
-    function sepLimparFalta(n) {
-        const it = sepUltimos[n];
-        if (!it) return;
-        sepEnviar(n, Number(it.SEPARADAS) || 0, 0);
-    }
-
-    function sepDestravar(n) {
-        const it = sepUltimos[n];
-        if (!it) return;
-        const chave = String(it.ID) + '|' + String(it.CARREGAMENTO);
-        sepDestravados[chave] = !sepDestravados[chave];
-        sepDesenhar();
-    }
-
-    /**
-     * Manda para a planilha e usa o que voltou, não o que foi pedido.
-     * Se vierem diferentes, alguma coisa aconteceu no caminho e é
-     * melhor mostrar o que ficou gravado do que fingir que salvou.
-     */
-    async function sepEnviar(n, sep, ne) {
-        const it = sepUltimos[n];
-        if (!it) return;
-
-        /* mostra na hora, para o toque parecer instantâneo */
-        const antesSep = it.SEPARADAS, antesNe = it.NAO_ENCONTRADAS;
-        it.SEPARADAS = sep;
-        it.NAO_ENCONTRADAS = ne;
-        it.SITUACAO_SEP = sepSituacao(sep, ne, Number(it.QTDE_CARGA) || 0);
-        sepDesenhar();
-
-        try {
-            const url = SEPARADOR_URL + '?mode=marcar'
-                      + '&pedido=' + encodeURIComponent(it.PEDIDO)
-                      + '&id=' + encodeURIComponent(it.ID)
-                      + '&carga=' + encodeURIComponent(it.CARREGAMENTO)
-                      + '&sep=' + sep + '&ne=' + ne;
-            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-            const dados = await resposta.json();
-
-            if (dados && dados.error) throw new Error(dados.error);
-
-            it.SEPARADAS = dados.SEPARADAS;
-            it.NAO_ENCONTRADAS = dados.NAO_ENCONTRADAS;
-            it.SITUACAO_SEP = dados.SITUACAO_SEP;
-            sepDesenhar();
-        } catch (e) {
-            it.SEPARADAS = antesSep;
-            it.NAO_ENCONTRADAS = antesNe;
-            it.SITUACAO_SEP = sepSituacao(antesSep, antesNe, Number(it.QTDE_CARGA) || 0);
-            sepDesenhar();
-            sepMensagem('Não consegui salvar: ' + e.message +
-                        ' A marcação foi desfeita. Tente de novo com internet.', true);
-        }
-    }
-
-    /* A mesma regra do Apps Script, repetida aqui só para a tela
-       responder antes da resposta chegar. Quem manda é o servidor. */
-    function sepSituacao(sep, ne, total) {
-        if (sep === 0 && ne === 0) return '';
-        if (sep >= total) return 'Separado';
-        if (ne  >= total) return 'Não encontrada';
-        return 'Pendente';
     }
 
     /* ---------------------------------------------------------------
@@ -1734,9 +1820,12 @@
 
     /* =================================================================
        RESUMO DA OBRA
+       Os três números, e a lista embaixo — que também separa peça,
+       para o supervisor não ter que voltar na aba de busca a cada uma.
     ================================================================= */
     let sepResumoDados = null;
-    let sepFiltro = 'cargas';   /* cargas | pendente | naoencontrada | separado */
+    let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
+    let sepFantasma = '';
 
     async function sepCarregarResumo() {
         const alvo = document.getElementById('sepResumo');
@@ -1746,8 +1835,8 @@
             const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
             sepResumoDados = await resposta.json();
             if (sepResumoDados.error) throw new Error(sepResumoDados.error);
-            sepFiltro = 'cargas';
             sepDesenharResumo();
+            sepCarregarLista();
         } catch (e) {
             alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar o resumo. ' + sepEsc(e.message) + '</p>';
         }
@@ -1782,21 +1871,29 @@
            + '<i class="bad" style="width:' + pcBad + '%"></i>'
            + '</div>';
 
-        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra, em '
-           + d.cargas.length + ' carga' + (d.cargas.length === 1 ? '' : 's') + '. '
+        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra. '
            + d.compradas + ' itens comprados ficam de fora da separação.</p>';
 
+        /* filtrar por conjunto: o supervisor separa um conjunto de cada
+           vez, então ver só o que pertence a ele é o modo natural */
+        h += '<div class="sep-busca-fant">'
+           + '<input type="text" id="sepFantCampo" inputmode="numeric" '
+           + 'placeholder="Código do conjunto (opcional)" value="' + sepEsc(sepFantasma) + '" '
+           + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sepFiltrarFantasma();}">'
+           + '<button type="button" onclick="sepFiltrarFantasma()">Filtrar</button>'
+           + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
+           + '</div>';
+
         h += '<div class="sep-fichas">'
-           + sepFicha('cargas', 'Por carga')
            + sepFicha('pendente', 'Pendentes (' + g.pendentes + ')')
            + sepFicha('naoencontrada', 'Não encontradas (' + g.naoEncontrados + ')')
            + sepFicha('separado', 'Separadas (' + g.separados + ')')
+           + sepFicha('todas', 'Todas (' + g.itens + ')')
            + '</div>';
 
         h += '<div id="sepResumoLista"></div>';
 
         alvo.innerHTML = h;
-        sepDesenharFiltro();
     }
 
     function sepFicha(chave, rotulo) {
@@ -1807,55 +1904,73 @@
     function sepTrocarFiltro(chave) {
         sepFiltro = chave;
         sepDesenharResumo();
+        sepCarregarLista();
     }
 
-    async function sepDesenharFiltro() {
+    function sepFiltrarFantasma() {
+        const campo = document.getElementById('sepFantCampo');
+        sepFantasma = campo ? campo.value.trim() : '';
+        sepDesenharResumo();
+        sepCarregarLista();
+    }
+
+    function sepLimparFantasma() {
+        sepFantasma = '';
+        sepDesenharResumo();
+        sepCarregarLista();
+    }
+
+    async function sepCarregarLista() {
         const alvo = document.getElementById('sepResumoLista');
         if (!alvo) return;
-
-        if (sepFiltro === 'cargas') {
-            let h = '';
-            sepResumoDados.cargas.forEach(function (c) {
-                h += '<div class="sep-carga' + (c.conferida ? ' conferida' : '') + '">'
-                   + '<b>' + sepEsc(c.carga) + '</b>'
-                   + '<span>' + c.separados + ' de ' + c.itens + ' itens'
-                   + (c.conferida ? ' · conferida' : '')
-                   + (c.naoEncontrados ? ' · ' + c.naoEncontrados + ' faltando' : '')
-                   + '</span></div>';
-            });
-            alvo.innerHTML = h || '<p class="text-sm text-gray-500 italic">Nenhuma carga.</p>';
-            return;
-        }
-
         alvo.innerHTML = '<div class="flex items-center justify-center p-3"><div class="spinner border-4 border-[#333] border-t-4 h-5 w-5 rounded-full"></div></div>';
         try {
-            const url = SEPARADOR_URL + '?mode=lista&pedido=' + encodeURIComponent(sepPedido || '')
-                      + '&situacao=' + sepFiltro;
+            const url = SEPARADOR_URL + '?mode=lista'
+                      + '&pedido=' + encodeURIComponent(sepPedido || '')
+                      + '&situacao=' + sepFiltro
+                      + (sepFantasma ? '&fantasma=' + encodeURIComponent(sepFantasma) : '');
             const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
             const d = await resposta.json();
             if (d.error) throw new Error(d.error);
-
-            let h = '';
-            if (!d.itens.length) {
-                h = '<p class="text-sm text-gray-500 italic">Nada nesta situação.</p>';
-            } else {
-                d.itens.forEach(function (it) {
-                    let detalhe = 'Carga ' + it.CARREGAMENTO + ' · ';
-                    if (sepFiltro === 'pendente')      detalhe += 'faltam contar ' + it.PENDENTES + ' de ' + it.QTDE;
-                    if (sepFiltro === 'naoencontrada') detalhe += it.NAO_ENCONTRADAS + ' não encontradas de ' + it.QTDE;
-                    if (sepFiltro === 'separado')      detalhe += it.SEPARADAS + ' de ' + it.QTDE + ' separadas';
-                    h += '<div class="sep-item-lista">'
-                       + '<b>' + sepEsc(it.COD_PECA) + '</b> · etiqueta ' + sepEsc(it.ID)
-                       + '<span>' + sepEsc(it.DESC_PECA) + '</span>'
-                       + '<span>' + detalhe + '</span></div>';
-                });
-                h += '<button type="button" class="sep-acao-pdf" onclick="sepExportarPDF()">Baixar esta lista em PDF</button>';
-            }
-            alvo.innerHTML = h;
-            window.sepListaAtual = d.itens || [];
+            sepLista = d.itens || [];
+            sepDesenharLista();
         } catch (e) {
             alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar a lista. ' + sepEsc(e.message) + '</p>';
         }
+    }
+
+    /**
+     * A lista do resumo. Cada linha traz o mesmo contador do cartão —
+     * o supervisor separa direto daqui, sem voltar para a busca.
+     *
+     * A linha NÃO some quando muda de situação: se sumisse na hora, um
+     * toque errado tiraria o item da tela antes de dar para corrigir.
+     * Ela sai na próxima vez que a lista for carregada.
+     */
+    function sepDesenharLista() {
+        const alvo = document.getElementById('sepResumoLista');
+        if (!alvo) return;
+
+        if (!sepLista.length) {
+            alvo.innerHTML = '<p class="text-sm text-gray-500 italic">Nada nesta situação.</p>';
+            return;
+        }
+
+        let h = '';
+        sepLista.forEach(function (it, n) {
+            h += '<div class="sep-item-lista">'
+               + sepCarimbo(it)
+               + '<b>' + sepEsc(it.COD_PECA) + '</b> · carga ' + sepEsc(it.CARREGAMENTO)
+               + '<span>' + sepEsc(it.DESC_PECA) + '</span>';
+            if (it.DESC_FANTASMA) {
+                h += '<span>Entra em ' + sepEsc(it.COD_FANTASMA) + ' — ' + sepEsc(it.DESC_FANTASMA) + '</span>';
+            }
+            h += sepContador(it, 'lista', n)
+               + '</div>';
+        });
+        h += '<button type="button" class="sep-acao-pdf" onclick="sepCarregarLista()">Atualizar lista</button>';
+        h += '<button type="button" class="sep-acao-pdf" onclick="sepExportarPDF()">Baixar esta lista em PDF</button>';
+        alvo.innerHTML = h;
     }
 
     /* ---------------------------------------------------------------
@@ -1884,8 +1999,7 @@
     }
 
     async function sepExportarPDF() {
-        const itens = window.sepListaAtual || [];
-        if (!itens.length) return;
+        if (!sepLista.length) return;
         try {
             await sepCarregarPDF();
         } catch (e) {
@@ -1895,7 +2009,8 @@
 
         const titulo = { pendente: 'Peças pendentes',
                          naoencontrada: 'Peças não encontradas',
-                         separado: 'Peças separadas' }[sepFiltro] || 'Separação';
+                         separado: 'Peças separadas',
+                         todas: 'Todas as peças' }[sepFiltro] || 'Separação';
 
         const doc = new window.jspdf.jsPDF();
         const agora = new Date();
@@ -1903,20 +2018,21 @@
         doc.text('Grupo SR — Separação de Obra', 14, 16);
         doc.setFontSize(11);
         doc.setTextColor(90);
-        doc.text(titulo + ' · Pedido ' + sepPedido + ' · ' +
-                 agora.toLocaleDateString('pt-BR') + ' ' +
-                 agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 14, 23);
+        doc.text(titulo + ' · Pedido ' + sepPedido
+                 + (sepFantasma ? ' · Conjunto ' + sepFantasma : '')
+                 + ' · ' + agora.toLocaleDateString('pt-BR') + ' '
+                 + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 14, 23);
 
         doc.autoTable({
-            head: [['Carga', 'Etiqueta', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
-            body: itens.map(function (it) {
-                return [it.CARREGAMENTO, it.ID, it.COD_PECA, it.DESC_PECA,
+            head: [['Carga', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
+            body: sepLista.map(function (it) {
+                return [it.CARREGAMENTO, it.COD_PECA, it.DESC_PECA,
                         it.QTDE, it.SEPARADAS, it.NAO_ENCONTRADAS];
             }),
             startY: 29,
             styles: { fontSize: 8, cellPadding: 2.5 },
             headStyles: { fillColor: [26, 87, 62] },
-            columnStyles: { 3: { cellWidth: 70 } }
+            columnStyles: { 2: { cellWidth: 78 } }
         });
 
         doc.save('separacao-' + sepPedido + '-' + sepFiltro + '.pdf');
@@ -2049,8 +2165,7 @@
     });
     </script>
 
-</div>
-    
+</div>    
 </div>
 <div id="page-documentos" class="hidden">
     <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
