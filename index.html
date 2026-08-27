@@ -316,6 +316,56 @@
         @media (prefers-reduced-motion: reduce) {
             .menu-item { animation-duration: .01ms; animation-delay: 0ms !important; }
         }
+        /* ============================================================
+           Andamento das obras — painel da tela inicial
+           Aparece no lugar das opções quando o menu está recolhido.
+           A cor da barra é a mesma faixa de progresso da planilha e do
+           Gantt. A porcentagem fica em BRANCO de propósito: o azul da
+           faixa 50–75% dá 3,47:1 contra este fundo, abaixo dos 4,5:1
+           que texto pequeno precisa. Cor na barra, número em branco —
+           assim o valor nunca depende da cor para ser lido.
+        ============================================================ */
+        .prog-topo {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 10px; margin-bottom: 12px;
+        }
+        .prog-topo strong {
+            font-size: 12px; font-weight: 800; color: #d1d5db;
+            text-transform: uppercase; letter-spacing: 1.2px;
+        }
+        .prog-topo span { font-size: 10.5px; color: #6b7280; flex: 0 0 auto; }
+        .prog-linha {
+            display: block; width: 100%; text-align: left; cursor: pointer;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
+            padding: 11px 13px; margin-bottom: 8px; color: #e0e0e0;
+            transition: border-color .18s ease, background .18s ease;
+        }
+        .prog-linha:hover { border-color: #4ade80; background: #262626; }
+        .prog-linha:active { opacity: .85; }
+        .prog-cab { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .prog-num { flex: 0 0 auto; font-size: 13.5px; font-weight: 700; color: #fff; }
+        .prog-cliente {
+            flex: 1; min-width: 0; font-size: 11.5px; color: #9ca3af;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .prog-pct {
+            flex: 0 0 auto; font-size: 14px; font-weight: 700; color: #fff;
+            font-variant-numeric: tabular-nums;
+        }
+        .prog-trilho {
+            height: 8px; border-radius: 4px; background: #333; overflow: hidden;
+        }
+        .prog-barra {
+            display: block; height: 100%; border-radius: 4px;
+            transition: width .5s ease;
+        }
+        .prog-pe { margin-top: 7px; font-size: 11px; color: #6b7280; }
+        .prog-pe b { color: #9ca3af; font-weight: 600; }
+        .prog-aviso {
+            font-size: 11.5px; color: #6b7280; font-style: italic;
+            padding: 4px 0 2px;
+        }
+        .prog-erro { font-size: 11.5px; color: #f87171; padding: 4px 0 2px; }
         .btn-voltar {
             display: inline-flex; align-items: center; justify-content: center;
             width: 30px; height: 30px; margin-right: 8px; flex: 0 0 auto;
@@ -843,6 +893,9 @@
                     </button>
                 </div>
                 <div id="menuLista" class="menu-lista"></div>
+                <!-- Andamento das obras: ocupa o lugar das opções quando
+                     o menu está recolhido. Desenhado por JavaScript. -->
+                <div id="painelProgresso" class="hidden"></div>
             </div>
         </div>
 
@@ -940,1706 +993,11 @@
                 </div>
             </div>
         </div>
-        
-<!-- =====================================================================
-     SEPARADOR DE OBRA — bloco completo
-
-     COMO USAR: no index.html, apague TODO o bloco que começa em
-
-         <div id="page-separador" ...>
-
-     e termina no </div> que o fecha, e cole tudo que está neste
-     arquivo no lugar. Estilo, telas, leitor de código de barras e
-     JavaScript estão todos aqui dentro — nada mais no index.html
-     precisa ser tocado.
-
-     DEPOIS DE COLAR, publique a nova versão do Apps Script:
-     Implantar > Gerenciar implantações > editar > Nova versão.
-
-     O QUE ESTA VERSÃO TRAZ
-       · duas abas depois de escolher o pedido: Buscar e Resumo
-       · contador de peças, com campo para digitar e botão "todas"
-       · botão para declarar o que procurou e não achou
-       · carimbo Separado / Não encontrada / Pendente
-       · resumo em itens, com filtro por conjunto e marcação na lista
-       · exportar em PDF
-
-     AINDA NÃO FUNCIONA SEM INTERNET. Cada marcação vai direto à
-     planilha. A fila de envio entra numa etapa seguinte.
-===================================================================== -->
-
 <div id="page-separador" class="hidden">
-
-    <style>
-        /* Campo de busca com o botão da câmera ao lado.
-           Os cartões de resultado usam as mesmas classes do
-           Localizador de Itens. */
-        .sep-busca { display: flex; gap: 8px; align-items: stretch; }
-        .sep-busca input { flex: 1; min-width: 0; }
-        .sep-camera {
-            flex: 0 0 46px; width: 46px;
-            display: flex; align-items: center; justify-content: center;
-            background: #1f1f1f; border: 1px solid #444; border-radius: 0.5rem;
-            color: #4ade80; cursor: pointer;
-            transition: border-color .15s ease, background .15s ease;
-        }
-        .sep-camera:hover { border-color: #4ade80; background: #262626; }
-        /* O campo é uppercase para o que o supervisor digita, mas o
-           texto de exemplo herdava isso e não cabia na tela do celular. */
-        #sepCodigo::placeholder {
-            text-transform: none;
-            font-size: 0.9rem;
-            opacity: .75;
-        }
-        .sep-camera svg { width: 22px; height: 22px; }
-        .sep-leitor-video {
-            width: 100%; max-height: 62vh; background: #000;
-            border-radius: 10px; display: block; object-fit: cover;
-        }
-        .sep-leitor-mira {
-            position: absolute; left: 8%; right: 8%; top: 50%;
-            height: 2px; background: rgba(74,222,128,.85);
-            transform: translateY(-50%); pointer-events: none;
-            box-shadow: 0 0 12px rgba(74,222,128,.7);
-        }
-        .sep-leitor-dica {
-            font-size: 12px; color: #9ca3af; text-align: center;
-            margin-top: 10px; line-height: 1.5;
-        }
-
-        /* ---- abas Bipar / Resumo ---- */
-        .sep-abas { display: flex; gap: 6px; margin-bottom: 16px; }
-        .sep-abas button {
-            flex: 1; padding: 9px 10px;
-            background: #1f1f1f; border: 1px solid #3d3d3d;
-            border-radius: 8px; color: #9ca3af;
-            font-size: 13.5px; font-weight: 700; cursor: pointer;
-        }
-        .sep-abas button.ativa {
-            background: #14301f; border-color: #2f6b46; color: #6ee7a8;
-        }
-
-        /* ---- corrente até o topo ---- */
-        .sep-destaque {
-            background: #14301f; border: 1px solid #2f6b46;
-            border-radius: 9px; padding: 11px 13px; margin-bottom: 12px;
-        }
-        .sep-destaque > span {
-            display: block; font-size: 10px; font-weight: 700;
-            letter-spacing: .5px; text-transform: uppercase;
-            color: #6ee7a8; margin-bottom: 4px;
-        }
-        .sep-destaque strong {
-            display: block; font-size: 14.5px; font-weight: 600;
-            color: #fff; line-height: 1.35;
-        }
-        .sep-destaque em {
-            display: block; font-style: normal; font-size: 12px;
-            color: #9ca3af; margin-top: 4px;
-        }
-        .sep-tag {
-            display: inline-block; margin-top: 6px;
-            background: #2f6b46; color: #eafff2;
-            font-size: 12px; font-weight: 700; letter-spacing: .4px;
-            padding: 2px 9px; border-radius: 999px;
-        }
-
-        .sep-caminho { margin-bottom: 12px; }
-        .sep-caminho > span {
-            display: block; font-size: 10px; font-weight: 700;
-            letter-spacing: .5px; text-transform: uppercase;
-            color: #9ca3af; margin-bottom: 6px;
-        }
-        /* Cada caminho numa caixa própria. Sem ela, com sete
-           caminhos na tela, um se confunde com o outro. */
-        .sep-caminho-cx {
-            border: 1px solid #3a3a3a; border-radius: 9px;
-            padding: 8px 10px; margin-bottom: 8px; background: #171717;
-        }
-        .sep-caminho-cx:last-child { margin-bottom: 0; }
-        .sep-passo {
-            display: flex; gap: 8px; align-items: baseline;
-            padding: 5px 0 5px 12px;
-            border-left: 2px solid #2f6b46;
-        }
-        .sep-passo:first-of-type { border-left-color: #4ade80; }
-        /* Tocar num conjunto abre a lista dele no resumo. */
-        .sep-passo.clicavel { cursor: pointer; }
-        .sep-passo.clicavel:active { background: #222; }
-        .sep-passo.clicavel .sep-passo-cod { color: #6ee7a8; text-decoration: underline; }
-        .sep-passo-qt { border-left-color: #3d3d3d !important; }
-        .sep-passo-cod {
-            flex: 0 0 auto; font-size: 12.5px; font-weight: 600; color: #fff;
-        }
-        .sep-passo-desc {
-            flex: 1; min-width: 0; font-size: 11.5px; color: #b8b8b8;
-            line-height: 1.35; word-break: break-word;
-        }
-        .sep-mais {
-            margin-top: 8px; font-size: 12px; color: #6ee7a8;
-            background: none; border: none; padding: 0; cursor: pointer;
-            text-decoration: underline;
-        }
-        .sep-obs {
-            margin-top: 10px; font-size: 11.5px; color: #fac775;
-            background: #2a2417; border: 1px solid #4a3f22;
-            border-radius: 7px; padding: 7px 10px; line-height: 1.45;
-        }
-
-        /* ---- carimbo e contador ---- */
-        .sep-cartao { position: relative; }
-        .sep-carimbo-linha { display: flex; justify-content: flex-end; }
-        .sep-carimbo {
-            display: inline-block; margin-bottom: 10px;
-            font-size: 11px; font-weight: 800; letter-spacing: .1em;
-            text-transform: uppercase; padding: 3px 10px;
-            border: 2px solid currentColor; border-radius: 4px;
-        }
-        .sep-carimbo.ok   { color: #4ade80; }
-        .sep-carimbo.bad  { color: #f87171; }
-        .sep-carimbo.pend { color: #fac775; }
-
-        .sep-contador {
-            margin-top: 12px; padding: 10px 12px;
-            background: #202020; border: 1px solid #3a3a3a; border-radius: 9px;
-        }
-        .sep-contador > span {
-            display: block; font-size: 10px; font-weight: 700;
-            letter-spacing: .5px; text-transform: uppercase;
-            color: #9ca3af; margin-bottom: 8px;
-        }
-        .sep-linha-qt { display: flex; align-items: center; gap: 10px; }
-        .sep-qt-valor {
-            flex: 1; font-size: 15px; color: #d1d5db;
-        }
-        .sep-qt-valor b { color: #fff; font-size: 19px; font-weight: 700; }
-        .sep-bt {
-            width: 40px; height: 40px; flex: 0 0 40px;
-            border-radius: 9px; border: none;
-            background: #3a3a3a; color: #fff;
-            font-size: 21px; font-weight: 700; line-height: 1; cursor: pointer;
-        }
-        .sep-bt:active { opacity: .75; }
-        .sep-bt:disabled { opacity: .3; cursor: not-allowed; }
-        .sep-bt.mais { background: #2f6b46; }
-        .sep-qt-campo {
-            width: 74px; flex: 0 0 74px; text-align: center;
-            background: #141414; border: 1px solid #4a4a4a; border-radius: 9px;
-            color: #fff; font-size: 19px; font-weight: 700; padding: 8px 4px;
-            -moz-appearance: textfield;
-        }
-        .sep-qt-campo::-webkit-outer-spin-button,
-        .sep-qt-campo::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .sep-qt-de { flex: 1; font-size: 13px; color: #9ca3af; }
-        .sep-bt-todas {
-            width: 100%; margin-top: 9px; padding: 9px;
-            border-radius: 9px; border: 1px solid #2f6b46;
-            background: #14301f; color: #6ee7a8;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-        .sep-bt-todas:active { opacity: .8; }
-        .sep-salvando {
-            font-size: 11px; color: #9ca3af; margin-top: 7px; display: block;
-        }
-        .sep-salvando.erro { color: #f87171; }
-        .sep-busca-fant { display: flex; gap: 8px; margin-bottom: 12px; }
-        .sep-busca-fant input {
-            flex: 1; min-width: 0; padding: 9px 11px;
-            background: #1f1f1f; border: 1px solid #444; border-radius: 8px;
-            color: #fff; font-size: 14px;
-        }
-        /* Buscar e Limpar lado a lado. O Limpar é discreto de
-           propósito: é usado entre uma peça e outra, não é a ação
-           principal da tela. */
-        .sep-acoes { display: flex; gap: 8px; }
-        .sep-acoes #sepBotao { flex: 1; }
-        .sep-acoes #sepBotaoLimpar {
-            flex: 0 0 auto; padding: 0 18px; border-radius: 0.5rem;
-            border: 1px solid #4a4a4a; background: #1f1f1f; color: #9ca3af;
-            font-size: 14px; font-weight: 600; cursor: pointer;
-        }
-        .sep-acoes #sepBotaoLimpar:active { background: #2a2a2a; }
-        .sep-busca-fant button {
-            flex: 0 0 auto; padding: 9px 14px; border-radius: 8px;
-            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-        .sep-falta {
-            margin-top: 9px; display: flex; align-items: center;
-            justify-content: space-between; gap: 8px;
-            font-size: 12.5px; color: #f8b4b4;
-        }
-        .sep-bt-texto {
-            background: none; border: none; padding: 0; cursor: pointer;
-            font-size: 12.5px; color: #6ee7a8; text-decoration: underline;
-        }
-        .sep-bt-falta {
-            width: 100%; margin-top: 9px; padding: 9px;
-            border-radius: 9px; border: 1px solid #5a2f2f;
-            background: #2a1717; color: #f8b4b4;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-        .sep-bt-falta:active { opacity: .8; }
-
-        /* ---- resumo ---- */
-        .sep-num { display: flex; gap: 8px; margin-bottom: 14px; }
-        .sep-num-cx {
-            flex: 1; text-align: center; padding: 10px 6px;
-            background: #1f1f1f; border: 1.5px solid #3a3a3a; border-radius: 10px;
-        }
-        .sep-num-cx b { display: block; font-size: 21px; font-weight: 700; color: #fff; }
-        .sep-num-cx span {
-            display: block; font-size: 9.5px; font-weight: 700;
-            letter-spacing: .05em; text-transform: uppercase; color: #9ca3af;
-            margin-top: 2px;
-        }
-        .sep-num-cx.ok   { border-color: #2f6b46; } .sep-num-cx.ok b   { color: #4ade80; }
-        .sep-num-cx.bad  { border-color: #5a2f2f; } .sep-num-cx.bad b  { color: #f87171; }
-        .sep-num-cx.pend { border-color: #4a3f22; } .sep-num-cx.pend b { color: #fac775; }
-
-        .sep-barra {
-            height: 8px; border-radius: 999px; background: #2a2a2a;
-            overflow: hidden; display: flex; margin-bottom: 16px;
-        }
-        .sep-barra i { display: block; height: 100%; }
-        .sep-barra i.ok  { background: #4ade80; }
-        .sep-barra i.bad { background: #f87171; }
-
-        .sep-conj-nome {
-            background: #14301f; border: 1px solid #2f6b46; border-radius: 8px;
-            padding: 9px 11px; margin-bottom: 12px;
-            font-size: 13px; color: #fff; line-height: 1.35;
-        }
-        .sep-conj-nome span {
-            display: block; font-size: 10px; font-weight: 700;
-            letter-spacing: .5px; text-transform: uppercase;
-            color: #6ee7a8; margin-bottom: 3px;
-        }
-        .sep-fichas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-        .sep-ficha {
-            padding: 6px 12px; border-radius: 999px;
-            background: #1f1f1f; border: 1.5px solid #3a3a3a;
-            color: #9ca3af; font-size: 12.5px; font-weight: 700; cursor: pointer;
-        }
-        .sep-ficha.ativa { background: #14301f; border-color: #2f6b46; color: #6ee7a8; }
-
-        .sep-carga {
-            display: flex; align-items: center; gap: 10px;
-            padding: 9px 11px; margin-bottom: 6px;
-            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
-        }
-        .sep-carga b { flex: 0 0 auto; font-size: 13.5px; color: #fff; }
-        .sep-carga span { flex: 1; text-align: right; font-size: 12.5px; color: #9ca3af; }
-        .sep-carga.conferida { border-color: #2f6b46; }
-        .sep-carga.conferida span { color: #6ee7a8; }
-
-        .sep-item-lista {
-            padding: 9px 11px; margin-bottom: 6px;
-            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
-            font-size: 12.5px;
-        }
-        .sep-item-lista b { color: #fff; }
-        .sep-item-lista span { display: block; color: #9ca3af; margin-top: 2px; line-height: 1.35; }
-
-        /* Ações da lista no topo: com 300 itens, o botão no fim da
-           página nunca era alcançado. */
-        .sep-lista-acoes { display: flex; gap: 8px; margin-bottom: 12px; }
-        .sep-lista-acoes button {
-            flex: 1; padding: 9px; border-radius: 9px;
-            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-        .sep-lista-acoes button.pdf { border-color: #2f6b46; color: #6ee7a8; }
-        .sep-acao-pdf {
-            width: 100%; margin-top: 10px; padding: 10px;
-            border-radius: 9px; border: 1px solid #3d3d3d;
-            background: #2e2e2e; color: #e5e7eb;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-    </style>
-
-    <!-- 1. Pedido -->
-    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
-        <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
-        <label for="separadorClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
-            Pedido (com nome do Cliente)
-        </label>
-        <div class="sel">
-            <button type="button" class="sel-botao" onclick="selAlternar(this)">
-                <span class="sel-rotulo">Carregando Pedidos...</span>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"/>
-                </svg>
-            </button>
-            <div class="sel-lista hidden"></div>
-            <select id="separadorClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
-                    onchange="onSeparadorPedidoChange(this.value)">
-                <option value="">Carregando Pedidos...</option>
-            </select>
-        </div>
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">Separador de Obra</h2>
+        <p class="text-sm text-gray-400">Em breve: informe o código do item para descobrir a qual conjunto de montagem ele pertence.</p>
     </div>
-
-    <!-- Abas, só aparecem depois de escolher o pedido -->
-    <div id="sepAbas" class="sep-abas hidden">
-        <button type="button" id="sepAbaBipar" class="ativa" onclick="sepTrocarAba('bipar')">Buscar peça</button>
-        <button type="button" id="sepAbaResumo" onclick="sepTrocarAba('resumo')">Resumo da obra</button>
-    </div>
-
-    <!-- ============ ABA BIPAR ============ -->
-    <div id="sepPainelBipar">
-
-        <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Ler código de barras ou digitar código</h2>
-            <div class="mb-4">
-                <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
-                    Etiqueta ou código do item
-                </label>
-                <div class="sep-busca">
-                    <input type="text" id="sepCodigo" inputmode="numeric"
-                           placeholder="Etiqueta ou código"
-                           class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
-                           onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
-                    <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-                            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                            <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="sep-acoes">
-                <button id="sepBotao" onclick="buscarSeparador()"
-                        class="btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                    </svg>
-                    Buscar
-                </button>
-                <button type="button" id="sepBotaoLimpar" onclick="sepLimparBusca()">Limpar</button>
-            </div>
-        </div>
-
-        <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
-            <div id="sepResults"></div>
-        </div>
-
-    </div>
-
-    <!-- ============ ABA RESUMO ============ -->
-    <div id="sepPainelResumo" class="hidden">
-        <div class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Como está a obra</h2>
-            <div id="sepResumo"></div>
-        </div>
-    </div>
-
-    <!-- Leitor de código de barras -->
-    <div id="modal-leitor" class="fixed inset-0 z-[70] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.85);">
-        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg">
-            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
-                <h2 class="text-base font-semibold text-gray-200 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
-                    </svg>
-                    Ler etiqueta
-                </h2>
-                <button type="button" onclick="fecharLeitor()" class="text-gray-400 hover:text-white transition duration-150">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-            <div class="p-4">
-                <div style="position:relative;">
-                    <video id="sepLeitorVideo" class="sep-leitor-video" playsinline muted></video>
-                    <div class="sep-leitor-mira"></div>
-                </div>
-                <p class="sep-leitor-dica" id="sepLeitorDica">Preparando a câmera...</p>
-                <div class="flex gap-2" style="margin-top:12px;">
-                    <button type="button" onclick="document.getElementById('sepLeitorFoto').click()"
-                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
-                        Ler por foto
-                    </button>
-                    <button type="button" onclick="fecharLeitor()"
-                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
-                        Cancelar
-                    </button>
-                </div>
-                <input type="file" id="sepLeitorFoto" accept="image/*" capture="environment" class="hidden"
-                       onchange="sepLerPorFoto(this)">
-            </div>
-        </div>
-    </div>
-
-    <script>
-    /* =================================================================
-       SEPARADOR DE OBRA
-       Tudo desta página vive aqui: nada precisa ser tocado no resto
-       do index.html.
-    ================================================================= */
-
-    /* A URL do app da web. Ao publicar uma versão nova pelo caminho
-       'Gerenciar implantações > editar > Nova versão', esta URL NÃO
-       muda — só muda se você criar uma implantação nova. */
-    const SEPARADOR_URL = "https://script.google.com/macros/s/AKfycbwd47cNVd98nGiHTE7ZRw1vuJfJx8eRlS1ZeKiKv1IQZHXOaGyTSVncwiXpGn9KtkJV/exec";
-
-    /* Campos do resultado, na ordem em que aparecem.
-       [ nome do campo na resposta , rótulo lido , esconder se vazio ]
-       Para tirar um campo, apague a linha. É o único lugar a editar. */
-    const SEP_CAMPOS = [
-        ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
-        ['COD_PECA',      'CÓDIGO PEÇA'],
-        ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
-        ['QTDE_CARGA',    'QTDE'],
-        ['CARREGAMENTO',  'NÚMERO DO CARREGAMENTO']
-    ];
-
-    let sepPedido = null;
-    let sepAba = 'bipar';
-    let sepUltimos = [];        /* cartões da aba Buscar */
-    let sepLista = [];          /* itens da lista do Resumo */
-
-    /* ---------------------------------------------------------------
-       Lista de pedidos e troca de aba
-    --------------------------------------------------------------- */
-    function sepAtualizarPedidos() {
-        const select = document.getElementById('separadorClientSelect');
-        if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
-        if (select.dataset.carregado === String(allPedidos.length)) return;
-        populateSelectWithPedidos(select, allPedidos);
-        select.dataset.carregado = String(allPedidos.length);
-    }
-
-    function onSeparadorPedidoChange(valor) {
-        sepPedido = (valor || '').trim().toUpperCase();
-        sepUltimos = [];
-        sepLista = [];
-        sepResumoDados = null;
-        document.getElementById('sepResultsBlock').classList.add('hidden');
-        document.getElementById('sepCodigo').value = '';
-        const abas = document.getElementById('sepAbas');
-        const busca = document.getElementById('sepBuscaBlock');
-        if (sepPedido) {
-            abas.classList.remove('hidden');
-            busca.classList.remove('hidden');
-            sepTrocarAba('bipar');
-            document.getElementById('sepCodigo').focus();
-        } else {
-            abas.classList.add('hidden');
-            busca.classList.add('hidden');
-        }
-    }
-
-    function sepTrocarAba(qual) {
-        sepAba = qual;
-        document.getElementById('sepAbaBipar').classList.toggle('ativa', qual === 'bipar');
-        document.getElementById('sepAbaResumo').classList.toggle('ativa', qual === 'resumo');
-        document.getElementById('sepPainelBipar').classList.toggle('hidden', qual !== 'bipar');
-        document.getElementById('sepPainelResumo').classList.toggle('hidden', qual !== 'resumo');
-        if (qual === 'resumo' && !sepResumoDados) sepCarregarResumo();
-    }
-
-    /* ---------------------------------------------------------------
-       Busca
-    --------------------------------------------------------------- */
-    async function buscarSeparador() {
-        const codigo = document.getElementById('sepCodigo').value.trim();
-        const botao = document.getElementById('sepBotao');
-        const alvo = document.getElementById('sepResults');
-
-        if (!codigo) {
-            sepMensagem('Bipe a etiqueta ou digite o código do item.', false);
-            return;
-        }
-
-        const htmlBotao = botao.innerHTML;
-        botao.disabled = true;
-        botao.innerHTML = '<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...';
-        document.getElementById('sepResultsBlock').classList.remove('hidden');
-        alvo.className = '';
-        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
-
-        try {
-            const url = SEPARADOR_URL + '?mode=separador'
-                      + '&pedido=' + encodeURIComponent(sepPedido || '')
-                      + '&codigo=' + encodeURIComponent(codigo);
-            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-            const dados = await resposta.json();
-
-            if (dados && dados.error) {
-                sepMensagem(dados.error, true);
-            } else if (dados && dados.tipoBusca === 'conjunto') {
-                /* O código é um conjunto — item de venda, fantasma ou
-                   conjunto do meio. Nada disso é expedido nem tem
-                   etiqueta, então o que serve é a lista do que vai
-                   dentro dele. */
-                sepAbrirConjunto(dados.conjunto, dados.descConjunto, dados.aviso || '');
-            } else if (dados && Array.isArray(dados.itens) && dados.itens.length) {
-                sepUltimos = dados.itens;
-                sepDesenhar();
-            } else {
-                sepMensagem('Nenhum resultado.', true);
-            }
-        } catch (erro) {
-            sepMensagem('Erro de conexão. ' + erro.message, true);
-        } finally {
-            botao.disabled = false;
-            botao.innerHTML = htmlBotao;
-        }
-    }
-
-    /**
-     * Limpa a busca e devolve o foco ao campo, para o supervisor já
-     * bipar a próxima peça sem tocar em mais nada.
-     */
-    function sepLimparBusca() {
-        document.getElementById('sepCodigo').value = '';
-        document.getElementById('sepResultsBlock').classList.add('hidden');
-        sepUltimos = [];
-        document.getElementById('sepCodigo').focus();
-    }
-
-    /* =================================================================
-       MARCAÇÃO
-       Fila com espera, um envio por vez em cada etiqueta.
-
-       Sem isto, apertar o "+" cinco vezes rápido dispara cinco
-       gravações que se cruzam: a resposta da primeira chega depois da
-       terceira e devolve o número velho para a tela. Foi o que
-       aconteceu no app da obra de captação, e a solução de lá é esta.
-
-       A tela muda na hora; o envio espera 600 ms de silêncio. Se
-       chegou toque novo durante um envio, manda de novo no fim.
-    ================================================================= */
-    const SEP_ESPERA_MS = 600;
-    const sepDesejado = {};   /* chave -> {sep, ne} ainda não confirmado */
-    const sepTimer = {};      /* chave -> timeout da espera */
-    const sepIndo = {};       /* chave -> true enquanto o fetch está em curso */
-    const sepErro = {};       /* chave -> mensagem do último erro */
-
-    function sepChave(it) {
-        return String(it.ID) + '|' + String(it.CARREGAMENTO);
-    }
-
-    /** Acha o mesmo item nas duas telas, para as duas ficarem certas. */
-    function sepTodosComChave(chave) {
-        return sepUltimos.concat(sepLista).filter(function (x) {
-            return sepChave(x) === chave;
-        });
-    }
-
-    function sepAplicar(it, sep, ne) {
-        const total = Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
-        sep = Math.max(0, Math.min(Math.round(sep), total));
-        ne  = Math.max(0, Math.min(Math.round(ne), total - sep));
-
-        const chave = sepChave(it);
-        sepTodosComChave(chave).forEach(function (x) {
-            x.SEPARADAS = sep;
-            x.NAO_ENCONTRADAS = ne;
-            x.PENDENTES = Math.max(0, total - sep - ne);
-            x.SITUACAO_SEP = sepSituacao(sep, ne, total);
-        });
-        delete sepErro[chave];
-        sepDesejado[chave] = { sep: sep, ne: ne, pedido: it.PEDIDO, id: it.ID, carga: it.CARREGAMENTO };
-        sepRedesenhar();
-
-        if (sepTimer[chave]) clearTimeout(sepTimer[chave]);
-        sepTimer[chave] = setTimeout(function () {
-            delete sepTimer[chave];
-            sepEnviarFila(chave);
-        }, SEP_ESPERA_MS);
-    }
-
-    async function sepEnviarFila(chave) {
-        if (sepIndo[chave]) return;                 /* já tem um indo; ele reenvia no fim */
-        const alvo = sepDesejado[chave];
-        if (!alvo) return;
-
-        sepIndo[chave] = true;
-        try {
-            const url = SEPARADOR_URL + '?mode=marcar'
-                      + '&pedido=' + encodeURIComponent(alvo.pedido)
-                      + '&id=' + encodeURIComponent(alvo.id)
-                      + '&carga=' + encodeURIComponent(alvo.carga)
-                      + '&sep=' + alvo.sep + '&ne=' + alvo.ne;
-            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-            const dados = await resposta.json();
-            if (dados && dados.error) throw new Error(dados.error);
-
-            /* Se o supervisor continuou tocando durante o envio, o que
-               vale é o toque novo — não sobrescreve a tela com o que
-               foi gravado agora. */
-            const aindaIgual = sepDesejado[chave] &&
-                               sepDesejado[chave].sep === alvo.sep &&
-                               sepDesejado[chave].ne === alvo.ne;
-            if (aindaIgual) {
-                delete sepDesejado[chave];
-                sepTodosComChave(chave).forEach(function (x) {
-                    const total = Number(x.QTDE_CARGA !== undefined ? x.QTDE_CARGA : x.QTDE) || 0;
-                    x.SEPARADAS = dados.SEPARADAS;
-                    x.NAO_ENCONTRADAS = dados.NAO_ENCONTRADAS;
-                    x.PENDENTES = Math.max(0, total - dados.SEPARADAS - dados.NAO_ENCONTRADAS);
-                    x.SITUACAO_SEP = dados.SITUACAO_SEP;
-                });
-            }
-            delete sepErro[chave];
-        } catch (e) {
-            sepErro[chave] = e.message || 'falhou';
-        } finally {
-            delete sepIndo[chave];
-            sepRedesenhar();
-            /* chegou valor novo enquanto enviava: manda de novo */
-            if (sepDesejado[chave]) sepEnviarFila(chave);
-        }
-    }
-
-    function sepRedesenhar() {
-        if (sepAba === 'bipar') { if (sepUltimos.length) sepDesenhar(); }
-        else { sepDesenharLista(); }
-    }
-
-    /* A mesma regra do Apps Script, repetida só para a tela responder
-       antes da resposta chegar. Quem manda é o servidor. */
-    function sepSituacao(sep, ne, total) {
-        if (sep === 0 && ne === 0) return '';
-        if (sep >= total) return 'Separado';
-        if (ne  >= total) return 'Não encontrada';
-        return 'Pendente';
-    }
-
-    /* ---- ações dos botões ---- */
-    function sepAchar(onde, n) {
-        return (onde === 'busca' ? sepUltimos : sepLista)[n];
-    }
-    function sepTotal(it) {
-        return Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
-    }
-
-    function sepSomar(onde, n, delta) {
-        const it = sepAchar(onde, n);
-        if (!it) return;
-        sepAplicar(it, (Number(it.SEPARADAS) || 0) + delta, Number(it.NAO_ENCONTRADAS) || 0);
-    }
-
-    function sepDigitar(onde, n, campo) {
-        const it = sepAchar(onde, n);
-        if (!it) return;
-        const v = parseInt(campo.value, 10);
-        sepAplicar(it, isNaN(v) ? 0 : v, Number(it.NAO_ENCONTRADAS) || 0);
-    }
-
-    function sepTodas(onde, n) {
-        const it = sepAchar(onde, n);
-        if (!it) return;
-        sepAplicar(it, sepTotal(it), 0);
-    }
-
-    function sepMarcarFalta(onde, n) {
-        const it = sepAchar(onde, n);
-        if (!it) return;
-        const sep = Number(it.SEPARADAS) || 0;
-        sepAplicar(it, sep, sepTotal(it) - sep);
-    }
-
-    function sepLimparFalta(onde, n) {
-        const it = sepAchar(onde, n);
-        if (!it) return;
-        sepAplicar(it, Number(it.SEPARADAS) || 0, 0);
-    }
-
-    /**
-     * O contador. É o mesmo nas duas telas — no cartão da busca e em
-     * cada linha da lista do resumo.
-     *
-     * Some quando a peça não entra na separação: carga que ainda não
-     * embarcou, ou item comprado. Nesses casos o cartão explica o
-     * motivo em vez de deixar o supervisor contando à toa.
-     */
-    function sepContador(it, onde, n) {
-        if (it.EM_OBRA === false) {
-            return '<div class="sep-obs">Esta peça ainda não embarcou. A carga existe no sistema, '
-                 + 'mas o caminhão não saiu — por isso ela não entra na separação.</div>';
-        }
-        if (it.NA_LISTA === false) {
-            return '<div class="sep-obs">Item comprado. Não entra na lista de separação.</div>';
-        }
-
-        const total = sepTotal(it);
-        const sep   = Number(it.SEPARADAS) || 0;
-        const ne    = Number(it.NAO_ENCONTRADAS) || 0;
-        const pend  = Math.max(0, total - sep - ne);
-        const chave = sepChave(it);
-        const a = "'" + onde + "'," + n;
-
-        let h = '<div class="sep-contador"><span>Separação</span>';
-
-        h += '<div class="sep-linha-qt">';
-        h += '<button type="button" class="sep-bt" onclick="sepSomar(' + a + ',-1)"'
-           + (sep <= 0 ? ' disabled' : '') + '>&minus;</button>';
-        h += '<input type="number" class="sep-qt-campo" inputmode="numeric" min="0" max="' + total + '" '
-           + 'value="' + sep + '" onchange="sepDigitar(' + a + ',this)" '
-           + 'onfocus="this.select()">';
-        h += '<span class="sep-qt-de">de ' + total + '</span>';
-        h += '<button type="button" class="sep-bt mais" onclick="sepSomar(' + a + ',1)"'
-           + (pend <= 0 ? ' disabled' : '') + '>+</button>';
-        h += '</div>';
-
-        if (sep < total && ne === 0) {
-            h += '<button type="button" class="sep-bt-todas" onclick="sepTodas(' + a + ')">'
-               + 'Achei todas as ' + total + '</button>';
-        }
-        if (ne > 0) {
-            h += '<div class="sep-falta">'
-               + '<span>' + ne + ' não encontrada' + (ne === 1 ? '' : 's') + '</span>'
-               + '<button type="button" class="sep-bt-texto" onclick="sepLimparFalta(' + a + ')">Desfazer</button>'
-               + '</div>';
-        }
-        if (pend > 0) {
-            h += '<button type="button" class="sep-bt-falta" onclick="sepMarcarFalta(' + a + ')">'
-               + 'Não achei ' + (pend === total ? 'nenhuma' : ('as ' + pend + ' restantes')) + '</button>';
-        }
-
-        if (sepErro[chave]) {
-            h += '<span class="sep-salvando erro">Não salvou: ' + sepEsc(sepErro[chave])
-               + ' — toque de novo com internet.</span>';
-        } else if (sepDesejado[chave] || sepIndo[chave]) {
-            h += '<span class="sep-salvando">salvando…</span>';
-        }
-
-        h += '</div>';
-        return h;
-    }
-
-    function sepCarimbo(item) {
-        const s = item.SITUACAO_SEP;
-        if (!s) return '';
-        const classe = s === 'Separado' ? 'ok' : (s === 'Não encontrada' ? 'bad' : 'pend');
-        let texto = s;
-        /* Item fechado com falta continua Pendente, mas mostrando a
-           falta ali no carimbo — senão parece que ainda falta contar. */
-        if (s === 'Pendente' && Number(item.NAO_ENCONTRADAS) > 0) {
-            texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
-                   + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
-        }
-        return '<div class="sep-carimbo-linha">'
-             + '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div></div>';
-    }
-
-    /* ---------------------------------------------------------------
-       O cartão da busca
-    --------------------------------------------------------------- */
-    function sepDesenhar() {
-        const alvo = document.getElementById('sepResults');
-        alvo.className = 'border-green-600 border-2 p-3 rounded-lg';
-
-        let html = '';
-        sepUltimos.forEach(function (item, n) {
-            let corpo = sepCarimbo(item);
-
-            /* onde a peça vai — é o que o supervisor precisa saber com
-               a peça na mão, então vem primeiro */
-            if (item.TOPO) {
-                let sub = 'Código ' + sepEsc(item.TOPO);
-                if (item.MASCARA) sub += ' · Máscara ' + sepEsc(item.MASCARA);
-                corpo += '<div class="sep-destaque">'
-                       + '<span>Vai em</span>'
-                       + '<strong>' + sepEsc(item.DESC_TOPO || '—') + '</strong>'
-                       + '<em>' + sub + '</em>'
-                       + (item.TAG ? '<span class="sep-tag">' + sepEsc(item.TAG) + '</span>' : '')
-                       + '</div>';
-            }
-
-            const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
-            if (caminhos.length) {
-                corpo += '<div class="sep-caminho">'
-                       + '<span id="sepCamRot' + n + '">Caminho'
-                       + (caminhos.length > 1 ? ' 1 de ' + caminhos.length : '') + '</span>'
-                       + '<div id="sepCam' + n + '" data-aberto="0">'
-                       + sepPassos(caminhos[0]) + '</div>';
-                if (caminhos.length > 1) {
-                    corpo += '<button type="button" class="sep-mais" '
-                           + 'onclick="sepVerCaminhos(' + n + ')" id="sepMais' + n + '">'
-                           + 'Ver os outros ' + (caminhos.length - 1) + ' caminhos</button>';
-                }
-                corpo += '</div>';
-            } else if (item.COD_FANTASMA && !item.TOPO) {
-                /* Sem estrutura e sem topo, o fantasma é a única pista
-                   de onde a peça entra. Só nesse caso ele aparece. */
-                corpo += '<div class="sep-destaque">'
-                       + '<span>Entra em</span>'
-                       + '<strong>' + sepEsc(item.DESC_FANTASMA || '—') + '</strong>'
-                       + '<em>Código ' + sepEsc(item.COD_FANTASMA) + '</em>'
-                       + '</div>';
-            }
-
-            SEP_CAMPOS.forEach(function (par) {
-                const valor = item[par[0]];
-                const vazio = (valor === '' || valor === null || valor === undefined);
-                if (vazio && par[2]) return;
-                corpo += '<div class="flex flex-col mb-1">'
-                       + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
-                       + '<span class="text-sm text-white font-medium break-words">'
-                       + sepEsc(vazio ? '—' : valor)
-                       + '</span></div>';
-            });
-
-            corpo += sepContador(item, 'busca', n);
-
-            const aviso = sepAviso(item.ESTRUTURA_OBS);
-            if (aviso) corpo += '<div class="sep-obs">' + aviso + '</div>';
-
-            html += '<div class="sep-cartao bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
-                  + '<div class="p-1 text-white">' + corpo + '</div></div>';
-        });
-
-        alvo.innerHTML = html;
-    }
-
-    /* ---------------------------------------------------------------
-       Caminho
-    --------------------------------------------------------------- */
-    function sepPassos(caminho) {
-        if (!caminho || !Array.isArray(caminho.passos)) return '';
-        let h = '<div class="sep-caminho-cx">';
-        caminho.passos.forEach(function (p) {
-            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\',\''
-               + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\',\'\')">'
-               + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
-               + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
-               + '</div>';
-        });
-        if (caminho.qtde) {
-            h += '<div class="sep-passo sep-passo-qt">'
-               + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
-               + '<span class="sep-passo-desc">'
-               + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
-               + '</div>';
-        }
-        return h + '</div>';
-    }
-
-    /**
-     * Tocar num conjunto do caminho leva para o resumo já filtrado
-     * nele. É o mesmo movimento que o supervisor faz na cabeça: "esta
-     * peça vai no corrimão — o que mais vai no corrimão?".
-     */
-    function sepAbrirConjunto(codigo, descricao, aviso) {
-        sepFantasma = String(codigo || '').trim();
-        sepFantasmaDesc = String(descricao || '').trim();
-        if (aviso !== undefined) sepAvisoConjunto = aviso;
-        sepFiltro = 'todas';
-        sepTrocarAba('resumo');
-        if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function sepVerCaminhos(n) {
-        const item = sepUltimos[n];
-        if (!item || !Array.isArray(item.CAMINHOS)) return;
-
-        const lista  = document.getElementById('sepCam' + n);
-        const botao  = document.getElementById('sepMais' + n);
-        const rotulo = document.getElementById('sepCamRot' + n);
-        const total  = item.CAMINHOS.length;
-        const aberto = lista.getAttribute('data-aberto') === '1';
-
-        if (aberto) {
-            lista.innerHTML = sepPassos(item.CAMINHOS[0]);
-            lista.setAttribute('data-aberto', '0');
-            if (rotulo) rotulo.textContent = 'Caminho 1 de ' + total;
-            if (botao)  botao.textContent = 'Ver os outros ' + (total - 1) + ' caminhos';
-        } else {
-            let h = '';
-            item.CAMINHOS.forEach(function (c) { h += sepPassos(c); });
-            lista.innerHTML = h;
-            lista.setAttribute('data-aberto', '1');
-            if (rotulo) rotulo.textContent = 'Caminhos (' + total + ')';
-            if (botao)  botao.textContent = 'Recolher';
-        }
-    }
-
-    function sepAviso(obs) {
-        if (!obs) return '';
-        const partes = String(obs).split(',');
-        const texto = {
-            'varios-topos':      'Esta peça entra em mais de um equipamento neste pedido e não deu para saber qual. Confira com o projeto.',
-            'varias-unidades':   'O pedido tem mais de uma unidade deste equipamento. Os dados são do primeiro.',
-            'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
-            'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
-            'sem-aba-corrente':  'A estrutura ainda não foi importada.'
-        };
-        const linhas = partes.map(function (p) { return texto[p.trim()]; }).filter(Boolean);
-        return linhas.join('<br>');
-    }
-
-    function sepMensagem(texto, erro) {
-        const alvo = document.getElementById('sepResults');
-        document.getElementById('sepResultsBlock').classList.remove('hidden');
-        if (erro) {
-            alvo.className = 'p-3 rounded-lg border-red-600 border-2 bg-[#1a1a1a]';
-            alvo.innerHTML = '<div class="text-center">'
-                + '<p class="text-base font-bold text-red-500 mb-2">❌ Não encontrado:</p>'
-                + '<p class="text-gray-400 break-words text-sm">' + sepEsc(texto) + '</p></div>';
-        } else {
-            alvo.className = 'p-3 rounded-lg border border-dashed border-[#444] bg-[#1a1a1a]';
-            alvo.innerHTML = '<p class="text-sm text-gray-500 italic text-center">' + sepEsc(texto) + '</p>';
-        }
-    }
-
-    function sepEsc(t) {
-        return String(t === null || t === undefined ? '' : t).replace(/[&<>"]/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-        });
-    }
-
-    /* =================================================================
-       RESUMO DA OBRA
-       Os três números, e a lista embaixo — que também separa peça,
-       para o supervisor não ter que voltar na aba de busca a cada uma.
-    ================================================================= */
-    let sepResumoDados = null;
-    let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
-    let sepFantasma = '';
-    let sepFantasmaDesc = '';
-    let sepAvisoConjunto = '';   /* explica por que caiu no resumo */
-
-    async function sepCarregarResumo() {
-        const alvo = document.getElementById('sepResumo');
-        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
-        try {
-            const url = SEPARADOR_URL + '?mode=resumo&pedido=' + encodeURIComponent(sepPedido || '');
-            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-            sepResumoDados = await resposta.json();
-            if (sepResumoDados.error) throw new Error(sepResumoDados.error);
-            sepDesenharResumo();
-            sepCarregarLista();
-        } catch (e) {
-            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar o resumo. ' + sepEsc(e.message) + '</p>';
-        }
-    }
-
-    function sepDesenharResumo() {
-        const alvo = document.getElementById('sepResumo');
-        const d = sepResumoDados;
-        if (!d) return;
-
-        if (d.semNadaEmObra) {
-            alvo.innerHTML = '<div class="sep-obs">Este pedido ainda não tem carga embarcada. '
-                + 'Existem ' + d.foraDeObra + ' linhas com carga aberta ou sem carga, '
-                + 'que só entram na separação depois que o caminhão sair.</div>';
-            return;
-        }
-
-        const g = d.geral;
-        const pcOk  = g.itens ? (g.separados      / g.itens * 100) : 0;
-        const pcBad = g.itens ? (g.naoEncontrados / g.itens * 100) : 0;
-
-        let h = '';
-
-        h += '<div class="sep-num">'
-           + '<div class="sep-num-cx ok"><b>' + g.separados + '</b><span>Separados</span></div>'
-           + '<div class="sep-num-cx bad"><b>' + g.naoEncontrados + '</b><span>Não encontrados</span></div>'
-           + '<div class="sep-num-cx pend"><b>' + g.pendentes + '</b><span>Pendentes</span></div>'
-           + '</div>';
-
-        h += '<div class="sep-barra">'
-           + '<i class="ok" style="width:' + pcOk + '%"></i>'
-           + '<i class="bad" style="width:' + pcBad + '%"></i>'
-           + '</div>';
-
-        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra. '
-           + d.compradas + ' itens comprados ficam de fora da separação.</p>';
-
-        /* filtrar por conjunto: o supervisor separa um conjunto de cada
-           vez, então ver só o que pertence a ele é o modo natural */
-        h += '<div class="sep-busca-fant">'
-           + '<input type="text" id="sepFantCampo" inputmode="numeric" '
-           + 'placeholder="Código do conjunto (opcional)" value="' + sepEsc(sepFantasma) + '" '
-           + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sepFiltrarFantasma();}">'
-           + '<button type="button" onclick="sepFiltrarFantasma()">Filtrar</button>'
-           + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
-           + '</div>';
-
-        if (sepAvisoConjunto) {
-            h += '<div class="sep-obs" style="margin-bottom:12px">' + sepEsc(sepAvisoConjunto) + '</div>';
-        }
-        if (sepFantasma && sepFantasmaDesc) {
-            h += '<div class="sep-conj-nome"><span>Conjunto ' + sepEsc(sepFantasma) + '</span>'
-               + sepEsc(sepFantasmaDesc) + '</div>';
-        }
-
-        h += '<div class="sep-fichas">'
-           + sepFicha('pendente', 'Pendentes (' + g.pendentes + ')')
-           + sepFicha('naoencontrada', 'Não encontradas (' + g.naoEncontrados + ')')
-           + sepFicha('separado', 'Separadas (' + g.separados + ')')
-           + sepFicha('todas', 'Todas (' + g.itens + ')')
-           + '</div>';
-
-        h += '<div id="sepResumoLista"></div>';
-
-        alvo.innerHTML = h;
-    }
-
-    function sepFicha(chave, rotulo) {
-        return '<button type="button" class="sep-ficha' + (sepFiltro === chave ? ' ativa' : '') + '" '
-             + 'onclick="sepTrocarFiltro(\'' + chave + '\')">' + rotulo + '</button>';
-    }
-
-    function sepTrocarFiltro(chave) {
-        sepFiltro = chave;
-        sepDesenharResumo();
-        sepCarregarLista();
-    }
-
-    function sepFiltrarFantasma() {
-        const campo = document.getElementById('sepFantCampo');
-        sepFantasma = campo ? campo.value.trim() : '';
-        sepFantasmaDesc = '';
-        sepAvisoConjunto = '';
-        sepDesenharResumo();
-        sepCarregarLista();
-    }
-
-    function sepLimparFantasma() {
-        sepFantasma = '';
-        sepFantasmaDesc = '';
-        sepAvisoConjunto = '';
-        sepDesenharResumo();
-        sepCarregarLista();
-    }
-
-    async function sepCarregarLista() {
-        const alvo = document.getElementById('sepResumoLista');
-        if (!alvo) return;
-        alvo.innerHTML = '<div class="flex items-center justify-center p-3"><div class="spinner border-4 border-[#333] border-t-4 h-5 w-5 rounded-full"></div></div>';
-        try {
-            const url = SEPARADOR_URL + '?mode=lista'
-                      + '&pedido=' + encodeURIComponent(sepPedido || '')
-                      + '&situacao=' + sepFiltro
-                      + (sepFantasma ? '&fantasma=' + encodeURIComponent(sepFantasma) : '');
-            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-            const d = await resposta.json();
-            if (d.error) throw new Error(d.error);
-            sepLista = d.itens || [];
-            /* A descrição do conjunto vem da resposta: só o servidor
-               sabe qual nível da corrente casou com o código.
-               Se não vier — Apps Script antigo, por exemplo — tenta
-               achar na própria lista, pelo pai imediato. */
-            if (sepFantasma) {
-                let nome = d.descFantasma || '';
-                if (!nome) {
-                    const igual = sepLista.find(function (x) {
-                        return String(x.COD_FANTASMA) === String(sepFantasma);
-                    });
-                    if (igual) nome = igual.DESC_FANTASMA || '';
-                }
-                if (nome && nome !== sepFantasmaDesc) {
-                    sepFantasmaDesc = nome;
-                    sepDesenharResumo();   /* redesenha o cabeçalho com o nome */
-                }
-            }
-            sepDesenharLista();
-        } catch (e) {
-            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar a lista. ' + sepEsc(e.message) + '</p>';
-        }
-    }
-
-    /**
-     * A lista do resumo. Cada linha traz o mesmo contador do cartão —
-     * o supervisor separa direto daqui, sem voltar para a busca.
-     *
-     * A linha NÃO some quando muda de situação: se sumisse na hora, um
-     * toque errado tiraria o item da tela antes de dar para corrigir.
-     * Ela sai na próxima vez que a lista for carregada.
-     */
-    function sepDesenharLista() {
-        const alvo = document.getElementById('sepResumoLista');
-        if (!alvo) return;
-
-        if (!sepLista.length) {
-            alvo.innerHTML = '<p class="text-sm text-gray-500 italic">Nada nesta situação.</p>';
-            return;
-        }
-
-        let h = '<div class="sep-lista-acoes">'
-              + '<button type="button" onclick="sepCarregarLista()">Atualizar</button>'
-              + '<button type="button" class="pdf" onclick="sepExportarPDF()">Baixar em PDF</button>'
-              + '</div>';
-        sepLista.forEach(function (it, n) {
-            h += '<div class="sep-item-lista">'
-               + sepCarimbo(it)
-               + '<b>' + sepEsc(it.COD_PECA) + '</b> · carga ' + sepEsc(it.CARREGAMENTO)
-               + '<span>' + sepEsc(it.DESC_PECA) + '</span>';
-            if (it.DESC_FANTASMA) {
-                h += '<span>Entra em ' + sepEsc(it.COD_FANTASMA) + ' — ' + sepEsc(it.DESC_FANTASMA) + '</span>';
-            }
-            h += sepContador(it, 'lista', n)
-               + '</div>';
-        });
-        alvo.innerHTML = h;
-    }
-
-    /* ---------------------------------------------------------------
-       PDF — folha timbrada do Grupo SR
-
-       O topo e o rodapé são as duas imagens do modelo de folha
-       timbrada, reduzidas para 1240 px de largura e com paleta de 32
-       cores. Ficaram em 31 KB somados, então vão embutidas aqui: uma
-       coisa a menos para dar errado no dia em que alguém publicar o
-       app sem os arquivos.
-
-       As duas ocupam a largura inteira da página, como no modelo do
-       Word, e são redesenhadas em toda página pelo didDrawPage.
-    --------------------------------------------------------------- */
-    const SEP_TIMBRE_TOPO = 'data:image/png;base64,'
-        + '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';
-
-    const SEP_TIMBRE_RODAPE = 'data:image/png;base64,'
-        + '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'
-        + '1qTlXZ/h86p8uzxZdgTgAAAABJRU5ErkJggg==';
-
-    /* Altura em mm quando a imagem ocupa os 210 mm da folha A4. */
-    const SEP_TIMBRE_TOPO_H = 210 * 162 / 1240;
-    const SEP_TIMBRE_ROD_H  = 210 * 149 / 1240;
-
-    const SEP_PDF_URLS = [
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
-    ];
-    let sepPdfPronto = null;
-
-    function sepCarregarPDF() {
-        if (sepPdfPronto) return sepPdfPronto;
-        sepPdfPronto = SEP_PDF_URLS.reduce(function (fila, src) {
-            return fila.then(function () {
-                return new Promise(function (ok, erro) {
-                    const s = document.createElement('script');
-                    s.src = src;
-                    s.onload = ok;
-                    s.onerror = function () { erro(new Error('Não consegui baixar o gerador de PDF.')); };
-                    document.head.appendChild(s);
-                });
-            });
-        }, Promise.resolve());
-        return sepPdfPronto;
-    }
-
-    async function sepExportarPDF() {
-        if (!sepLista.length) return;
-        try {
-            await sepCarregarPDF();
-        } catch (e) {
-            alert(e.message);
-            return;
-        }
-
-        const titulo = { pendente: 'Peças pendentes',
-                         naoencontrada: 'Peças não encontradas',
-                         separado: 'Peças separadas',
-                         todas: 'Todas as peças' }[sepFiltro] || 'Separação';
-
-        const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
-        const larg = doc.internal.pageSize.getWidth();
-        const alt  = doc.internal.pageSize.getHeight();
-        const agora = new Date();
-        const quando = agora.toLocaleDateString('pt-BR') + ' ' +
-                       agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-        /* ---- cabeçalho da primeira página ---- */
-        doc.addImage(SEP_TIMBRE_TOPO, 'PNG', 0, 0, larg, SEP_TIMBRE_TOPO_H);
-
-        let y = SEP_TIMBRE_TOPO_H + 10;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(21, 84, 60);
-        doc.text('SEPARAÇÃO DE OBRA', 15, y);
-
-        y += 7;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(60);
-        doc.text(titulo + ' — Pedido ' + sepPedido
-                 + (sepFantasma ? ' — Conjunto ' + sepFantasma : ''), 15, y);
-        if (sepFantasma && sepFantasmaDesc) {
-            y += 5;
-            doc.setFontSize(9.5);
-            doc.text(sepFantasmaDesc, 15, y);
-            doc.setFontSize(10);
-        }
-
-        y += 5;
-        doc.setFontSize(9);
-        doc.setTextColor(120);
-        doc.text('Emitido em ' + quando, 15, y);
-
-        /* Os números da obra no cabeçalho, para a folha valer sozinha
-           mesmo depois de impressa e passada adiante. */
-        if (sepResumoDados && sepResumoDados.geral) {
-            const g = sepResumoDados.geral;
-            y += 5;
-            doc.text(g.itens + ' itens em obra  ·  ' + g.separados + ' separados  ·  '
-                     + g.naoEncontrados + ' não encontrados  ·  ' + g.pendentes + ' pendentes', 15, y);
-        }
-
-        /* ---- tabela ---- */
-        doc.autoTable({
-            head: [['Carga', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
-            body: sepLista.map(function (it) {
-                return [it.CARREGAMENTO, it.COD_PECA, it.DESC_PECA,
-                        it.QTDE, it.SEPARADAS, it.NAO_ENCONTRADAS];
-            }),
-            startY: y + 6,
-            margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 12, left: 15, right: 15 },
-            styles: { fontSize: 8, cellPadding: 2, textColor: 40, lineColor: 220, lineWidth: 0.1 },
-            headStyles: { fillColor: [21, 84, 60], textColor: 255, fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [246, 248, 245] },
-            columnStyles: {
-                0: { cellWidth: 18 },
-                1: { cellWidth: 18 },
-                2: { cellWidth: 'auto' },
-                3: { cellWidth: 14, halign: 'right' },
-                4: { cellWidth: 14, halign: 'right' },
-                5: { cellWidth: 14, halign: 'right' }
-            },
-            /* Toda página leva o timbre. A primeira já recebeu o topo
-               acima, então aqui ele só é redesenhado a partir da
-               segunda — senão sai duas vezes no mesmo lugar. */
-            didDrawPage: function (dados) {
-                const pagina = doc.internal.getNumberOfPages();
-                if (pagina > 1) {
-                    doc.addImage(SEP_TIMBRE_TOPO, 'PNG', 0, 0, larg, SEP_TIMBRE_TOPO_H);
-                }
-                doc.addImage(SEP_TIMBRE_RODAPE, 'PNG', 0, alt - SEP_TIMBRE_ROD_H,
-                             larg, SEP_TIMBRE_ROD_H);
-                doc.setFontSize(8);
-                doc.setTextColor(140);
-                doc.text('Página ' + pagina, larg - 15, alt - SEP_TIMBRE_ROD_H - 3, { align: 'right' });
-                doc.text('Pedido ' + sepPedido + ' · ' + titulo, 15, alt - SEP_TIMBRE_ROD_H - 3);
-            }
-        });
-
-        const nome = 'separacao-' + sepPedido
-                   + (sepFantasma ? '-' + sepFantasma : '')
-                   + '-' + sepFiltro + '.pdf';
-        doc.save(nome);
-    }
-
-    /* ---------------------------------------------------------------
-       Leitor de código de barras
-       A biblioteca só é baixada quando a câmera abre pela primeira
-       vez — não pesa no carregamento do app.
-    --------------------------------------------------------------- */
-    const SEP_ZXING_URL = 'https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js';
-    let sepZxing = null;
-    let sepControles = null;
-
-    function sepCarregarZXing() {
-        if (sepZxing) return sepZxing;
-        sepZxing = new Promise(function (ok, erro) {
-            if (window.ZXingBrowser) return ok();
-            const s = document.createElement('script');
-            s.src = SEP_ZXING_URL;
-            s.onload = function () {
-                window.ZXingBrowser ? ok() : erro(new Error('A biblioteca carregou mas não inicializou.'));
-            };
-            s.onerror = function () {
-                erro(new Error('Não foi possível baixar o leitor. Verifique a internet.'));
-            };
-            document.head.appendChild(s);
-        });
-        return sepZxing;
-    }
-
-    /* Os hints precisam ir no CONSTRUTOR: é ele que chama setHints por
-       dentro. Passar depois não tem efeito. O TRY_HARDER (chave 3) é o
-       que faz ler a etiqueta deitada. */
-    function sepHints() {
-        const H = new Map();
-        const F = ZXingBrowser.BarcodeFormat || {};
-        H.set(2, [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8,
-                  F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.QR_CODE]
-                 .filter(function (v) { return v !== undefined; }));
-        H.set(3, true);
-        return H;
-    }
-
-    async function abrirLeitor() {
-        const modal = document.getElementById('modal-leitor');
-        const dica = document.getElementById('sepLeitorDica');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-        dica.textContent = 'Preparando a câmera...';
-
-        try {
-            await sepCarregarZXing();
-        } catch (e) {
-            dica.textContent = e.message + ' Use o botão "Ler por foto".';
-            return;
-        }
-
-        try {
-            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints(), {
-                delayBetweenScanAttempts: 120
-            });
-            dica.textContent = 'Aponte para o código. Funciona também com a etiqueta deitada.';
-            sepControles = await leitor.decodeFromConstraints(
-                { video: { facingMode: { ideal: 'environment' } } },
-                document.getElementById('sepLeitorVideo'),
-                function (resultado) { if (resultado) sepAceitar(resultado.getText()); }
-            );
-        } catch (e) {
-            const negada = e && (e.name === 'NotAllowedError' ||
-                                 /permission|denied/i.test(e.message || ''));
-            dica.textContent = negada
-                ? 'Permissão de câmera negada. Libere nas configurações do navegador.'
-                : 'Não foi possível abrir a câmera. Use o botão "Ler por foto".';
-        }
-    }
-
-    function sepAceitar(texto) {
-        const limpo = String(texto || '').trim().replace(/^0+(?=\d)/, '');
-        if (!limpo) return;
-        if (navigator.vibrate) navigator.vibrate(60);
-        document.getElementById('sepCodigo').value = limpo;
-        fecharLeitor();
-        buscarSeparador();
-    }
-
-    function fecharLeitor() {
-        /* stop() e não reset(): reset() não existe na 0.2.x e o erro
-           era engolido, deixando a câmera ligada. */
-        try { if (sepControles) sepControles.stop(); } catch (e) {}
-        try { if (window.ZXingBrowser) ZXingBrowser.BrowserCodeReader.releaseAllStreams(); } catch (e) {}
-        sepControles = null;
-        const modal = document.getElementById('modal-leitor');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.style.overflow = '';
-    }
-
-    async function sepLerPorFoto(input) {
-        const arquivo = input.files && input.files[0];
-        input.value = '';
-        if (!arquivo) return;
-        const dica = document.getElementById('sepLeitorDica');
-        dica.textContent = 'Lendo a foto...';
-        try {
-            await sepCarregarZXing();
-            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints());
-            const url = URL.createObjectURL(arquivo);
-            const resultado = await leitor.decodeFromImageUrl(url);
-            URL.revokeObjectURL(url);
-            sepAceitar(resultado.getText());
-        } catch (e) {
-            dica.textContent = 'Não consegui ler o código nesta foto. Tente mais perto, com a etiqueta reta e boa luz.';
-        }
-    }
-
-    /* ---------------------------------------------------------------
-       Ligação com o app, sem alterar o código dele
-    --------------------------------------------------------------- */
-    document.addEventListener('DOMContentLoaded', function () {
-        if (typeof switchPage === 'function' && !switchPage.sepLigado) {
-            const original = switchPage;
-            switchPage = function (pagina) {
-                original(pagina);
-                if (pagina === 'separador') sepAtualizarPedidos();
-            };
-            switchPage.sepLigado = true;
-        }
-    });
-    </script>        
 </div>
 <div id="page-documentos" class="hidden">
     <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
@@ -3853,6 +2211,134 @@
                 lista.classList.remove('recolhida');
                 renderMenu();
             }
+            progMostrar(menuRecolhido);   // o andamento entra no lugar das opções
+        }
+        /* ============================================================
+           ANDAMENTO DAS OBRAS
+           O Apps Script devolve tudo pronto em ?mode=progresso: uma
+           chamada só, com a média já calculada na planilha. O app
+           guarda a última resposta e mostra ela na hora, revalidando
+           por trás — mesmo caminho da lista de Pedidos.
+
+           A média é PONDERADA PELA DURAÇÃO, feita lá no .gs:
+               Σ(progresso × duração) ÷ Σ(duração)
+        ============================================================ */
+        const PROG_CACHE_KEY = 'obraflow_progresso_v1';
+        const PROG_TTL_MS = 10 * 60 * 1000;   // 10 minutos
+        let progDados = null;
+        let progBuscando = false;
+        let progErro = '';
+        function progEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+        function progLerCache() {
+            try {
+                const cru = localStorage.getItem(PROG_CACHE_KEY);
+                if (!cru) return null;
+                const p = JSON.parse(cru);
+                return (p && p.dados && Array.isArray(p.dados.pedidos)) ? p : null;
+            } catch (e) { return null; }
+        }
+        function progGravarCache(dados) {
+            try {
+                localStorage.setItem(PROG_CACHE_KEY,
+                    JSON.stringify({ dados: dados, quando: Date.now() }));
+            } catch (e) { /* memória cheia: segue sem cache */ }
+        }
+        /** Mostra ou esconde o painel. Só busca quando aparece. */
+        function progMostrar(mostrar) {
+            const painel = document.getElementById('painelProgresso');
+            if (!painel) return;
+            painel.classList.toggle('hidden', !mostrar);
+            if (!mostrar) return;
+            const guardado = progLerCache();
+            if (guardado && !progDados) progDados = guardado.dados;
+            progDesenhar();
+            // Com dado guardado a busca é silenciosa; sem dado, mostra o spinner.
+            const velho = !guardado || (Date.now() - guardado.quando) > PROG_TTL_MS;
+            if (velho || !progDados) progCarregar();
+        }
+        async function progCarregar() {
+            if (progBuscando) return;
+            progBuscando = true;
+            progErro = '';
+            progDesenhar();
+            try {
+                const resposta = await fetchWithTimeout(
+                    `${APPS_SCRIPT_URL}?mode=progresso`, SEARCH_TIMEOUT_MS);
+                const dados = await resposta.json();
+                if (dados && dados.error) throw new Error(dados.error);
+                if (!dados || !Array.isArray(dados.pedidos)) {
+                    throw new Error('Resposta sem a lista de pedidos. Republique o Apps Script.');
+                }
+                progDados = dados;
+                progGravarCache(dados);
+            } catch (e) {
+                progErro = e.message || 'falhou';
+            } finally {
+                progBuscando = false;
+                progDesenhar();
+            }
+        }
+        function progDesenhar() {
+            const painel = document.getElementById('painelProgresso');
+            if (!painel) return;
+            let h = '<div class="prog-topo"><strong>Andamento das obras</strong>';
+            if (progDados && progDados.atualizadoEm) {
+                h += '<span>' + progEsc(progDados.atualizadoEm) + '</span>';
+            }
+            h += '</div>';
+            if (!progDados) {
+                h += progBuscando
+                    ? '<div class="flex items-center justify-center p-4">'
+                      + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>'
+                    : '<p class="prog-erro">' + progEsc(progErro || 'Sem dados.') + '</p>';
+                painel.innerHTML = h;
+                return;
+            }
+            (progDados.pedidos || []).forEach(function (p) {
+                const temDado = typeof p.progresso === 'number';
+                const pct = temDado ? Math.round(p.progresso * 100) : 0;
+                const cor = p.cor || '#4b5563';
+                h += '<button type="button" class="prog-linha" '
+                   + 'onclick="progAbrirCronograma(\'' + progEsc(p.pedido) + '\')">';
+                h += '<div class="prog-cab">'
+                   + '<span class="prog-num">' + progEsc(p.pedido) + '</span>'
+                   + '<span class="prog-cliente">' + progEsc(p.cliente || '') + '</span>'
+                   + '<span class="prog-pct">' + (temDado ? pct + '%' : '—') + '</span>'
+                   + '</div>';
+                h += '<div class="prog-trilho"><i class="prog-barra" style="width:'
+                   + pct + '%;background:' + cor + '"></i></div>';
+                let pe;
+                if (p.semAba) {
+                    pe = 'Sem aba de cronograma nesta planilha';
+                } else if (!temDado) {
+                    pe = 'Cronograma ainda sem datas preenchidas';
+                } else {
+                    pe = '<b>' + p.concluidos + ' de ' + p.equipamentos + '</b> equipamentos concluídos';
+                    if (p.prazoEntrega) pe += ' · entrega ' + progEsc(p.prazoEntrega);
+                }
+                h += '<div class="prog-pe">' + pe + '</div>';
+                h += '</button>';
+            });
+            if (progErro) {
+                h += '<p class="prog-erro">Não atualizou agora: ' + progEsc(progErro) + '</p>';
+            } else if (progBuscando) {
+                h += '<p class="prog-aviso">atualizando…</p>';
+            } else {
+                h += '<p class="prog-aviso">Média ponderada pela duração de cada equipamento. '
+                   + 'Toque num pedido para abrir o cronograma.</p>';
+            }
+            painel.innerHTML = h;
+        }
+        /** Toca no pedido e cai no Cronograma dele, já carregado. */
+        function progAbrirCronograma(pedido) {
+            switchPage('cronograma');
+            const sel = document.getElementById('cronogramaClientSelect');
+            if (!sel) return;
+            const existe = Array.from(sel.options).some(function (o) { return o.value === pedido; });
+            if (existe) selEscolher(sel, pedido);
         }
         function voltarInicio() {
             switchPage('inicio');
@@ -3875,7 +2361,10 @@
             btnVoltar.classList.toggle('hidden', page === 'inicio');
             headerLogo.classList.toggle('hidden', page === 'inicio');
             window.scrollTo(0, 0);
-            if (page === 'inicio' && !menuRecolhido) renderMenu();
+            if (page === 'inicio') {
+                if (!menuRecolhido) renderMenu();
+                progMostrar(menuRecolhido);   // volta com o painel como estava
+            }
         }
         // --- Formulários (Inconformidades / Melhorias) ---
         const SUPERVISORES = [
