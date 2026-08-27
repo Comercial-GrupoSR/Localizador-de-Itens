@@ -1164,17 +1164,10 @@
        Esquerda: nome da coluna na aba Dados. Direita: o rótulo lido. */
     const SEP_CAMPOS = [
         ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
-        ['ID',            'ETIQUETA'],
         ['COD_PECA',      'CÓDIGO PEÇA'],
         ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
-        ['QTDE_CARGA',    'QTDE NESTA CARGA'],
-        ['QTDE_TOTAL',    'QTDE NO CONJUNTO DE CIMA', true],
-        ['CARGA',         'CARGA'],
-        ['PARCIAL',       'EMBARQUE PARCIAL', true],
-        ['COD_FANTASMA',  'COD FANTASMA'],
-        ['DESC_FANTASMA', 'DESCRIÇÃO FANTASMA'],
-        ['CLIENTE',       'CLIENTE', true],
-        ['PROJETISTA',    'PROJETISTA', true]
+        ['QTDE_CARGA',    'QTDE'],
+        ['CARREGAMENTO',  'NÚMERO DO CARREGAMENTO']
     ];
 
     let sepPedido = null;
@@ -1260,8 +1253,8 @@
             /* 1. onde a peça vai — é o que o supervisor precisa saber
                   com a peça na mão, então vem primeiro */
             if (item.TOPO) {
-                let sub = 'código ' + sepEsc(item.TOPO);
-                if (item.MASCARA) sub += ' · máscara ' + sepEsc(item.MASCARA);
+                let sub = 'Código ' + sepEsc(item.TOPO);
+                if (item.MASCARA) sub += ' · Máscara ' + sepEsc(item.MASCARA);
                 corpo += '<div class="sep-destaque">'
                        + '<span>Vai em</span>'
                        + '<strong>' + sepEsc(item.DESC_TOPO || '—') + '</strong>'
@@ -1273,19 +1266,28 @@
             /* 2. o caminho. Uma peça costuma ter mais de um caminho
                   dentro do mesmo conjunto de cima — o pé direito do
                   1644 tem sete, um por passarela. Mostra o primeiro e
-                  guarda os outros atrás de um toque, para não encher a
-                  tela do celular. */
+                  deixa abrir e recolher os outros. */
             const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
             if (caminhos.length) {
                 corpo += '<div class="sep-caminho">'
-                       + '<span>Caminho' + (caminhos.length > 1 ? ' 1 de ' + caminhos.length : '') + '</span>'
-                       + '<div id="sepCam' + n + '">' + sepPassos(caminhos[0]) + '</div>';
+                       + '<span id="sepCamRot' + n + '">Caminho'
+                       + (caminhos.length > 1 ? ' 1 de ' + caminhos.length : '') + '</span>'
+                       + '<div id="sepCam' + n + '" data-aberto="0">'
+                       + sepPassos(caminhos[0]) + '</div>';
                 if (caminhos.length > 1) {
                     corpo += '<button type="button" class="sep-mais" '
                            + 'onclick="sepVerCaminhos(' + n + ')" id="sepMais' + n + '">'
-                           + 'ver os outros ' + (caminhos.length - 1) + ' caminhos</button>';
+                           + 'Ver os outros ' + (caminhos.length - 1) + ' caminhos</button>';
                 }
                 corpo += '</div>';
+            } else if (item.COD_FANTASMA && !item.TOPO) {
+                /* Sem estrutura e sem topo, o fantasma é a única pista
+                   de onde a peça entra. Só nesse caso ele aparece. */
+                corpo += '<div class="sep-destaque">'
+                       + '<span>Entra em</span>'
+                       + '<strong>' + sepEsc(item.DESC_FANTASMA || '—') + '</strong>'
+                       + '<em>Código ' + sepEsc(item.COD_FANTASMA) + '</em>'
+                       + '</div>';
             }
  
             /* 3. os campos, na ordem do SEP_CAMPOS */
@@ -1309,7 +1311,7 @@
                   + '<div class="p-1 text-white">' + corpo + '</div></div>';
         });
  
-        window.sepUltimos = itens;   /* guardado para o botão "ver os outros" */
+        window.sepUltimos = itens;   /* guardado para o botão de abrir/recolher */
         alvo.innerHTML = html;
     }
  
@@ -1326,27 +1328,40 @@
         if (caminho.qtde) {
             h += '<div class="sep-passo" style="border-left-color:#3d3d3d">'
                + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
-               + '<span class="sep-passo-desc">peças por este caminho</span>'
+               + '<span class="sep-passo-desc">' + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
                + '</div>';
         }
         return h;
     }
  
-    /* Abre os demais caminhos. Uma vez aberto, não fecha — quem está
-       com a peça na mão não vai querer clicar duas vezes. */
+    /* Abre e recolhe os demais caminhos. O mesmo botão faz as duas
+       coisas — o rótulo diz qual delas. */
     function sepVerCaminhos(n) {
-        const itens = window.sepUltimos || [];
-        const item = itens[n];
+        const item = (window.sepUltimos || [])[n];
         if (!item || !Array.isArray(item.CAMINHOS)) return;
  
-        let h = '';
-        item.CAMINHOS.forEach(function (c, i) {
-            if (i > 0) h += '<div style="height:10px"></div>';
-            h += sepPassos(c);
-        });
-        document.getElementById('sepCam' + n).innerHTML = h;
-        const botao = document.getElementById('sepMais' + n);
-        if (botao) botao.remove();
+        const lista  = document.getElementById('sepCam' + n);
+        const botao  = document.getElementById('sepMais' + n);
+        const rotulo = document.getElementById('sepCamRot' + n);
+        const total  = item.CAMINHOS.length;
+        const aberto = lista.getAttribute('data-aberto') === '1';
+ 
+        if (aberto) {
+            lista.innerHTML = sepPassos(item.CAMINHOS[0]);
+            lista.setAttribute('data-aberto', '0');
+            if (rotulo) rotulo.textContent = 'Caminho 1 de ' + total;
+            if (botao)  botao.textContent = 'Ver os outros ' + (total - 1) + ' caminhos';
+        } else {
+            let h = '';
+            item.CAMINHOS.forEach(function (c, i) {
+                if (i > 0) h += '<div style="height:10px"></div>';
+                h += sepPassos(c);
+            });
+            lista.innerHTML = h;
+            lista.setAttribute('data-aberto', '1');
+            if (rotulo) rotulo.textContent = 'Caminhos (' + total + ')';
+            if (botao)  botao.textContent = 'Recolher';
+        }
     }
  
     /* O ESTRUTURA_OBS vem da API em código. Aqui vira português. */
