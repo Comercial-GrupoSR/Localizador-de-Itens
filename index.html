@@ -1470,6 +1470,12 @@
 
             if (dados && dados.error) {
                 sepMensagem(dados.error, true);
+            } else if (dados && dados.tipoBusca === 'conjunto') {
+                /* O código é um conjunto — item de venda, fantasma ou
+                   conjunto do meio. Nada disso é expedido nem tem
+                   etiqueta, então o que serve é a lista do que vai
+                   dentro dele. */
+                sepAbrirConjunto(dados.conjunto, dados.descConjunto, dados.aviso || '');
             } else if (dados && Array.isArray(dados.itens) && dados.itens.length) {
                 sepUltimos = dados.itens;
                 sepDesenhar();
@@ -1800,7 +1806,7 @@
         let h = '<div class="sep-caminho-cx">';
         caminho.passos.forEach(function (p) {
             h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\',\''
-               + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\')">'
+               + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\',\'\')">'
                + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
                + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
                + '</div>';
@@ -1820,9 +1826,10 @@
      * nele. É o mesmo movimento que o supervisor faz na cabeça: "esta
      * peça vai no corrimão — o que mais vai no corrimão?".
      */
-    function sepAbrirConjunto(codigo, descricao) {
+    function sepAbrirConjunto(codigo, descricao, aviso) {
         sepFantasma = String(codigo || '').trim();
         sepFantasmaDesc = String(descricao || '').trim();
+        if (aviso !== undefined) sepAvisoConjunto = aviso;
         sepFiltro = 'todas';
         sepTrocarAba('resumo');
         if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
@@ -1897,6 +1904,7 @@
     let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
     let sepFantasma = '';
     let sepFantasmaDesc = '';
+    let sepAvisoConjunto = '';   /* explica por que caiu no resumo */
 
     async function sepCarregarResumo() {
         const alvo = document.getElementById('sepResumo');
@@ -1955,6 +1963,9 @@
            + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
            + '</div>';
 
+        if (sepAvisoConjunto) {
+            h += '<div class="sep-obs" style="margin-bottom:12px">' + sepEsc(sepAvisoConjunto) + '</div>';
+        }
         if (sepFantasma && sepFantasmaDesc) {
             h += '<div class="sep-conj-nome"><span>Conjunto ' + sepEsc(sepFantasma) + '</span>'
                + sepEsc(sepFantasmaDesc) + '</div>';
@@ -1987,6 +1998,7 @@
         const campo = document.getElementById('sepFantCampo');
         sepFantasma = campo ? campo.value.trim() : '';
         sepFantasmaDesc = '';
+        sepAvisoConjunto = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
@@ -1994,6 +2006,7 @@
     function sepLimparFantasma() {
         sepFantasma = '';
         sepFantasmaDesc = '';
+        sepAvisoConjunto = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
