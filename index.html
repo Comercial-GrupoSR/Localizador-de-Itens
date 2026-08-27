@@ -1205,6 +1205,16 @@
         .sep-barra i.ok  { background: #4ade80; }
         .sep-barra i.bad { background: #f87171; }
 
+        .sep-conj-nome {
+            background: #14301f; border: 1px solid #2f6b46; border-radius: 8px;
+            padding: 9px 11px; margin-bottom: 12px;
+            font-size: 13px; color: #fff; line-height: 1.35;
+        }
+        .sep-conj-nome span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #6ee7a8; margin-bottom: 3px;
+        }
         .sep-fichas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
         .sep-ficha {
             padding: 6px 12px; border-radius: 999px;
@@ -1789,7 +1799,8 @@
         if (!caminho || !Array.isArray(caminho.passos)) return '';
         let h = '<div class="sep-caminho-cx">';
         caminho.passos.forEach(function (p) {
-            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\')">'
+            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\',\''
+               + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\')">'
                + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
                + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
                + '</div>';
@@ -1809,8 +1820,9 @@
      * nele. É o mesmo movimento que o supervisor faz na cabeça: "esta
      * peça vai no corrimão — o que mais vai no corrimão?".
      */
-    function sepAbrirConjunto(codigo) {
+    function sepAbrirConjunto(codigo, descricao) {
         sepFantasma = String(codigo || '').trim();
+        sepFantasmaDesc = String(descricao || '').trim();
         sepFiltro = 'todas';
         sepTrocarAba('resumo');
         if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
@@ -1884,6 +1896,7 @@
     let sepResumoDados = null;
     let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
     let sepFantasma = '';
+    let sepFantasmaDesc = '';
 
     async function sepCarregarResumo() {
         const alvo = document.getElementById('sepResumo');
@@ -1942,6 +1955,11 @@
            + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
            + '</div>';
 
+        if (sepFantasma && sepFantasmaDesc) {
+            h += '<div class="sep-conj-nome"><span>Conjunto ' + sepEsc(sepFantasma) + '</span>'
+               + sepEsc(sepFantasmaDesc) + '</div>';
+        }
+
         h += '<div class="sep-fichas">'
            + sepFicha('pendente', 'Pendentes (' + g.pendentes + ')')
            + sepFicha('naoencontrada', 'Não encontradas (' + g.naoEncontrados + ')')
@@ -1968,12 +1986,14 @@
     function sepFiltrarFantasma() {
         const campo = document.getElementById('sepFantCampo');
         sepFantasma = campo ? campo.value.trim() : '';
+        sepFantasmaDesc = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
 
     function sepLimparFantasma() {
         sepFantasma = '';
+        sepFantasmaDesc = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
@@ -1991,6 +2011,23 @@
             const d = await resposta.json();
             if (d.error) throw new Error(d.error);
             sepLista = d.itens || [];
+            /* A descrição do conjunto vem da resposta: só o servidor
+               sabe qual nível da corrente casou com o código.
+               Se não vier — Apps Script antigo, por exemplo — tenta
+               achar na própria lista, pelo pai imediato. */
+            if (sepFantasma) {
+                let nome = d.descFantasma || '';
+                if (!nome) {
+                    const igual = sepLista.find(function (x) {
+                        return String(x.COD_FANTASMA) === String(sepFantasma);
+                    });
+                    if (igual) nome = igual.DESC_FANTASMA || '';
+                }
+                if (nome && nome !== sepFantasmaDesc) {
+                    sepFantasmaDesc = nome;
+                    sepDesenharResumo();   /* redesenha o cabeçalho com o nome */
+                }
+            }
             sepDesenharLista();
         } catch (e) {
             alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar a lista. ' + sepEsc(e.message) + '</p>';
@@ -2400,6 +2437,12 @@
         doc.setTextColor(60);
         doc.text(titulo + ' — Pedido ' + sepPedido
                  + (sepFantasma ? ' — Conjunto ' + sepFantasma : ''), 15, y);
+        if (sepFantasma && sepFantasmaDesc) {
+            y += 5;
+            doc.setFontSize(9.5);
+            doc.text(sepFantasmaDesc, 15, y);
+            doc.setFontSize(10);
+        }
 
         y += 5;
         doc.setFontSize(9);
