@@ -942,27 +942,38 @@
         </div>
         
 <!-- =====================================================================
-     SEPARADOR DE OBRA
+     SEPARADOR DE OBRA — bloco completo
 
-     COMO USAR: no index.html, substitua TODO o bloco
+     COMO USAR: no index.html, apague TODO o bloco que começa em
 
-         <div id="page-separador" class="hidden">
-             ... (o texto "Em breve") ...
-         </div>
+         <div id="page-separador" ...>
 
-     por tudo que está neste arquivo. Não é preciso mexer em mais
-     nenhum lugar do index.html — o estilo, a tela, o leitor e o
-     JavaScript estão todos aqui dentro.
+     e termina no </div> que o fecha, e cole tudo que está neste
+     arquivo no lugar. Estilo, telas, leitor de código de barras e
+     JavaScript estão todos aqui dentro — nada mais no index.html
+     precisa ser tocado.
 
-     A URL do Separador_Item.gs já está preenchida no <script>.
+     DEPOIS DE COLAR, publique a nova versão do Apps Script:
+     Implantar > Gerenciar implantações > editar > Nova versão.
+
+     O QUE ESTA VERSÃO TRAZ
+       · duas abas depois de escolher o pedido: Bipar e Resumo
+       · contador de peças separadas em cada etiqueta
+       · botão para declarar o que procurou e não achou
+       · carimbo Separado / Não encontrada / Pendente
+       · resumo do pedido em itens, com as cargas separadas
+       · listas de pendentes e de falta, com PDF
+
+     AINDA NÃO FUNCIONA SEM INTERNET. Cada marcação vai direto à
+     planilha. A fila de envio entra numa etapa seguinte.
 ===================================================================== -->
 
 <div id="page-separador" class="hidden">
 
     <style>
         /* Campo de busca com o botão da câmera ao lado.
-           Os cartões de resultado não têm estilo próprio: usam as
-           mesmas classes do Localizador de Itens. */
+           Os cartões de resultado usam as mesmas classes do
+           Localizador de Itens. */
         .sep-busca { display: flex; gap: 8px; align-items: stretch; }
         .sep-busca input { flex: 1; min-width: 0; }
         .sep-camera {
@@ -996,6 +1007,18 @@
             margin-top: 10px; line-height: 1.5;
         }
 
+        /* ---- abas Bipar / Resumo ---- */
+        .sep-abas { display: flex; gap: 6px; margin-bottom: 16px; }
+        .sep-abas button {
+            flex: 1; padding: 9px 10px;
+            background: #1f1f1f; border: 1px solid #3d3d3d;
+            border-radius: 8px; color: #9ca3af;
+            font-size: 13.5px; font-weight: 700; cursor: pointer;
+        }
+        .sep-abas button.ativa {
+            background: #14301f; border-color: #2f6b46; color: #6ee7a8;
+        }
+
         /* ---- corrente até o topo ---- */
         .sep-destaque {
             background: #14301f; border: 1px solid #2f6b46;
@@ -1020,7 +1043,7 @@
             font-size: 12px; font-weight: 700; letter-spacing: .4px;
             padding: 2px 9px; border-radius: 999px;
         }
- 
+
         .sep-caminho { margin-bottom: 12px; }
         .sep-caminho > span {
             display: block; font-size: 10px; font-weight: 700;
@@ -1050,7 +1073,122 @@
             background: #2a2417; border: 1px solid #4a3f22;
             border-radius: 7px; padding: 7px 10px; line-height: 1.45;
         }
-        
+
+        /* ---- carimbo e contador ---- */
+        .sep-cartao { position: relative; }
+        .sep-carimbo {
+            display: inline-block; margin-bottom: 10px;
+            font-size: 11px; font-weight: 800; letter-spacing: .1em;
+            text-transform: uppercase; padding: 3px 10px;
+            border: 2px solid currentColor; border-radius: 4px;
+        }
+        .sep-carimbo.ok   { color: #4ade80; }
+        .sep-carimbo.bad  { color: #f87171; }
+        .sep-carimbo.pend { color: #fac775; }
+
+        .sep-contador {
+            margin-top: 12px; padding: 10px 12px;
+            background: #202020; border: 1px solid #3a3a3a; border-radius: 9px;
+        }
+        .sep-contador > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #9ca3af; margin-bottom: 8px;
+        }
+        .sep-linha-qt { display: flex; align-items: center; gap: 10px; }
+        .sep-qt-valor {
+            flex: 1; font-size: 15px; color: #d1d5db;
+        }
+        .sep-qt-valor b { color: #fff; font-size: 19px; font-weight: 700; }
+        .sep-bt {
+            width: 40px; height: 40px; flex: 0 0 40px;
+            border-radius: 9px; border: none;
+            background: #3a3a3a; color: #fff;
+            font-size: 21px; font-weight: 700; line-height: 1; cursor: pointer;
+        }
+        .sep-bt:active { opacity: .75; }
+        .sep-bt:disabled { opacity: .3; cursor: not-allowed; }
+        .sep-bt.mais { background: #2f6b46; }
+        .sep-bt-editar {
+            width: 34px; height: 34px; flex: 0 0 34px;
+            border-radius: 8px; border: 1px solid #4a4a4a;
+            background: #1f1f1f; color: #9ca3af;
+            font-size: 14px; cursor: pointer;
+        }
+        .sep-bt-editar.ativo { background: #3a2f12; border-color: #fac775; color: #fac775; }
+        .sep-falta {
+            margin-top: 9px; display: flex; align-items: center;
+            justify-content: space-between; gap: 8px;
+            font-size: 12.5px; color: #f8b4b4;
+        }
+        .sep-bt-texto {
+            background: none; border: none; padding: 0; cursor: pointer;
+            font-size: 12.5px; color: #6ee7a8; text-decoration: underline;
+        }
+        .sep-bt-falta {
+            width: 100%; margin-top: 9px; padding: 9px;
+            border-radius: 9px; border: 1px solid #5a2f2f;
+            background: #2a1717; color: #f8b4b4;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-bt-falta:active { opacity: .8; }
+
+        /* ---- resumo ---- */
+        .sep-num { display: flex; gap: 8px; margin-bottom: 14px; }
+        .sep-num-cx {
+            flex: 1; text-align: center; padding: 10px 6px;
+            background: #1f1f1f; border: 1.5px solid #3a3a3a; border-radius: 10px;
+        }
+        .sep-num-cx b { display: block; font-size: 21px; font-weight: 700; color: #fff; }
+        .sep-num-cx span {
+            display: block; font-size: 9.5px; font-weight: 700;
+            letter-spacing: .05em; text-transform: uppercase; color: #9ca3af;
+            margin-top: 2px;
+        }
+        .sep-num-cx.ok   { border-color: #2f6b46; } .sep-num-cx.ok b   { color: #4ade80; }
+        .sep-num-cx.bad  { border-color: #5a2f2f; } .sep-num-cx.bad b  { color: #f87171; }
+        .sep-num-cx.pend { border-color: #4a3f22; } .sep-num-cx.pend b { color: #fac775; }
+
+        .sep-barra {
+            height: 8px; border-radius: 999px; background: #2a2a2a;
+            overflow: hidden; display: flex; margin-bottom: 16px;
+        }
+        .sep-barra i { display: block; height: 100%; }
+        .sep-barra i.ok  { background: #4ade80; }
+        .sep-barra i.bad { background: #f87171; }
+
+        .sep-fichas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .sep-ficha {
+            padding: 6px 12px; border-radius: 999px;
+            background: #1f1f1f; border: 1.5px solid #3a3a3a;
+            color: #9ca3af; font-size: 12.5px; font-weight: 700; cursor: pointer;
+        }
+        .sep-ficha.ativa { background: #14301f; border-color: #2f6b46; color: #6ee7a8; }
+
+        .sep-carga {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 11px; margin-bottom: 6px;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
+        }
+        .sep-carga b { flex: 0 0 auto; font-size: 13.5px; color: #fff; }
+        .sep-carga span { flex: 1; text-align: right; font-size: 12.5px; color: #9ca3af; }
+        .sep-carga.conferida { border-color: #2f6b46; }
+        .sep-carga.conferida span { color: #6ee7a8; }
+
+        .sep-item-lista {
+            padding: 9px 11px; margin-bottom: 6px;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
+            font-size: 12.5px;
+        }
+        .sep-item-lista b { color: #fff; }
+        .sep-item-lista span { display: block; color: #9ca3af; margin-top: 2px; line-height: 1.35; }
+
+        .sep-acao-pdf {
+            width: 100%; margin-top: 10px; padding: 10px;
+            border-radius: 9px; border: 1px solid #3d3d3d;
+            background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
     </style>
 
     <!-- 1. Pedido -->
@@ -1074,40 +1212,57 @@
         </div>
     </div>
 
-    <!-- 2. Código -->
-    <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
-        <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Bipar ou digitar o código</h2>
-        <div class="mb-4">
-            <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
-                Etiqueta ou código do item
-            </label>
-            <div class="sep-busca">
-                <input type="text" id="sepCodigo" inputmode="numeric"
-                       placeholder="Etiqueta ou código"
-                       class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
-                       onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
-                <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                        <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <button id="sepBotao" onclick="buscarSeparador()"
-                class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-            </svg>
-            Buscar
-        </button>
+    <!-- Abas, só aparecem depois de escolher o pedido -->
+    <div id="sepAbas" class="sep-abas hidden">
+        <button type="button" id="sepAbaBipar" class="ativa" onclick="sepTrocarAba('bipar')">Bipar peça</button>
+        <button type="button" id="sepAbaResumo" onclick="sepTrocarAba('resumo')">Resumo da obra</button>
     </div>
 
-    <!-- 3. Resultado -->
-    <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
-        <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
-        <div id="sepResults"></div>
+    <!-- ============ ABA BIPAR ============ -->
+    <div id="sepPainelBipar">
+
+        <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Bipar ou digitar o código</h2>
+            <div class="mb-4">
+                <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
+                    Etiqueta ou código do item
+                </label>
+                <div class="sep-busca">
+                    <input type="text" id="sepCodigo" inputmode="numeric"
+                           placeholder="Etiqueta ou código"
+                           class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
+                    <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                            <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button id="sepBotao" onclick="buscarSeparador()"
+                    class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg>
+                Buscar
+            </button>
+        </div>
+
+        <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
+            <div id="sepResults"></div>
+        </div>
+
+    </div>
+
+    <!-- ============ ABA RESUMO ============ -->
+    <div id="sepPainelResumo" class="hidden">
+        <div class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Como está a obra</h2>
+            <div id="sepResumo"></div>
+        </div>
     </div>
 
     <!-- Leitor de código de barras -->
@@ -1155,13 +1310,14 @@
        do index.html.
     ================================================================= */
 
-    /* URL /exec do Separador_Item.gs. Ao republicar o Apps Script com
-       'Nova versão', esta URL NÃO muda — só muda se você criar uma
-       implantação nova em vez de editar a existente. */
+    /* A URL do app da web. Ao publicar uma versão nova pelo caminho
+       'Gerenciar implantações > editar > Nova versão', esta URL NÃO
+       muda — só muda se você criar uma implantação nova. */
     const SEPARADOR_URL = "https://script.google.com/macros/s/AKfycbwd47cNVd98nGiHTE7ZRw1vuJfJx8eRlS1ZeKiKv1IQZHXOaGyTSVncwiXpGn9KtkJV/exec";
 
     /* Campos do resultado, na ordem em que aparecem.
-       Esquerda: nome da coluna na aba Dados. Direita: o rótulo lido. */
+       [ nome do campo na resposta , rótulo lido , esconder se vazio ]
+       Para tirar um campo, apague a linha. É o único lugar a editar. */
     const SEP_CAMPOS = [
         ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
         ['COD_PECA',      'CÓDIGO PEÇA'],
@@ -1171,12 +1327,12 @@
     ];
 
     let sepPedido = null;
+    let sepAba = 'bipar';
+    let sepUltimos = [];              /* o que está na tela agora */
+    let sepDestravados = {};          /* etiquetas com o "−" liberado */
 
     /* ---------------------------------------------------------------
-       Lista de pedidos
-       Em vez de alterar o populateClientSelect do app, esta página
-       preenche a própria lista toda vez que é aberta, a partir do
-       allPedidos que o app já carregou. Assim o bloco fica isolado.
+       Lista de pedidos e troca de aba
     --------------------------------------------------------------- */
     function sepAtualizarPedidos() {
         const select = document.getElementById('separadorClientSelect');
@@ -1188,15 +1344,30 @@
 
     function onSeparadorPedidoChange(valor) {
         sepPedido = (valor || '').trim().toUpperCase();
+        sepUltimos = [];
+        sepDestravados = {};
         document.getElementById('sepResultsBlock').classList.add('hidden');
         document.getElementById('sepCodigo').value = '';
+        const abas = document.getElementById('sepAbas');
         const busca = document.getElementById('sepBuscaBlock');
         if (sepPedido) {
+            abas.classList.remove('hidden');
             busca.classList.remove('hidden');
+            sepTrocarAba('bipar');
             document.getElementById('sepCodigo').focus();
         } else {
+            abas.classList.add('hidden');
             busca.classList.add('hidden');
         }
+    }
+
+    function sepTrocarAba(qual) {
+        sepAba = qual;
+        document.getElementById('sepAbaBipar').classList.toggle('ativa', qual === 'bipar');
+        document.getElementById('sepAbaResumo').classList.toggle('ativa', qual === 'resumo');
+        document.getElementById('sepPainelBipar').classList.toggle('hidden', qual !== 'bipar');
+        document.getElementById('sepPainelResumo').classList.toggle('hidden', qual !== 'resumo');
+        if (qual === 'resumo') sepCarregarResumo();
     }
 
     /* ---------------------------------------------------------------
@@ -1229,7 +1400,8 @@
             if (dados && dados.error) {
                 sepMensagem(dados.error, true);
             } else if (dados && Array.isArray(dados.itens) && dados.itens.length) {
-                sepDesenhar(dados.itens);
+                sepUltimos = dados.itens;
+                sepDesenhar();
             } else {
                 sepMensagem('Nenhum resultado.', true);
             }
@@ -1241,16 +1413,22 @@
         }
     }
 
-    /* Mesmo cartão do Localizador de Itens. */
-    function sepDesenhar(itens) {
+    /* ---------------------------------------------------------------
+       O cartão
+    --------------------------------------------------------------- */
+    function sepDesenhar() {
         const alvo = document.getElementById('sepResults');
         alvo.className = 'border-green-600 border-2 p-3 rounded-lg';
- 
+
         let html = '';
-        itens.forEach(function (item, n) {
+        sepUltimos.forEach(function (item, n) {
             let corpo = '';
- 
-            /* 1. onde a peça vai — é o que o supervisor precisa saber
+
+            /* 1. o carimbo, quando a etiqueta já foi tocada */
+            const carimbo = sepCarimbo(item);
+            if (carimbo) corpo += carimbo;
+
+            /* 2. onde a peça vai — é o que o supervisor precisa saber
                   com a peça na mão, então vem primeiro */
             if (item.TOPO) {
                 let sub = 'Código ' + sepEsc(item.TOPO);
@@ -1262,11 +1440,10 @@
                        + (item.TAG ? '<span class="sep-tag">' + sepEsc(item.TAG) + '</span>' : '')
                        + '</div>';
             }
- 
-            /* 2. o caminho. Uma peça costuma ter mais de um caminho
+
+            /* 3. o caminho. Uma peça costuma ter mais de um caminho
                   dentro do mesmo conjunto de cima — o pé direito do
-                  1644 tem sete, um por passarela. Mostra o primeiro e
-                  deixa abrir e recolher os outros. */
+                  1644 tem sete, um por passarela. */
             const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
             if (caminhos.length) {
                 corpo += '<div class="sep-caminho">'
@@ -1289,33 +1466,191 @@
                        + '<em>Código ' + sepEsc(item.COD_FANTASMA) + '</em>'
                        + '</div>';
             }
- 
-            /* 3. os campos, na ordem do SEP_CAMPOS */
+
+            /* 4. os campos */
             SEP_CAMPOS.forEach(function (par) {
                 const valor = item[par[0]];
                 const vazio = (valor === '' || valor === null || valor === undefined);
-                if (vazio && par[2]) return;          /* campo opcional some */
+                if (vazio && par[2]) return;
                 corpo += '<div class="flex flex-col mb-1">'
                        + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
                        + '<span class="text-sm text-white font-medium break-words">'
                        + sepEsc(vazio ? '—' : valor)
                        + '</span></div>';
             });
- 
-            /* 4. aviso quando o dado não fecha — melhor mostrar com
-                  ressalva do que esconder */
+
+            /* 5. o contador — o coração da separação */
+            corpo += sepContador(item, n);
+
+            /* 6. aviso quando o dado da estrutura não fecha */
             const aviso = sepAviso(item.ESTRUTURA_OBS);
             if (aviso) corpo += '<div class="sep-obs">' + aviso + '</div>';
- 
-            html += '<div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
+
+            html += '<div class="sep-cartao bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
                   + '<div class="p-1 text-white">' + corpo + '</div></div>';
         });
- 
-        window.sepUltimos = itens;   /* guardado para o botão de abrir/recolher */
+
         alvo.innerHTML = html;
     }
- 
-    /* Desenha um caminho: do conjunto de cima até o conjunto imediato. */
+
+    function sepCarimbo(item) {
+        const s = item.SITUACAO_SEP;
+        if (!s) return '';
+        const classe = s === 'Separado' ? 'ok' : (s === 'Não encontrada' ? 'bad' : 'pend');
+        let texto = s;
+        /* Item fechado com falta continua Pendente, mas mostrando a
+           falta ali no carimbo — senão parece que ainda falta contar. */
+        if (s === 'Pendente' && Number(item.NAO_ENCONTRADAS) > 0) {
+            texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
+                   + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
+        }
+        return '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div>';
+    }
+
+    /**
+     * O contador de peças. Some quando a peça não entra na separação:
+     * carga que ainda não embarcou, ou item comprado (parafuso,
+     * arruela, silicone). Nesses casos o cartão explica o motivo em
+     * vez de deixar o supervisor contando à toa.
+     */
+    function sepContador(item, n) {
+        if (item.EM_OBRA === false) {
+            return '<div class="sep-obs">Esta peça ainda não embarcou. A carga existe no sistema, '
+                 + 'mas o caminhão não saiu — por isso ela não entra na separação.</div>';
+        }
+        if (item.NA_LISTA === false) {
+            return '<div class="sep-obs">Item comprado. Não entra na lista de separação.</div>';
+        }
+
+        const total = Number(item.QTDE_CARGA) || 0;
+        const sep   = Number(item.SEPARADAS) || 0;
+        const ne    = Number(item.NAO_ENCONTRADAS) || 0;
+        const pend  = Math.max(0, total - sep - ne);
+        const chave = String(item.ID) + '|' + String(item.CARREGAMENTO);
+        const destravado = !!sepDestravados[chave];
+        /* O "−" nasce travado quando já há contagem: com a luva na mão
+           é fácil desfazer sem querer. O "+" nunca precisa de trava. */
+        const menosTravado = (sep > 0 && !destravado);
+
+        let h = '<div class="sep-contador"><span>Separação</span>';
+
+        h += '<div class="sep-linha-qt">';
+        if (sep > 0) {
+            h += '<button type="button" class="sep-bt-editar' + (destravado ? ' ativo' : '') + '" '
+               + 'onclick="sepDestravar(' + n + ')" title="Liberar para diminuir">'
+               + (destravado ? '&#128275;' : '&#9998;') + '</button>';
+        }
+        h += '<button type="button" class="sep-bt" onclick="sepSomar(' + n + ',-1)"'
+           + ((menosTravado || sep <= 0) ? ' disabled' : '') + '>&minus;</button>';
+        h += '<span class="sep-qt-valor"><b>' + sep + '</b> de ' + total + '</span>';
+        h += '<button type="button" class="sep-bt mais" onclick="sepSomar(' + n + ',1)"'
+           + (pend <= 0 ? ' disabled' : '') + '>+</button>';
+        h += '</div>';
+
+        if (ne > 0) {
+            h += '<div class="sep-falta">'
+               + '<span>' + ne + ' não encontrada' + (ne === 1 ? '' : 's') + '</span>'
+               + '<button type="button" class="sep-bt-texto" onclick="sepLimparFalta(' + n + ')">Desfazer</button>'
+               + '</div>';
+        }
+        if (pend > 0) {
+            h += '<button type="button" class="sep-bt-falta" onclick="sepMarcarFalta(' + n + ')">'
+               + 'Não achei ' + (pend === total ? 'nenhuma' : ('as ' + pend + ' restantes')) + '</button>';
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    /* ---------------------------------------------------------------
+       Marcação — vai direto à planilha
+    --------------------------------------------------------------- */
+    function sepSomar(n, delta) {
+        const it = sepUltimos[n];
+        if (!it) return;
+        const total = Number(it.QTDE_CARGA) || 0;
+        const ne = Number(it.NAO_ENCONTRADAS) || 0;
+        let sep = (Number(it.SEPARADAS) || 0) + delta;
+        if (sep < 0) sep = 0;
+        if (sep + ne > total) sep = total - ne;
+        sepEnviar(n, sep, ne);
+    }
+
+    function sepMarcarFalta(n) {
+        const it = sepUltimos[n];
+        if (!it) return;
+        const total = Number(it.QTDE_CARGA) || 0;
+        const sep = Number(it.SEPARADAS) || 0;
+        sepEnviar(n, sep, Math.max(0, total - sep));
+    }
+
+    function sepLimparFalta(n) {
+        const it = sepUltimos[n];
+        if (!it) return;
+        sepEnviar(n, Number(it.SEPARADAS) || 0, 0);
+    }
+
+    function sepDestravar(n) {
+        const it = sepUltimos[n];
+        if (!it) return;
+        const chave = String(it.ID) + '|' + String(it.CARREGAMENTO);
+        sepDestravados[chave] = !sepDestravados[chave];
+        sepDesenhar();
+    }
+
+    /**
+     * Manda para a planilha e usa o que voltou, não o que foi pedido.
+     * Se vierem diferentes, alguma coisa aconteceu no caminho e é
+     * melhor mostrar o que ficou gravado do que fingir que salvou.
+     */
+    async function sepEnviar(n, sep, ne) {
+        const it = sepUltimos[n];
+        if (!it) return;
+
+        /* mostra na hora, para o toque parecer instantâneo */
+        const antesSep = it.SEPARADAS, antesNe = it.NAO_ENCONTRADAS;
+        it.SEPARADAS = sep;
+        it.NAO_ENCONTRADAS = ne;
+        it.SITUACAO_SEP = sepSituacao(sep, ne, Number(it.QTDE_CARGA) || 0);
+        sepDesenhar();
+
+        try {
+            const url = SEPARADOR_URL + '?mode=marcar'
+                      + '&pedido=' + encodeURIComponent(it.PEDIDO)
+                      + '&id=' + encodeURIComponent(it.ID)
+                      + '&carga=' + encodeURIComponent(it.CARREGAMENTO)
+                      + '&sep=' + sep + '&ne=' + ne;
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const dados = await resposta.json();
+
+            if (dados && dados.error) throw new Error(dados.error);
+
+            it.SEPARADAS = dados.SEPARADAS;
+            it.NAO_ENCONTRADAS = dados.NAO_ENCONTRADAS;
+            it.SITUACAO_SEP = dados.SITUACAO_SEP;
+            sepDesenhar();
+        } catch (e) {
+            it.SEPARADAS = antesSep;
+            it.NAO_ENCONTRADAS = antesNe;
+            it.SITUACAO_SEP = sepSituacao(antesSep, antesNe, Number(it.QTDE_CARGA) || 0);
+            sepDesenhar();
+            sepMensagem('Não consegui salvar: ' + e.message +
+                        ' A marcação foi desfeita. Tente de novo com internet.', true);
+        }
+    }
+
+    /* A mesma regra do Apps Script, repetida aqui só para a tela
+       responder antes da resposta chegar. Quem manda é o servidor. */
+    function sepSituacao(sep, ne, total) {
+        if (sep === 0 && ne === 0) return '';
+        if (sep >= total) return 'Separado';
+        if (ne  >= total) return 'Não encontrada';
+        return 'Pendente';
+    }
+
+    /* ---------------------------------------------------------------
+       Caminho
+    --------------------------------------------------------------- */
     function sepPassos(caminho) {
         if (!caminho || !Array.isArray(caminho.passos)) return '';
         let h = '';
@@ -1328,24 +1663,23 @@
         if (caminho.qtde) {
             h += '<div class="sep-passo" style="border-left-color:#3d3d3d">'
                + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
-               + '<span class="sep-passo-desc">' + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
+               + '<span class="sep-passo-desc">'
+               + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
                + '</div>';
         }
         return h;
     }
- 
-    /* Abre e recolhe os demais caminhos. O mesmo botão faz as duas
-       coisas — o rótulo diz qual delas. */
+
     function sepVerCaminhos(n) {
-        const item = (window.sepUltimos || [])[n];
+        const item = sepUltimos[n];
         if (!item || !Array.isArray(item.CAMINHOS)) return;
- 
+
         const lista  = document.getElementById('sepCam' + n);
         const botao  = document.getElementById('sepMais' + n);
         const rotulo = document.getElementById('sepCamRot' + n);
         const total  = item.CAMINHOS.length;
         const aberto = lista.getAttribute('data-aberto') === '1';
- 
+
         if (aberto) {
             lista.innerHTML = sepPassos(item.CAMINHOS[0]);
             lista.setAttribute('data-aberto', '0');
@@ -1363,8 +1697,7 @@
             if (botao)  botao.textContent = 'Recolher';
         }
     }
- 
-    /* O ESTRUTURA_OBS vem da API em código. Aqui vira português. */
+
     function sepAviso(obs) {
         if (!obs) return '';
         const partes = String(obs).split(',');
@@ -1397,6 +1730,196 @@
         return String(t === null || t === undefined ? '' : t).replace(/[&<>"]/g, function (c) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
         });
+    }
+
+    /* =================================================================
+       RESUMO DA OBRA
+    ================================================================= */
+    let sepResumoDados = null;
+    let sepFiltro = 'cargas';   /* cargas | pendente | naoencontrada | separado */
+
+    async function sepCarregarResumo() {
+        const alvo = document.getElementById('sepResumo');
+        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+        try {
+            const url = SEPARADOR_URL + '?mode=resumo&pedido=' + encodeURIComponent(sepPedido || '');
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            sepResumoDados = await resposta.json();
+            if (sepResumoDados.error) throw new Error(sepResumoDados.error);
+            sepFiltro = 'cargas';
+            sepDesenharResumo();
+        } catch (e) {
+            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar o resumo. ' + sepEsc(e.message) + '</p>';
+        }
+    }
+
+    function sepDesenharResumo() {
+        const alvo = document.getElementById('sepResumo');
+        const d = sepResumoDados;
+        if (!d) return;
+
+        if (d.semNadaEmObra) {
+            alvo.innerHTML = '<div class="sep-obs">Este pedido ainda não tem carga embarcada. '
+                + 'Existem ' + d.foraDeObra + ' linhas com carga aberta ou sem carga, '
+                + 'que só entram na separação depois que o caminhão sair.</div>';
+            return;
+        }
+
+        const g = d.geral;
+        const pcOk  = g.itens ? (g.separados      / g.itens * 100) : 0;
+        const pcBad = g.itens ? (g.naoEncontrados / g.itens * 100) : 0;
+
+        let h = '';
+
+        h += '<div class="sep-num">'
+           + '<div class="sep-num-cx ok"><b>' + g.separados + '</b><span>Separados</span></div>'
+           + '<div class="sep-num-cx bad"><b>' + g.naoEncontrados + '</b><span>Não encontrados</span></div>'
+           + '<div class="sep-num-cx pend"><b>' + g.pendentes + '</b><span>Pendentes</span></div>'
+           + '</div>';
+
+        h += '<div class="sep-barra">'
+           + '<i class="ok" style="width:' + pcOk + '%"></i>'
+           + '<i class="bad" style="width:' + pcBad + '%"></i>'
+           + '</div>';
+
+        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra, em '
+           + d.cargas.length + ' carga' + (d.cargas.length === 1 ? '' : 's') + '. '
+           + d.compradas + ' itens comprados ficam de fora da separação.</p>';
+
+        h += '<div class="sep-fichas">'
+           + sepFicha('cargas', 'Por carga')
+           + sepFicha('pendente', 'Pendentes (' + g.pendentes + ')')
+           + sepFicha('naoencontrada', 'Não encontradas (' + g.naoEncontrados + ')')
+           + sepFicha('separado', 'Separadas (' + g.separados + ')')
+           + '</div>';
+
+        h += '<div id="sepResumoLista"></div>';
+
+        alvo.innerHTML = h;
+        sepDesenharFiltro();
+    }
+
+    function sepFicha(chave, rotulo) {
+        return '<button type="button" class="sep-ficha' + (sepFiltro === chave ? ' ativa' : '') + '" '
+             + 'onclick="sepTrocarFiltro(\'' + chave + '\')">' + rotulo + '</button>';
+    }
+
+    function sepTrocarFiltro(chave) {
+        sepFiltro = chave;
+        sepDesenharResumo();
+    }
+
+    async function sepDesenharFiltro() {
+        const alvo = document.getElementById('sepResumoLista');
+        if (!alvo) return;
+
+        if (sepFiltro === 'cargas') {
+            let h = '';
+            sepResumoDados.cargas.forEach(function (c) {
+                h += '<div class="sep-carga' + (c.conferida ? ' conferida' : '') + '">'
+                   + '<b>' + sepEsc(c.carga) + '</b>'
+                   + '<span>' + c.separados + ' de ' + c.itens + ' itens'
+                   + (c.conferida ? ' · conferida' : '')
+                   + (c.naoEncontrados ? ' · ' + c.naoEncontrados + ' faltando' : '')
+                   + '</span></div>';
+            });
+            alvo.innerHTML = h || '<p class="text-sm text-gray-500 italic">Nenhuma carga.</p>';
+            return;
+        }
+
+        alvo.innerHTML = '<div class="flex items-center justify-center p-3"><div class="spinner border-4 border-[#333] border-t-4 h-5 w-5 rounded-full"></div></div>';
+        try {
+            const url = SEPARADOR_URL + '?mode=lista&pedido=' + encodeURIComponent(sepPedido || '')
+                      + '&situacao=' + sepFiltro;
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const d = await resposta.json();
+            if (d.error) throw new Error(d.error);
+
+            let h = '';
+            if (!d.itens.length) {
+                h = '<p class="text-sm text-gray-500 italic">Nada nesta situação.</p>';
+            } else {
+                d.itens.forEach(function (it) {
+                    let detalhe = 'Carga ' + it.CARREGAMENTO + ' · ';
+                    if (sepFiltro === 'pendente')      detalhe += 'faltam contar ' + it.PENDENTES + ' de ' + it.QTDE;
+                    if (sepFiltro === 'naoencontrada') detalhe += it.NAO_ENCONTRADAS + ' não encontradas de ' + it.QTDE;
+                    if (sepFiltro === 'separado')      detalhe += it.SEPARADAS + ' de ' + it.QTDE + ' separadas';
+                    h += '<div class="sep-item-lista">'
+                       + '<b>' + sepEsc(it.COD_PECA) + '</b> · etiqueta ' + sepEsc(it.ID)
+                       + '<span>' + sepEsc(it.DESC_PECA) + '</span>'
+                       + '<span>' + detalhe + '</span></div>';
+                });
+                h += '<button type="button" class="sep-acao-pdf" onclick="sepExportarPDF()">Baixar esta lista em PDF</button>';
+            }
+            alvo.innerHTML = h;
+            window.sepListaAtual = d.itens || [];
+        } catch (e) {
+            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar a lista. ' + sepEsc(e.message) + '</p>';
+        }
+    }
+
+    /* ---------------------------------------------------------------
+       PDF — a biblioteca só é baixada quando alguém pede
+    --------------------------------------------------------------- */
+    const SEP_PDF_URLS = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+    ];
+    let sepPdfPronto = null;
+
+    function sepCarregarPDF() {
+        if (sepPdfPronto) return sepPdfPronto;
+        sepPdfPronto = SEP_PDF_URLS.reduce(function (fila, src) {
+            return fila.then(function () {
+                return new Promise(function (ok, erro) {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.onload = ok;
+                    s.onerror = function () { erro(new Error('Não consegui baixar o gerador de PDF.')); };
+                    document.head.appendChild(s);
+                });
+            });
+        }, Promise.resolve());
+        return sepPdfPronto;
+    }
+
+    async function sepExportarPDF() {
+        const itens = window.sepListaAtual || [];
+        if (!itens.length) return;
+        try {
+            await sepCarregarPDF();
+        } catch (e) {
+            alert(e.message);
+            return;
+        }
+
+        const titulo = { pendente: 'Peças pendentes',
+                         naoencontrada: 'Peças não encontradas',
+                         separado: 'Peças separadas' }[sepFiltro] || 'Separação';
+
+        const doc = new window.jspdf.jsPDF();
+        const agora = new Date();
+        doc.setFontSize(15);
+        doc.text('Grupo SR — Separação de Obra', 14, 16);
+        doc.setFontSize(11);
+        doc.setTextColor(90);
+        doc.text(titulo + ' · Pedido ' + sepPedido + ' · ' +
+                 agora.toLocaleDateString('pt-BR') + ' ' +
+                 agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 14, 23);
+
+        doc.autoTable({
+            head: [['Carga', 'Etiqueta', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
+            body: itens.map(function (it) {
+                return [it.CARREGAMENTO, it.ID, it.COD_PECA, it.DESC_PECA,
+                        it.QTDE, it.SEPARADAS, it.NAO_ENCONTRADAS];
+            }),
+            startY: 29,
+            styles: { fontSize: 8, cellPadding: 2.5 },
+            headStyles: { fillColor: [26, 87, 62] },
+            columnStyles: { 3: { cellWidth: 70 } }
+        });
+
+        doc.save('separacao-' + sepPedido + '-' + sepFiltro + '.pdf');
     }
 
     /* ---------------------------------------------------------------
@@ -1513,8 +2036,6 @@
 
     /* ---------------------------------------------------------------
        Ligação com o app, sem alterar o código dele
-       O switchPage original é embrulhado: continua fazendo tudo o que
-       fazia, e passa a avisar esta página quando ela é aberta.
     --------------------------------------------------------------- */
     document.addEventListener('DOMContentLoaded', function () {
         if (typeof switchPage === 'function' && !switchPage.sepLigado) {
