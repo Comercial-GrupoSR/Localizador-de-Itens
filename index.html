@@ -3748,7 +3748,7 @@
     </div>
     <!-- Modal: Seleção do Tipo de Equipamento (Checklist de Entrega) -->
     <div id="modal-checklist-tipo" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
-        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto">
             <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
                 <h2 class="text-base font-semibold text-gray-200 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3815,6 +3815,17 @@
                             <path d="M8 13h8"/>
                         </svg>
                         <span class="flex-1">Silo Metálico</span>
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('mezanino')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 20V6"/>
+                            <path d="M21 20V6"/>
+                            <path d="M3 12h18"/>
+                            <path d="M3 20h18"/>
+                            <path d="M8 12V6"/>
+                            <path d="M16 12V6"/>
+                        </svg>
+                        <span class="flex-1">Mezanino Metálico</span>
                     </button>
                 </div>
             </div>
@@ -3896,7 +3907,7 @@
                         </div>
                         <div class="sign-row">
                             <div class="sign-fields">
-                                <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
+                                <div class="field"><span class="field-label" id="chkRotuloTeste1">Teste a vazio — data</span><input type="date" id="vazioData"></div>
                                 <div class="field"><span class="field-label">Nome do supervisor</span>
                                     <select id="supervisorNome" class="chk-plain-sel">
                                         <option value="">Escolha...</option>
@@ -3914,24 +3925,24 @@
                                     <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigSupervisor')">Limpar assinatura</button>
                                 </div>
                             </div>
-                            <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
+                            <p class="sign-note" id="chkDeclaracaoSupervisor"></p>
                         </div>
                     </div>
                     <!-- 3. Desempenho -->
                     <div class="card">
                         <div class="card-header">
                             <div class="card-num">3</div>
-                            <p class="card-title">Conferência do desempenho do equipamento</p>
+                            <p class="card-title" id="chkTituloDesempenho">Conferência do desempenho do equipamento</p>
                         </div>
                         <div class="field">
-                            <span class="field-label">A capacidade do equipamento está de acordo com o projeto?</span>
+                            <span class="field-label" id="chkPerguntaDesempenho">A capacidade do equipamento está de acordo com o projeto?</span>
                             <div class="radio-group">
                                 <label class="radio-pill"><input type="radio" name="capacidade" value="Sim"> Sim</label>
                                 <label class="radio-pill"><input type="radio" name="capacidade" value="Não"> Não</label>
                             </div>
                         </div>
                         <div class="sign-fields" style="margin-top:14px;">
-                            <div class="field"><span class="field-label">Teste com produto — data</span><input type="date" id="produtoData"></div>
+                            <div class="field"><span class="field-label" id="chkRotuloTeste2">Teste com produto — data</span><input type="date" id="produtoData"></div>
                             <div class="field"><span class="field-label">Nome do cliente</span><input type="text" id="clienteNome"></div>
                         </div>
                         <div class="field" style="margin-top:12px;">
@@ -3969,7 +3980,7 @@
                             <div class="field"><span class="field-label">Grupo SR</span><input type="text" id="srEngenharia"></div>
                             <div class="field"><span class="field-label">Gestor de Montagem</span><input type="text" id="gestorMontagem"></div>
                         </div>
-                        <div class="footnotes">
+                        <div class="footnotes" id="chkNotasRodape">
                             <p>1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.</p>
                             <p>2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.</p>
                             <p>3 — A infiltração de água no equipamento somente será corrigida no período de garantia.</p>
@@ -6238,14 +6249,66 @@
         }
         // --- Conteúdo do Checklist de Entrega ---
         let currentChecklistMode = 'elevador';
+        /* ============================================================
+           OS TEXTOS QUE MUDAM DE UM EQUIPAMENTO PARA O OUTRO
+
+           Quase todo equipamento usa a mesma redação — "teste a vazio",
+           "teste com produto", "a capacidade está de acordo com o
+           projeto". O mezanino não: é uma estrutura, não tem partida nem
+           produto passando por dentro. Em vez de encher a tela de "if
+           mezanino", cada texto tem um padrão aqui e o CHK_TIPOS pode
+           trocar o que precisar.
+        ============================================================ */
+        const CHK_TEXTO_PADRAO = {
+            tituloDesempenho: 'Conferência do desempenho do equipamento',
+            perguntaDesempenho: 'A capacidade do equipamento está de acordo com o projeto (conferir modelo)?',
+            rotuloTeste1: 'Teste a vazio',
+            rotuloTeste2: 'Teste com produto',
+            declaracaoSupervisor: 'O supervisor de obra atesta que as demais informações estão corretas '
+                                + 'e que o equipamento foi devidamente testado.',
+            notas: [
+                '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
+                '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
+                '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
+                '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
+            ]
+        };
+        /** O texto do equipamento atual, ou o padrão quando ele não troca. */
+        function chkTexto(chave) {
+            const t = chkTipo();
+            return (t[chave] !== undefined && t[chave] !== null) ? t[chave] : CHK_TEXTO_PADRAO[chave];
+        }
+        /** A declaração do cliente: montada a partir do artigo, ou trocada inteira. */
+        function chkDeclaracaoCliente() {
+            const t = chkTipo();
+            if (t.declaracaoCliente) return t.declaracaoCliente;
+            return 'O cliente declara que ' + chkArtigoEquipamento()
+                 + ' foi testad' + chkConcordancia()
+                 + ' e não apresentou qualquer problema em seu desempenho.';
+        }
+        /** Escreve na tela todos os textos que dependem do equipamento. */
         function chkAtualizarDeclaracao() {
-            const el = document.getElementById('chkDeclaracaoCliente');
-            if (!el) return;
-            el.textContent = 'O cliente declara que ' + chkArtigoEquipamento()
-                + ' foi testad' + chkConcordancia()
-                + ' e não apresentou qualquer problema em seu desempenho. '
-                + 'Assine acima na hora, ou deixe em branco para assinar à mão '
-                + 'após a impressão do PDF.';
+            const escreva = (id, texto) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = texto;
+            };
+            const assineDepois = ' Assine acima na hora, ou deixe em branco para '
+                               + 'assinar à mão após a impressão do PDF.';
+            escreva('chkDeclaracaoCliente', chkDeclaracaoCliente() + assineDepois);
+            escreva('chkDeclaracaoSupervisor', chkTexto('declaracaoSupervisor') + assineDepois);
+            escreva('chkTituloDesempenho', chkTexto('tituloDesempenho'));
+            escreva('chkPerguntaDesempenho', chkTexto('perguntaDesempenho'));
+            escreva('chkRotuloTeste1', chkTexto('rotuloTeste1') + ' — data');
+            escreva('chkRotuloTeste2', chkTexto('rotuloTeste2') + ' — data');
+            const notas = document.getElementById('chkNotasRodape');
+            if (notas) {
+                notas.innerHTML = '';
+                chkTexto('notas').forEach(function (n) {
+                    const p = document.createElement('p');
+                    p.textContent = n;
+                    notas.appendChild(p);
+                });
+            }
         }
         /* ============================================================
            OS CHECKLISTS DE ENTREGA
@@ -6503,6 +6566,69 @@
                 { group: 'MOTOR', label: 'Funcionamento dos motovibradores (teste sem produto)*' },
                 { group: 'TESTES', label: 'Montagem e funcionamento de acessórios especiais' },
                 { group: 'TESTES', label: 'Ausência de vazamento de produto' },
+            ]
+        },
+        /* MEZANINO — não existe formulário de papel de Entrega para ele.
+           Esta é uma proposta: os itens saem da conferência final de uma
+           estrutura, e não de um equipamento em funcionamento. Por isso
+           os textos abaixo trocam o padrão: um mezanino não tem partida,
+           não passa produto por dentro e não tem "capacidade de projeto"
+           no sentido das roscas e elevadores. Precisa da conferência do
+           Comercial antes de valer como documento. */
+        mezanino: {
+            nome: 'Mezanino Metálico',
+            artigo: 'o mezanino',
+            concordancia: 'o',
+            tagPrefixo: 'MZ-',
+            modelos: [],
+            tituloDesempenho: 'Conferência final da estrutura',
+            perguntaDesempenho: 'A estrutura está de acordo com o projeto (vãos, pé-direito e acessos)?',
+            rotuloTeste1: 'Vistoria da estrutura',
+            rotuloTeste2: 'Liberação para uso',
+            declaracaoSupervisor: 'O supervisor de obra atesta que as demais informações estão corretas '
+                                + 'e que a estrutura foi devidamente conferida.',
+            declaracaoCliente: 'O cliente declara que o mezanino foi vistoriado e está liberado para uso, '
+                             + 'sem apresentar qualquer problema.',
+            /* As notas 1 e 2 do padrão falam de start-up e de teste com
+               produto — não se aplicam a uma estrutura. Ficou só a da
+               reinspeção. Se o Comercial quiser condições próprias para
+               mezanino, é aqui que elas entram. */
+            notas: [
+                '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
+            ],
+            esquerda: [
+                { group: 'ESTRUTURA', label: 'Estrutura conforme projeto (vãos e pé-direito)' },
+                { group: 'ESTRUTURA', label: 'Alinhamento geral da estrutura' },
+                { group: 'ESTRUTURA', label: 'Nivelamento do piso conferido' },
+                { group: 'ESTRUTURA', label: 'Prumo dos pilares conferido' },
+                { group: 'ESTRUTURA', label: 'Ausência de deformações estruturais' },
+                { group: 'ESTRUTURA', label: 'Vigas principais e secundárias instaladas' },
+                { group: 'ESTRUTURA', label: 'Mãos francesas instaladas (se houver)' },
+                { group: 'ESTRUTURA', label: 'Ausência de interferências com equipamentos' },
+                { group: 'FIXAÇÕES', label: 'Chumbadores instalados e apertados' },
+                { group: 'FIXAÇÕES', label: 'Parafusos conforme especificação' },
+                { group: 'FIXAÇÕES', label: 'Todos os parafusos com aperto realizado' },
+                { group: 'FIXAÇÕES', label: 'Ligações sem folgas' },
+                { group: 'FIXAÇÕES', label: 'Fixação dos quadros de piso conferida' },
+                { group: 'FIXAÇÕES', label: 'Fixação do pé-direito conferida' },
+                { group: 'FIXAÇÕES', label: 'Fixação geral da estrutura conferida' },
+            ],
+            direita: [
+                { group: 'PISO', label: 'Chapas de piso assentadas e fixadas' },
+                { group: 'PISO', label: 'Ausência de chapas soltas ou empenadas' },
+                { group: 'PISO', label: 'Vãos e aberturas protegidos' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Escadas montadas conforme projeto' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Guarda-corpo instalado conforme projeto' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Corrimão fixado corretamente' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Rodapé instalado (se aplicável)' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Tampões dos tubos de corrimão instalados' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Alinhamento e estabilidade dos acessos' },
+                { group: 'ACESSOS E SEGURANÇA', label: 'Adesivos de segurança instalados' },
+                { group: 'ACABAMENTO', label: 'Acabamento e pintura da estrutura' },
+                { group: 'ACABAMENTO', label: 'Retoques de pintura em soldas e cortes' },
+                { group: 'ACABAMENTO', label: 'Ausência de pontas e rebarbas cortantes' },
+                { group: 'ACABAMENTO', label: 'Placa logomarca instalada (se aplicável)' },
+                { group: 'ACABAMENTO', label: 'Limpeza da área e retirada de sobras' },
             ]
         }
         };
@@ -6848,18 +6974,10 @@
                 /* Quanto a folha precisa reservar abaixo da lista. Cada parcela
                    é a mesma soma de "y -= ..." que o código faz mais adiante —
                    se alguma dessas seções mudar, é aqui que o número muda. */
-                const declSup = 'O supervisor de obra atesta que as demais informações estão corretas '
-                              + 'e que o equipamento foi devidamente testado.';
-                const declCli = 'O cliente declara que ' + chkArtigoEquipamento() + ' foi testad'
-                              + chkConcordancia()
-                              + ' e não apresentou qualquer problema em seu desempenho.';
+                const declSup = chkTexto('declaracaoSupervisor');
+                const declCli = chkDeclaracaoCliente();
                 const obsTexto = chkVal('observacoes');
-                const notasRodape = [
-                    '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
-                    '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
-                    '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
-                    '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
-                ];
+                const notasRodape = chkTexto('notas');
                 const ESPACO_ASSINATURA = 44;   // altura livre para a assinatura desenhada
                 const ALT_DECL_SUP = wrap(declSup, pageW-2*mg, 8.5, italic).length*11 + 4 + ESPACO_ASSINATURA + 32;
                 const ALT_SEC_DESEMPENHO = 18 + 16 + 22;
@@ -6893,7 +7011,7 @@
                     txt(l, mg, y, {size:8.5, font:italic, color:muted}); y -= 11;
                 });
                 y -= 4;
-                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
+                txt(chkTexto('rotuloTeste1')+': '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
                 if (sigSupervisorImg) {
                     const sw = 150, sh = Math.min(34, sw * (sigSupervisorImg.height / sigSupervisorImg.width));
                     page.drawImage(sigSupervisorImg, { x: mg+250, y: y+2, width: sw, height: sh });
@@ -6904,9 +7022,9 @@
                 y -= 32;
                 // ── Section 2 ──
                 ensure(ALT_SEC_DESEMPENHO);
-                txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
+                txt(chkTexto('tituloDesempenho').toUpperCase(), mg, y, {size:10, font:bold, color:greenDark});
                 y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
-                txt('A capacidade do equipamento está de acordo com o projeto (conferir modelo)?', mg, y, {size:9}); y -= 16;
+                txt(chkTexto('perguntaDesempenho'), mg, y, {size:9}); y -= 16;
                 const cap = chkGetRadio('capacidade');
                 rect(mg, y-2.5, 10, 10, {fill:cap==='Sim'?rgb(.89,.97,.91):white, bc:cap==='Sim'?rgb(.12,.48,.25):lineC});
                 if(cap==='Sim') txt('✓', mg+1.5, y, {size:8, font:bold, color:greenDark});
@@ -6920,7 +7038,7 @@
                     txt(l, mg, y, {size:8.5, font:italic, color:muted}); y -= 11;
                 });
                 y -= 4;
-                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
+                txt(chkTexto('rotuloTeste2')+': '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
                 if (sigClienteImg) {
                     const sw = 150, sh = Math.min(34, sw * (sigClienteImg.height / sigClienteImg.width));
                     page.drawImage(sigClienteImg, { x: mg+250, y: y+2, width: sw, height: sh });
