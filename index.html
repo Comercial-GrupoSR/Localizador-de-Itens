@@ -2012,8 +2012,8 @@
         /* filtrar por conjunto: o supervisor separa um conjunto de cada
            vez, então ver só o que pertence a ele é o modo natural */
         h += '<div class="sep-busca-fant">'
-           + '<input type="text" id="sepFantCampo" inputmode="numeric" '
-           + 'placeholder="Código do conjunto (opcional)" value="' + sepEsc(sepFantasma) + '" '
+           + '<input type="text" id="sepFantCampo" '
+           + 'placeholder="Código do conjunto ou TAG (ex: EL-10)" value="' + sepEsc(sepFantasma) + '" '
            + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sepFiltrarFantasma();}">'
            + '<button type="button" onclick="sepFiltrarFantasma()">Filtrar</button>'
            + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
@@ -2022,9 +2022,11 @@
         if (sepAvisoConjunto) {
             h += '<div class="sep-obs" style="margin-bottom:12px">' + sepEsc(sepAvisoConjunto) + '</div>';
         }
-        if (sepFantasma && sepFantasmaDesc) {
-            h += '<div class="sep-conj-nome"><span>Conjunto ' + sepEsc(sepFantasma) + '</span>'
-               + sepEsc(sepFantasmaDesc) + '</div>';
+        if (sepFantasma) {
+            const ehTag = /^[A-Za-z]{1,3}\s*-\s*\d/.test(sepFantasma);
+            h += '<div class="sep-conj-nome"><span>'
+               + (ehTag ? 'Equipamento ' : 'Conjunto ') + sepEsc(sepFantasma) + '</span>'
+               + sepEsc(sepFantasmaDesc || '') + '</div>';
         }
 
         h += '<div class="sep-fichas">'
@@ -2084,7 +2086,10 @@
                sabe qual nível da corrente casou com o código.
                Se não vier — Apps Script antigo, por exemplo — tenta
                achar na própria lista, pelo pai imediato. */
-            if (d.aviso) { sepAvisoConjunto = d.aviso; }
+            if ((d.aviso || '') !== sepAvisoConjunto) {
+                sepAvisoConjunto = d.aviso || '';
+                sepDesenharResumo();
+            }
             if (sepFantasma) {
                 let nome = d.descFantasma || '';
                 if (!nome) {
