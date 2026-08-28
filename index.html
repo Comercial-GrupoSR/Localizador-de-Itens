@@ -334,13 +334,41 @@
         }
         .prog-topo {
             display: flex; align-items: baseline; justify-content: space-between;
-            gap: 10px; margin-bottom: 12px;
+            gap: 8px 12px; margin-bottom: 12px;
+            /* Em tela estreita a data e o botão descem uma linha inteiros,
+               em vez de espremerem o título e quebrarem "ANDAMENTO DAS
+               OBRAS" no meio. */
+            flex-wrap: wrap;
         }
         .prog-topo strong {
             font-size: 12px; font-weight: 800; color: #d1d5db;
             text-transform: uppercase; letter-spacing: 1.2px;
+            white-space: nowrap;
         }
         .prog-topo span { font-size: 10.5px; color: #6b7280; flex: 0 0 auto; }
+        /* Data e botão andam juntos, encostados na direita. */
+        .prog-topo-dir {
+            display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+            margin-left: auto;   /* encostado na direita, na linha que estiver */
+        }
+        /* Mesmo desenho do botão Mostrar/Recolher do menu, um ponto menor. */
+        .prog-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #262626; border: 1px solid #3d3d3d; cursor: pointer;
+            color: #9ca3af; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            padding: 4px 9px; border-radius: 999px;
+            transition: color .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .prog-btn:hover { color: #e5e7eb; background: #303030; border-color: #4a4a4a; }
+        .prog-btn svg { width: 12px; height: 12px; }
+        .prog-btn[disabled] { opacity: .55; cursor: default; }
+        /* Gira a seta enquanto a busca está em curso. */
+        .prog-btn.girando svg { animation: progGira 1s linear infinite; }
+        @keyframes progGira { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .prog-btn.girando svg { animation: none; }
+        }
         .prog-linha {
             display: block; width: 100%; text-align: left; cursor: pointer;
             background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
@@ -1932,7 +1960,7 @@
             'mascara-sem-par-no-asana': 'A máscara deste equipamento não foi encontrada no Asana. Confira a TAG antes de usar.',
             'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
             'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
-            'sem-aba-corrente':  'A estrutura ainda não foi importada.'
+            'sem-aba-corrente':  'A estrutura ainda não foi importada.',
             'tags-faltando-no-asana':   'Este equipamento tem mais de uma unidade neste pedido, mas o Asana só tem uma TAG cadastrada. Confira a TAG antes de separar.',
         };
         const linhas = partes.map(function (p) { return texto[p.trim()]; }).filter(Boolean);
@@ -3956,6 +3984,12 @@
         ============================================================ */
         const PROG_CACHE_KEY = 'obraflow_progresso_v1';
         const PROG_TTL_MS = 10 * 60 * 1000;   // 10 minutos
+        // Seta circular do botão Atualizar. Fica aqui em cima para não
+        // poluir a função que desenha o painel.
+        const PROG_ICONE_ATUALIZAR =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 4 21 10 15 10"/></svg>';
         let progDados = null;
         let progBuscando = false;
         let progErro = '';
@@ -4017,10 +4051,19 @@
             const painel = document.getElementById('painelProgresso');
             if (!painel) return;
             let h = '<div class="prog-topo"><strong>Andamento das obras</strong>';
+            h += '<span class="prog-topo-dir">';
             if (progDados && progDados.atualizadoEm) {
                 h += '<span>' + progEsc(progDados.atualizadoEm) + '</span>';
             }
-            h += '</div>';
+            // O painel não se atualiza sozinho enquanto a tela fica aberta.
+            // Este botão é a saída para quem acabou de mexer na planilha e
+            // quer ver o efeito agora, sem sair e voltar.
+            h += '<button type="button" class="prog-btn' + (progBuscando ? ' girando' : '') + '" '
+               + 'onclick="progCarregar()"' + (progBuscando ? ' disabled' : '') + '>'
+               + PROG_ICONE_ATUALIZAR
+               + (progBuscando ? 'Buscando' : 'Atualizar')
+               + '</button>';
+            h += '</span></div>';
             if (!progDados) {
                 h += progBuscando
                     ? '<div class="flex items-center justify-center p-4">'
@@ -4062,9 +4105,8 @@
             });
             if (progErro) {
                 h += '<p class="prog-erro">Não atualizou agora: ' + progEsc(progErro) + '</p>';
-            } else if (progBuscando) {
-                h += '<p class="prog-aviso">atualizando…</p>';
-            } else {
+            } else if (!progBuscando) {
+                // Enquanto busca, quem avisa é o próprio botão.
                 h += '<p class="prog-aviso">Média ponderada pela duração de cada equipamento. '
                    + 'Toque num pedido para abrir o cronograma.</p>';
             }
