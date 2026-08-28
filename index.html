@@ -1573,7 +1573,7 @@
     const sepErro = {};       /* chave -> mensagem do último erro */
 
     function sepChave(it) {
-        return String(it.ID) + '|' + String(it.CARREGAMENTO);
+                return String(it.ID) + '|' + String(it.CARREGAMENTO) + '|' + String(it.TAG || '');
     }
 
     /** Acha o mesmo item nas duas telas, para as duas ficarem certas. */
@@ -1596,7 +1596,7 @@
             x.SITUACAO_SEP = sepSituacao(sep, ne, total);
         });
         delete sepErro[chave];
-        sepDesejado[chave] = { sep: sep, ne: ne, pedido: it.PEDIDO, id: it.ID, carga: it.CARREGAMENTO };
+                sepDesejado[chave] = { sep: sep, ne: ne, pedido: it.PEDIDO, id: it.ID, carga: it.CARREGAMENTO, tag: it.TAG || '' };
         sepRedesenhar();
 
         if (sepTimer[chave]) clearTimeout(sepTimer[chave]);
@@ -1617,7 +1617,8 @@
                       + '&pedido=' + encodeURIComponent(alvo.pedido)
                       + '&id=' + encodeURIComponent(alvo.id)
                       + '&carga=' + encodeURIComponent(alvo.carga)
-                      + '&sep=' + alvo.sep + '&ne=' + alvo.ne;
+                      + '&sep=' + alvo.sep + '&ne=' + alvo.ne
+                      + (alvo.tag ? '&tag=' + encodeURIComponent(alvo.tag) : '');
             const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
             const dados = await resposta.json();
             if (dados && dados.error) throw new Error(dados.error);
@@ -1920,6 +1921,8 @@
         const texto = {
             'varios-topos':      'Esta peça entra em mais de um equipamento neste pedido e não deu para saber qual. Confira com o projeto.',
             'varias-unidades':   'O pedido tem mais de uma unidade deste equipamento. Os dados são do primeiro.',
+            'mascara-compartilhada':    'Dois equipamentos deste pedido têm a mesma configuração. Não dá para saber em qual esta peça vai.',
+            'mascara-sem-par-no-asana': 'A máscara deste equipamento não foi encontrada no Asana. Confira a TAG antes de usar.',
             'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
             'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
             'sem-aba-corrente':  'A estrutura ainda não foi importada.'
@@ -2081,6 +2084,7 @@
                sabe qual nível da corrente casou com o código.
                Se não vier — Apps Script antigo, por exemplo — tenta
                achar na própria lista, pelo pai imediato. */
+            if (d.aviso) { sepAvisoConjunto = d.aviso; }
             if (sepFantasma) {
                 let nome = d.descFantasma || '';
                 if (!nome) {
@@ -2694,6 +2698,7 @@
     });
     </script>        
 </div>
+        
 <div id="page-documentos" class="hidden">
     <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
         <h2 class="text-base font-semibold mb-2 text-gray-200">Documentos de Montagem</h2>
