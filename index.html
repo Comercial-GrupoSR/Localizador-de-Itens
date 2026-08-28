@@ -326,6 +326,75 @@
            assim o valor nunca depende da cor para ser lido.
         ============================================================ */
         /* ============================================================
+           TELA DE ENTRADA
+           Verde igual ao da tela de abertura do Android, para o app
+           parecer continuar carregando em vez de mudar de assunto.
+        ============================================================ */
+        .ent-fundo {
+            position: fixed; inset: 0; z-index: 90;
+            background: #0c4a31;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 24px; overflow-y: auto;
+        }
+        .ent-caixa { width: 100%; max-width: 340px; }
+        /* O ícone já traz "Grupo SR / ObraFlow" escrito dentro dele —
+           por isso não há nome repetido embaixo. */
+        .ent-logo {
+            display: block; width: 128px; height: 128px;
+            margin: 0 auto 14px; border-radius: 24px;
+        }
+        .ent-sub {
+            text-align: center; color: #8fd9b3; font-size: 11px;
+            font-weight: 700; letter-spacing: 1.6px; margin-bottom: 28px;
+        }
+        .ent-campo { margin-bottom: 12px; }
+        .ent-campo label {
+            display: block; font-size: 11px; font-weight: 700;
+            letter-spacing: .6px; text-transform: uppercase;
+            color: #8fd9b3; margin-bottom: 5px;
+        }
+        .ent-campo input {
+            width: 100%; padding: 11px 12px; font-size: 16px;
+            background: #0a3d29; border: 1px solid #2f6b46;
+            border-radius: 9px; color: #fff;
+        }
+        .ent-campo input:focus {
+            outline: none; border-color: #6ee7a8; background: #093522;
+        }
+        .ent-lembrar {
+            display: flex; align-items: center; gap: 9px;
+            color: #cdeedd; font-size: 13px; margin: 14px 0 18px;
+            cursor: pointer;
+        }
+        .ent-lembrar input { width: 18px; height: 18px; accent-color: #4ade80; }
+        .ent-botao {
+            width: 100%; padding: 12px; border: none; border-radius: 9px;
+            background: #4ade80; color: #0a3d29;
+            font-size: 15px; font-weight: 800; letter-spacing: .5px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .ent-botao:hover { background: #6ee7a8; }
+        .ent-botao[disabled] { opacity: .6; cursor: default; }
+        .ent-erro {
+            margin-top: 14px; text-align: center; font-size: 12.5px;
+            color: #ffc9c9; background: #5a2020; border: 1px solid #7d2f2f;
+            border-radius: 8px; padding: 9px 11px; line-height: 1.45;
+        }
+        /* A linha "conectado como" no rodapé da tela inicial. */
+        .ent-rodape {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; margin-top: 16px;
+            font-size: 11.5px; color: #6b7280;
+        }
+        .ent-sair {
+            background: none; border: none; padding: 0; cursor: pointer;
+            color: #9ca3af; font-size: 11.5px; text-decoration: underline;
+        }
+        .ent-sair:hover { color: #e5e7eb; }
+
+        /* ============================================================
            VISUALIZADOR DE DESENHO
            O PDF é desenhado pelo próprio aplicativo, folha por folha,
            num quadro em branco. Não é a tela do Drive nem o leitor do
@@ -988,6 +1057,10 @@
             <!-- Andamento das obras: cartão próprio, sempre visível. Quando
                  o menu abre, ele é empurrado para baixo e a página rola. -->
             <div id="painelProgresso" class="prog-card"></div>
+            <div class="ent-rodape">
+                <span id="entConectado"></span>
+                <button type="button" class="ent-sair" onclick="sair()">Sair</button>
+            </div>
         </div>
 
         <div id="page-localizador" class="hidden">
@@ -2872,6 +2945,34 @@
             </div>
         </div>
     </div>
+    <!-- Tela de entrada. Nasce visível: enquanto o app não sabe quem
+         está entrando, ninguém vê a página inicial por baixo. -->
+    <div id="tela-entrada" class="ent-fundo">
+        <form class="ent-caixa" onsubmit="entrar(event)">
+            <img src="icon-512.png" alt="ObraFlow — Grupo SR" class="ent-logo">
+            <div class="ent-sub">ACESSO DO SUPERVISOR</div>
+
+            <div class="ent-campo">
+                <label for="entUsuario">Usuário</label>
+                <input type="text" id="entUsuario" autocomplete="username"
+                       autocapitalize="none" autocorrect="off" spellcheck="false"
+                       inputmode="text" required>
+            </div>
+            <div class="ent-campo">
+                <label for="entSenha">Senha</label>
+                <input type="password" id="entSenha" autocomplete="current-password" required>
+            </div>
+
+            <label class="ent-lembrar">
+                <input type="checkbox" id="entLembrar" checked>
+                <span>Manter conectado neste aparelho</span>
+            </label>
+
+            <button type="submit" class="ent-botao" id="entBotao">Entrar</button>
+            <div id="entErro" class="ent-erro hidden"></div>
+        </form>
+    </div>
+
     <!-- Visualizador de desenho: ocupa a tela inteira, só com o nome
          do arquivo e o X de fechar. -->
     <div id="modal-desenho" class="dsn-fundo hidden">
@@ -4140,7 +4241,141 @@
         // Inicializa a tela de resultados
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        function initializeApp() {
+        /* ============================================================
+           ENTRADA NO APLICATIVO
+
+           A senha NÃO sai do celular. O que viaja é uma impressão
+           digital dela (SHA-256); o Apps Script faz a mesma conta com
+           a senha da planilha e compara. Assim a senha não aparece no
+           endereço da requisição nem no registro de execução.
+
+           As senhas também não estão neste arquivo, de propósito: ele
+           mora num repositório público do GitHub, onde qualquer um
+           leria. Elas ficam na aba "Usuarios" da planilha.
+
+           SEM SINAL: quem já entrou uma vez continua entrando, porque
+           o cartão de acesso fica guardado no aparelho. A confirmação
+           com o servidor acontece por trás, quando há rede — é ela que
+           derruba quem foi desativado na planilha.
+        ============================================================ */
+        const ENT_CHAVE = 'obraflow_acesso_v1';
+        let usuarioAtual = null;
+
+        function entLer() {
+            try {
+                const cru = localStorage.getItem(ENT_CHAVE);
+                if (!cru) return null;
+                const d = JSON.parse(cru);
+                return (d && d.token && d.usuario) ? d : null;
+            } catch (e) { return null; }
+        }
+
+        function entGravar(dados) {
+            try { localStorage.setItem(ENT_CHAVE, JSON.stringify(dados)); }
+            catch (e) { /* aparelho sem espaço: segue sem lembrar */ }
+        }
+
+        function entApagar() {
+            try { localStorage.removeItem(ENT_CHAVE); } catch (e) {}
+        }
+
+        /** A impressão digital da senha, igual à que o Apps Script calcula. */
+        async function entImpressao(texto) {
+            const dados = new TextEncoder().encode(texto);
+            const bruto = await crypto.subtle.digest('SHA-256', dados);
+            return Array.from(new Uint8Array(bruto))
+                .map(function (b) { return b.toString(16).padStart(2, '0'); })
+                .join('');
+        }
+
+        function entErro(texto) {
+            const el = document.getElementById('entErro');
+            el.textContent = texto || '';
+            el.classList.toggle('hidden', !texto);
+        }
+
+        async function entrar(evento) {
+            if (evento) evento.preventDefault();
+            const botao = document.getElementById('entBotao');
+            const usuario = (document.getElementById('entUsuario').value || '').trim().toLowerCase();
+            const senha = document.getElementById('entSenha').value || '';
+            if (!usuario || !senha) return;
+
+            entErro('');
+            botao.disabled = true;
+            botao.innerHTML = '<div class="spinner border-4 border-[#0a3d29] border-t-4 h-4 w-4 rounded-full"></div> Entrando...';
+
+            try {
+                const hash = await entImpressao(senha);
+                const url = `${APPS_SCRIPT_URL}?mode=login`
+                          + `&usuario=${encodeURIComponent(usuario)}`
+                          + `&hash=${encodeURIComponent(hash)}`;
+                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const dados = await resposta.json();
+
+                if (dados && dados.ok) {
+                    const lembrar = document.getElementById('entLembrar').checked;
+                    const sessao = { usuario: dados.usuario, nome: dados.nome, token: dados.token };
+                    if (lembrar) entGravar(sessao); else entApagar();
+                    document.getElementById('entSenha').value = '';
+                    abrirApp(sessao);
+                } else {
+                    entErro((dados && dados.error) || 'Usuário ou senha incorretos.');
+                }
+            } catch (e) {
+                entErro('Não consegui conferir o acesso. Verifique a internet e tente de novo.');
+            } finally {
+                botao.disabled = false;
+                botao.textContent = 'Entrar';
+            }
+        }
+
+        function sair() {
+            entApagar();
+            usuarioAtual = null;
+            document.getElementById('entSenha').value = '';
+            document.getElementById('tela-entrada').classList.remove('hidden');
+            entErro('');
+            document.getElementById('entUsuario').focus();
+        }
+
+        /** Confere o cartão guardado com o servidor, sem travar a tela. */
+        function entRevalidar(sessao) {
+            const url = `${APPS_SCRIPT_URL}?mode=sessao&token=${encodeURIComponent(sessao.token)}`;
+            fetchWithTimeout(url, SEARCH_TIMEOUT_MS)
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    // Só derruba com um "não" explícito do servidor. Falha de
+                    // rede não pode expulsar o supervisor no meio da obra.
+                    if (d && d.ok === false) sair();
+                    else if (d && d.ok && d.nome) {
+                        usuarioAtual = { usuario: d.usuario, nome: d.nome, token: sessao.token };
+                        entGravar(usuarioAtual);
+                        entMostrarNome();
+                    }
+                })
+                .catch(function () { /* sem sinal: segue com o cartão guardado */ });
+        }
+
+        function entMostrarNome() {
+            const el = document.getElementById('entConectado');
+            if (el) el.textContent = usuarioAtual ? ('Conectado como ' + usuarioAtual.nome) : '';
+        }
+
+        /** Passa da tela de entrada para o aplicativo. */
+        function abrirApp(sessao) {
+            usuarioAtual = sessao;
+            entMostrarNome();
+            document.getElementById('tela-entrada').classList.add('hidden');
+            if (!appIniciado) {
+                appIniciado = true;
+                iniciarConteudo();
+            }
+        }
+
+        let appIniciado = false;
+
+        function iniciarConteudo() {
             const hasCache = !!getCachedPedidos();
             if (!hasCache) {
                 displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
@@ -4150,6 +4385,16 @@
             selPrepararTodos();     // troca todas as listas nativas pelas nossas
             switchPage('inicio');   // a tela inicial passa a ser o menu
             fetchAllPedidos();
+        }
+
+        function initializeApp() {
+            const sessao = entLer();
+            if (sessao) {
+                abrirApp(sessao);      // já entrou antes: vai direto
+                entRevalidar(sessao);  // e confere por trás
+            } else {
+                document.getElementById('entUsuario').focus();
+            }
         }
 
         function copyToClipboard(text) {
@@ -4422,7 +4667,9 @@
             "Jocélio Almeida",
             "Juarez Barasuol",
             "Marcelo de Oliveira",
-            "Jair Milbradt"
+            "Jair Milbradt",
+            "Fernando Hendges Lopes",
+            "Marcos Malezan Tasquetto"
         ];
         function populateSupervisorSelect(selectId) {
             const select = document.getElementById(selectId);
