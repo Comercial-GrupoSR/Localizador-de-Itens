@@ -339,15 +339,25 @@
         }
         .ent-caixa { width: 100%; max-width: 340px; }
         /* O ícone já traz "Grupo SR / ObraFlow" escrito dentro dele —
-           por isso não há nome repetido embaixo. */
+           por isso não há nome nem frase repetida embaixo.
+           O min() segura o tamanho em tela pequena: 200px num celular
+           estreito empurraria os campos para fora com o teclado aberto. */
         .ent-logo {
-            display: block; width: 128px; height: 128px;
-            margin: 0 auto 14px; border-radius: 24px;
+            display: block; width: min(220px, 62vw); height: auto;
+            margin: 0 auto 30px; border-radius: 28px;
         }
-        .ent-sub {
-            text-align: center; color: #8fd9b3; font-size: 11px;
-            font-weight: 700; letter-spacing: 1.6px; margin-bottom: 28px;
+        /* O olho fica dentro do campo, encostado à direita. */
+        .ent-senha { position: relative; }
+        .ent-senha input { padding-right: 46px; }
+        .ent-olho {
+            position: absolute; right: 4px; bottom: 4px;
+            width: 38px; height: 38px; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: none; border: none; cursor: pointer;
+            color: #8fd9b3;
         }
+        .ent-olho:hover { color: #eafff2; }
+        .ent-olho svg { width: 21px; height: 21px; }
         .ent-campo { margin-bottom: 12px; }
         .ent-campo label {
             display: block; font-size: 11px; font-weight: 700;
@@ -2950,7 +2960,6 @@
     <div id="tela-entrada" class="ent-fundo">
         <form class="ent-caixa" onsubmit="entrar(event)">
             <img src="icon-512.png" alt="ObraFlow — Grupo SR" class="ent-logo">
-            <div class="ent-sub">ACESSO DO SUPERVISOR</div>
 
             <div class="ent-campo">
                 <label for="entUsuario">Usuário</label>
@@ -2958,9 +2967,11 @@
                        autocapitalize="none" autocorrect="off" spellcheck="false"
                        inputmode="text" required>
             </div>
-            <div class="ent-campo">
+            <div class="ent-campo ent-senha">
                 <label for="entSenha">Senha</label>
                 <input type="password" id="entSenha" autocomplete="current-password" required>
+                <button type="button" class="ent-olho" id="entOlho"
+                        onclick="verSenha()" aria-label="Mostrar senha"></button>
             </div>
 
             <label class="ent-lembrar">
@@ -4040,12 +4051,19 @@
             desenhoAvisar('');
 
             try {
+                // Já foi aberto neste aparelho? Então nem sai daqui.
+                const guardado = await dsnLer(codigo);
+                if (guardado) {
+                    dsnAbrir(guardado.nome, guardado.base64);
+                    return;
+                }
                 const url = `${APPS_SCRIPT_URL}?mode=desenhoArquivo&codigo=${encodeURIComponent(codigo)}`;
                 const resposta = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
                 const dados = await resposta.json();
 
                 if (dados && dados.base64) {
                     dsnAbrir(dados.nome, dados.base64);
+                    dsnGravar(codigo, dados.nome, dados.base64);
                     if (dados.total > 1) {
                         desenhoAvisar('Há ' + dados.total + ' arquivos com este código; '
                                     + 'abri o que mais combina.');
@@ -4079,6 +4097,62 @@
            desenho, para não pesar na abertura do aplicativo.
         ============================================================ */
         const DESENHO_TIMEOUT_MS = 45000;   // um PDF grande demora mais que uma busca
+
+        /* ------------------------------------------------------------
+           OS ÚLTIMOS DESENHOS FICAM NO APARELHO
+           Abrir de novo o mesmo desenho não deveria custar outra ida
+           ao Drive. Os últimos ficam guardados aqui; o segundo toque
+           é instantâneo e funciona sem sinal.
+
+           Fica no IndexedDB, e não no localStorage: um PDF de 2 MB não
+           cabe nos 5 MB que o localStorage costuma ter, e ali ele
+           disputaria espaço com a lista de Pedidos e o andamento.
+        ------------------------------------------------------------ */
+        const DSN_BANCO = 'obraflow_desenhos';
+        const DSN_LOJA = 'arquivos';
+        const DSN_GUARDAR = 8;        // quantos desenhos manter
+        let dsnBancoPronto = null;
+
+        function dsnBanco() {
+            if (dsnBancoPronto) return dsnBancoPronto;
+            dsnBancoPronto = new Promise(function (ok, erro) {
+                if (!window.indexedDB) return erro(new Error('sem IndexedDB'));
+                const p = indexedDB.open(DSN_BANCO, 1);
+                p.onupgradeneeded = function () {
+                    const db = p.result;
+                    if (!db.objectStoreNames.contains(DSN_LOJA)) {
+                        db.createObjectStore(DSN_LOJA, { keyPath: 'codigo' });
+                    }
+                };
+                p.onsuccess = function () { ok(p.result); };
+                p.onerror = function () { erro(p.error || new Error('falhou')); };
+            }).catch(function (e) { dsnBancoPronto = null; throw e; });
+            return dsnBancoPronto;
+        }
+
+        function dsnLer(codigo) {
+            return dsnBanco().then(function (db) {
+                return new Promise(function (ok) {
+                    const req = db.transaction(DSN_LOJA, 'readonly')
+                                  .objectStore(DSN_LOJA).get(codigo);
+                    req.onsuccess = function () { ok(req.result || null); };
+                    req.onerror = function () { ok(null); };
+                });
+            }).catch(function () { return null; });
+        }
+
+        function dsnGravar(codigo, nome, base64) {
+            return dsnBanco().then(function (db) {
+                const loja = db.transaction(DSN_LOJA, 'readwrite').objectStore(DSN_LOJA);
+                loja.put({ codigo: codigo, nome: nome, base64: base64, quando: Date.now() });
+                // Passou de DSN_GUARDAR? O mais antigo sai.
+                const todos = loja.getAll();
+                todos.onsuccess = function () {
+                    const lista = (todos.result || []).sort(function (a, b) { return b.quando - a.quando; });
+                    lista.slice(DSN_GUARDAR).forEach(function (x) { loja.delete(x.codigo); });
+                };
+            }).catch(function () { /* sem espaço ou sem IndexedDB: segue sem guardar */ });
+        }
         const DSN_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
         const DSN_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         // Quanto maior, mais nítido no zoom — e mais memória. 2 é o
@@ -4261,6 +4335,34 @@
         const ENT_CHAVE = 'obraflow_acesso_v1';
         let usuarioAtual = null;
 
+        /* O olho do campo de senha. Dois desenhos: o aberto quando a
+           senha está escondida (toque para ver) e o riscado quando ela
+           está à mostra (toque para esconder). */
+        const ENT_OLHO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>'
+            + '<circle cx="12" cy="12" r="3"/></svg>';
+        const ENT_OLHO_RISCADO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+            + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+            + '<path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>'
+            + '<line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+        function verSenha() {
+            const campo = document.getElementById('entSenha');
+            const botao = document.getElementById('entOlho');
+            const mostrando = campo.type === 'text';
+            campo.type = mostrando ? 'password' : 'text';
+            botao.innerHTML = mostrando ? ENT_OLHO : ENT_OLHO_RISCADO;
+            botao.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+            // Devolve o cursor ao fim do texto: sem isto o teclado do
+            // celular fecha e o supervisor perde o lugar.
+            campo.focus();
+            const n = campo.value.length;
+            try { campo.setSelectionRange(n, n); } catch (e) {}
+        }
+
         function entLer() {
             try {
                 const cru = localStorage.getItem(ENT_CHAVE);
@@ -4317,7 +4419,10 @@
                     const lembrar = document.getElementById('entLembrar').checked;
                     const sessao = { usuario: dados.usuario, nome: dados.nome, token: dados.token };
                     if (lembrar) entGravar(sessao); else entApagar();
-                    document.getElementById('entSenha').value = '';
+                    const campoSenha = document.getElementById('entSenha');
+                    campoSenha.value = '';
+                    campoSenha.type = 'password';
+                    document.getElementById('entOlho').innerHTML = ENT_OLHO;
                     abrirApp(sessao);
                 } else {
                     entErro((dados && dados.error) || 'Usuário ou senha incorretos.');
@@ -4333,7 +4438,10 @@
         function sair() {
             entApagar();
             usuarioAtual = null;
-            document.getElementById('entSenha').value = '';
+            const campo = document.getElementById('entSenha');
+            campo.value = '';
+            campo.type = 'password';   // nunca reabre com a senha à mostra
+            document.getElementById('entOlho').innerHTML = ENT_OLHO;
             document.getElementById('tela-entrada').classList.remove('hidden');
             entErro('');
             document.getElementById('entUsuario').focus();
@@ -4388,6 +4496,7 @@
         }
 
         function initializeApp() {
+            document.getElementById('entOlho').innerHTML = ENT_OLHO;
             const sessao = entLer();
             if (sessao) {
                 abrirApp(sessao);      // já entrou antes: vai direto
