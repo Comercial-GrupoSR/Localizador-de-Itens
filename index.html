@@ -892,14 +892,14 @@
             <div class="bg-[#2e2e2e] p-5 rounded-xl shadow-lg border border-[#3d3d3d]">
                 <div class="menu-cabecalho">
                     <div class="menu-titulo"><h2>Menu</h2></div>
-                    <button type="button" id="menuToggle" class="menu-toggle" onclick="alternarMenu()">
-                        <span id="menuToggleTexto">Recolher</span>
+                    <button type="button" id="menuToggle" class="menu-toggle recolhido" onclick="alternarMenu()">
+                        <span id="menuToggleTexto">Mostrar</span>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </button>
                 </div>
-                <div id="menuLista" class="menu-lista"></div>
+                <div id="menuLista" class="menu-lista recolhida"></div>
             </div>
             <!-- Andamento das obras: cartão próprio, sempre visível. Quando
                  o menu abre, ele é empurrado para baixo e a página rola. -->
@@ -3885,7 +3885,7 @@
             { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
             { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' }
         ];
-        let menuRecolhido = false;
+        let menuRecolhido = true;   // o app abre com o andamento à vista
         /**
          * Desenha as opções do menu. É chamada toda vez que a tela
          * inicial aparece — é isso que faz as opções entrarem em
