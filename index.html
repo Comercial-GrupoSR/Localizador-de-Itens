@@ -5686,13 +5686,16 @@
             if (page === 'documentos') docsAtualizarPedidos();
         }
         // --- Formulários (Inconformidades / Melhorias) ---
+        /* Quem assina como supervisor de obra. São só estes quatro.
+           Ter acesso ao aplicativo é outra coisa: o Fernando e o Marcos
+           entram com login próprio, mas não são supervisores e por isso
+           não aparecem aqui. A lista de quem entra fica na aba "Usuarios"
+           da planilha Localizador de Itens, e é independente desta. */
         const SUPERVISORES = [
             "Jocélio Almeida",
             "Juarez Barasuol",
             "Marcelo de Oliveira",
-            "Jair Milbradt",
-            "Fernando Hendges Lopes",
-            "Marcos Malezan Tasquetto"
+            "Jair Milbradt"
         ];
         function populateSupervisorSelect(selectId) {
             const select = document.getElementById(selectId);
