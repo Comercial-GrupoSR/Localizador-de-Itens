@@ -3635,6 +3635,28 @@
         const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
         const SEARCH_TIMEOUT_MS = 90000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
         // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
+        /**
+         * Lê a resposta do Apps Script com cuidado.
+         *
+         * Quando o script demora demais, o Google não devolve dados: devolve
+         * uma PÁGINA DE ERRO em HTML. Sem esta conferência, o app tentava ler
+         * essa página como se fosse dado e mostrava "Unexpected token '<'",
+         * que não diz nada a quem está na obra.
+         */
+        async function lerJson(resposta) {
+            const texto = await resposta.text();
+            try {
+                return JSON.parse(texto);
+            } catch (e) {
+                const html = texto.slice(0, 200).toLowerCase();
+                if (html.indexOf('<!doctype') >= 0 || html.indexOf('<html') >= 0) {
+                    throw new Error('O servidor demorou demais e devolveu uma página de '
+                                  + 'erro. Tente de novo; se insistir, avise o escritório.');
+                }
+                throw new Error('Resposta inesperada do servidor.');
+            }
+        }
+
         async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -4142,7 +4164,7 @@
                 }
                 const url = `${APPS_SCRIPT_URL}?mode=desenhoArquivo&codigo=${encodeURIComponent(codigo)}`;
                 const resposta = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
-                const dados = await resposta.json();
+                const dados = await lerJson(resposta);
 
                 if (dados && dados.base64) {
                     dsnAbrir(dados.nome, dados.base64);
@@ -4463,7 +4485,7 @@
             try {
                 const url = `${APPS_SCRIPT_URL}?mode=docsPastas&pedido=${encodeURIComponent(docsPedido)}`;
                 const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-                const d = await r.json();
+                const d = await lerJson(r);
                 if (d && d.error) { docsErro(d.error); return; }
                 docsRaizPastas = d.pastas || [];
                 docsDesenharRaiz();
@@ -4531,7 +4553,7 @@
             try {
                 const url = `${APPS_SCRIPT_URL}?mode=docsConteudo&pasta=${encodeURIComponent(pasta.id)}`;
                 const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
-                const d = await r.json();
+                const d = await lerJson(r);
                 if (d && d.error) { docsErro(d.error); return; }
                 docsDesenharConteudo(d);
             } catch (e) {
@@ -4608,7 +4630,7 @@
             try {
                 const url = `${APPS_SCRIPT_URL}?mode=docArquivo&id=${encodeURIComponent(a.id)}`;
                 const r = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
-                const d = await r.json();
+                const d = await lerJson(r);
                 document.getElementById('docsLista').innerHTML = antes;
                 if (d && d.base64) {
                     dsnAbrir(d.nome, d.base64);
