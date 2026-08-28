@@ -3152,10 +3152,24 @@
 
         /* ---- tabela ---- */
         doc.autoTable({
-            head: [['Carga', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
+            head: [['Carga', 'Código', 'Descrição', 'Qtde', 'Sep.', 'N/enc.', 'Falta']],
+            /* "Falta" é o que ainda tem de ser separado, e sai da mesma
+               conta que a tela faz em sepContador: total − separadas −
+               não encontradas. Antes essa coluna mostrava NAO_ENCONTRADAS,
+               que é outra coisa — a peça procurada e não achada. Numa
+               lista de pendentes esse número é sempre 0, e foi o que saiu
+               no PDF do 1644/FT-02: cabeçalho com "44 pendentes" e a
+               coluna Falta com 0 nas 44 linhas.
+
+               O total vem de sepTotal(), que prefere QTDE_CARGA quando
+               existe — é o número contra o qual o supervisor separa na
+               tela. A coluna Qtde usava it.QTDE e podia mostrar outro. */
             body: sepLista.map(function (it) {
+                const total = sepTotal(it);
+                const sep   = Number(it.SEPARADAS) || 0;
+                const ne    = Number(it.NAO_ENCONTRADAS) || 0;
                 return [it.CARREGAMENTO, it.COD_PECA, it.DESC_PECA,
-                        it.QTDE, it.SEPARADAS, it.NAO_ENCONTRADAS];
+                        total, sep, ne, Math.max(0, total - sep - ne)];
             }),
             startY: y + 6,
             margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 12, left: 15, right: 15 },
@@ -3168,7 +3182,8 @@
                 2: { cellWidth: 'auto' },
                 3: { cellWidth: 14, halign: 'right' },
                 4: { cellWidth: 14, halign: 'right' },
-                5: { cellWidth: 14, halign: 'right' }
+                5: { cellWidth: 14, halign: 'right' },
+                6: { cellWidth: 14, halign: 'right' }
             },
             /* Toda página leva o timbre. A primeira já recebeu o topo
                acima, então aqui ele só é redesenhado a partir da
