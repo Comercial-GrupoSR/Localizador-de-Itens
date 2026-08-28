@@ -325,6 +325,54 @@
            que texto pequeno precisa. Cor na barra, número em branco —
            assim o valor nunca depende da cor para ser lido.
         ============================================================ */
+        /* ============================================================
+           VISUALIZADOR DE DESENHO
+           O PDF é desenhado pelo próprio aplicativo, folha por folha,
+           num quadro em branco. Não é a tela do Drive nem o leitor do
+           navegador — por isso não há botão de baixar, imprimir ou
+           compartilhar: só o desenho.
+
+           Uma ressalva honesta: isto ESCONDE as opções, não protege o
+           arquivo. Quem souber mexer ainda alcança o PDF. O que protege
+           de verdade é a permissão da pasta no Drive.
+        ============================================================ */
+        .dsn-fundo {
+            position: fixed; inset: 0; z-index: 80;
+            background: #101010; display: flex; flex-direction: column;
+        }
+        .dsn-topo {
+            flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; background: #1a1a1a;
+            border-bottom: 1px solid #2e2e2e;
+        }
+        .dsn-nome {
+            flex: 1; min-width: 0; font-size: 12.5px; color: #d1d5db;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .dsn-fechar {
+            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px;
+            border: 1px solid #4a4a4a; background: #2e2e2e; color: #d1d5db;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .dsn-fechar:hover { background: #3a3a3a; color: #fff; }
+        .dsn-fechar svg { width: 18px; height: 18px; }
+        /* O quadro rola nos dois sentidos e aceita o gesto de pinça:
+           um desenho técnico na largura do celular é ilegível sem zoom. */
+        .dsn-area {
+            flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y pinch-zoom;
+            padding: 10px; text-align: center;
+        }
+        .dsn-area canvas {
+            display: block; margin: 0 auto 10px; max-width: 100%;
+            height: auto; background: #fff; border-radius: 3px;
+        }
+        .dsn-estado {
+            color: #9ca3af; font-size: 13px; padding: 40px 20px; text-align: center;
+            line-height: 1.5;
+        }
+        .dsn-estado.erro { color: #f87171; }
         /* Aviso embaixo do botão Abrir Desenho. Com CSS próprio, e não
            classes do Tailwind, porque o Tailwind vem de um CDN: se ele
            demorar, a mensagem de erro ainda sai vermelha. */
@@ -987,11 +1035,12 @@
 
                 <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
                     </div>
-            </div>
 
-            <!-- Abrir Desenho: só aparece depois que a busca encontra o item,
-                 porque é o código dele que abre o desenho. -->
-            <div id="desenhoBlock" class="mb-4 hidden">
+            <!-- Abrir Desenho: dentro do mesmo cartão dos resultados, para
+                 nascer com a mesma largura e a mesma cor do botão Buscar.
+                 Só aparece quando a busca encontra o item, porque é o
+                 código dele que abre o desenho. -->
+            <div id="desenhoBlock" class="mt-4 hidden">
                 <button type="button" id="desenhoBotao" onclick="abrirDesenho()"
                         class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1003,6 +1052,7 @@
                     Abrir Desenho
                 </button>
                 <p id="desenhoAviso" class="desenho-aviso hidden"></p>
+            </div>
             </div>
         </div>
         <div id="page-formularios" class="hidden">
@@ -2822,6 +2872,20 @@
             </div>
         </div>
     </div>
+    <!-- Visualizador de desenho: ocupa a tela inteira, só com o nome
+         do arquivo e o X de fechar. -->
+    <div id="modal-desenho" class="dsn-fundo hidden">
+        <div class="dsn-topo">
+            <span class="dsn-nome" id="dsnNome">Desenho</span>
+            <button type="button" class="dsn-fechar" onclick="dsnFechar()" aria-label="Fechar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="dsn-area" id="dsnArea"></div>
+    </div>
+
     <!-- Modal: Formulário de Inconformidades -->
     <div id="modal-inconformidades" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
@@ -3868,47 +3932,130 @@
             const codigo = (codeInput.value || '').trim().toUpperCase();
             if (!codigo) return;
 
-            // Abre a aba agora, enquanto o toque ainda "vale".
-            const aba = window.open('', '_blank');
-
             desenhoBuscando = true;
             const htmlBotao = botao.innerHTML;
             botao.disabled = true;
-            botao.innerHTML = '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Procurando o desenho...';
+            botao.innerHTML = '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Abrindo o desenho...';
             desenhoAvisar('');
 
             try {
-                const url = `${APPS_SCRIPT_URL}?mode=desenho&codigo=${encodeURIComponent(codigo)}`;
-                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const url = `${APPS_SCRIPT_URL}?mode=desenhoArquivo&codigo=${encodeURIComponent(codigo)}`;
+                const resposta = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
                 const dados = await resposta.json();
 
-                if (dados && dados.url) {
-                    if (aba && !aba.closed) {
-                        aba.location.href = dados.url;
-                    } else {
-                        // A aba foi bloqueada: sobra o caminho de sempre.
-                        window.location.href = dados.url;
-                    }
-                    let msg = 'Abrindo ' + dados.nome;
+                if (dados && dados.base64) {
+                    dsnAbrir(dados.nome, dados.base64);
                     if (dados.total > 1) {
-                        msg += ' — há ' + dados.total + ' arquivos com este código; '
-                             + 'abri o que mais combina.';
+                        desenhoAvisar('Há ' + dados.total + ' arquivos com este código; '
+                                    + 'abri o que mais combina.');
                     }
-                    desenhoAvisar(msg);
+                } else if (dados && dados.url) {
+                    // Grande demais ou não é PDF: aí vale a tela do Drive.
+                    desenhoAvisar((dados.motivo || '') + ' Abri no Drive.');
+                    window.open(dados.url, '_blank', 'noopener');
                 } else {
-                    if (aba && !aba.closed) aba.close();
                     desenhoAvisar(dados && dados.error
                         ? dados.error
                         : 'Não achei desenho para o item ' + codigo + '.', true);
                 }
             } catch (erro) {
-                if (aba && !aba.closed) aba.close();
-                desenhoAvisar('Não consegui procurar o desenho. ' + erro.message, true);
+                desenhoAvisar('Não consegui abrir o desenho. ' + erro.message, true);
             } finally {
                 desenhoBuscando = false;
                 botao.disabled = false;
                 botao.innerHTML = htmlBotao;
             }
+        }
+
+        /* ============================================================
+           O VISUALIZADOR
+           O pdf.js desenha cada folha num quadro em branco. O arquivo
+           nunca vira um endereço que o navegador saiba baixar — vira
+           pixels. Por isso não existe botão de baixar: não há o que
+           baixar na tela.
+
+           A biblioteca só é buscada na primeira vez que alguém abre um
+           desenho, para não pesar na abertura do aplicativo.
+        ============================================================ */
+        const DESENHO_TIMEOUT_MS = 45000;   // um PDF grande demora mais que uma busca
+        const DSN_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        const DSN_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Quanto maior, mais nítido no zoom — e mais memória. 2 é o
+        // ponto em que um A1 ainda cabe num celular modesto.
+        const DSN_ESCALA = 2;
+        let dsnPronto = null;
+
+        function dsnCarregarBiblioteca() {
+            if (dsnPronto) return dsnPronto;
+            dsnPronto = new Promise(function (ok, erro) {
+                if (window.pdfjsLib) return ok();
+                const s = document.createElement('script');
+                s.src = DSN_PDFJS;
+                s.onload = function () {
+                    if (!window.pdfjsLib) return erro(new Error('A biblioteca carregou mas não inicializou.'));
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = DSN_PDFJS_WORKER;
+                    ok();
+                };
+                s.onerror = function () {
+                    erro(new Error('Não consegui baixar o visualizador. Verifique a internet.'));
+                };
+                document.head.appendChild(s);
+            });
+            return dsnPronto;
+        }
+
+        function dsnBytes(base64) {
+            const cru = atob(base64);
+            const bytes = new Uint8Array(cru.length);
+            for (let i = 0; i < cru.length; i++) bytes[i] = cru.charCodeAt(i);
+            return bytes;
+        }
+
+        async function dsnAbrir(nome, base64) {
+            const modal = document.getElementById('modal-desenho');
+            const area = document.getElementById('dsnArea');
+            document.getElementById('dsnNome').textContent = nome || 'Desenho';
+            area.innerHTML = '<p class="dsn-estado">Preparando o desenho...</p>';
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            try {
+                await dsnCarregarBiblioteca();
+                const pdf = await window.pdfjsLib.getDocument({ data: dsnBytes(base64) }).promise;
+                area.innerHTML = '';
+                const largura = Math.max(area.clientWidth - 20, 280);
+
+                for (let n = 1; n <= pdf.numPages; n++) {
+                    const pagina = await pdf.getPage(n);
+                    const bruta = pagina.getViewport({ scale: 1 });
+                    // Encaixa a folha na largura da tela e multiplica pela
+                    // escala, para o zoom não sair borrado.
+                    const escala = (largura / bruta.width) * DSN_ESCALA;
+                    const vista = pagina.getViewport({ scale: escala });
+
+                    const tela = document.createElement('canvas');
+                    tela.width = Math.round(vista.width);
+                    tela.height = Math.round(vista.height);
+                    tela.style.width = Math.round(vista.width / DSN_ESCALA) + 'px';
+                    area.appendChild(tela);
+
+                    await pagina.render({
+                        canvasContext: tela.getContext('2d'),
+                        viewport: vista
+                    }).promise;
+                }
+            } catch (e) {
+                area.innerHTML = '<p class="dsn-estado erro">Não consegui desenhar este PDF. '
+                               + progEsc(e.message || '') + '</p>';
+            }
+        }
+
+        function dsnFechar() {
+            const modal = document.getElementById('modal-desenho');
+            modal.classList.add('hidden');
+            // Solta a memória: um A1 em dobro de resolução não é pouco.
+            document.getElementById('dsnArea').innerHTML = '';
+            document.body.style.overflow = '';
         }
 
         function displayAwaitingSelection(message, isInitial) {
