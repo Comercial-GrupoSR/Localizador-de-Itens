@@ -1,189 +1,6084 @@
-/**
- * =============================================================
- *  ObraFlow — Grupo SR
- *  Service worker: o app abre sem sinal e se atualiza sozinho.
- * =============================================================
- *
- * Como funciona, em uma frase por caso:
- *
- *   • Tela do app (navegação) -> REDE PRIMEIRO. Se a rede responder,
- *     é a versão nova que aparece e ela é guardada. Se não responder,
- *     entra a última versão guardada. É isso que faz o supervisor
- *     receber uma publicação nova sem precisar de Ctrl+Shift+R.
- *
- *   • Arquivos do app (CSS, JS, ícones, logo) -> CACHE PRIMEIRO, com
- *     atualização por trás. Abre instantâneo e, no mesmo acesso,
- *     baixa a versão nova para a próxima vez.
- *
- *   • Apps Script (busca de item, cronograma, pedidos) -> NUNCA
- *     guardado. Vai sempre à rede, para não existir a chance de
- *     mostrar dado velho da planilha.
- *
- * Para forçar a limpeza do cache antigo em todos os celulares,
- * troque o número de CACHE_VERSION abaixo e publique. No dia a dia
- * isso não é necessário — a tela do app já é rede-primeiro.
- */
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-const CACHE_VERSION = "v8";
-const CACHE_NAME = "obraflow-" + CACHE_VERSION;
-
-// Arquivos que o app precisa para abrir sem internet.
-// Caminhos relativos ao próprio sw.js, então funcionam em
-// /Localizador-de-Itens/ sem eu precisar escrever o repositório.
-const ARQUIVOS_DO_APP = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./sr-sem-fundo.png",
-  "./fundo-topo.png",
-  "./favicon.ico",
-  "./icon-192.png",
-  "./icon-512.png"
-];
-
-// Bibliotecas externas que valem a pena guardar: sem elas a tela
-// fica sem estilo (Tailwind) e o PDF do checklist não gera (pdf-lib).
-const CDNS_PERMITIDAS = [
-  "cdn.tailwindcss.com",
-  "cdnjs.cloudflare.com"
-];
-
-// Endereços que NUNCA entram no cache — são dados, não arquivos.
-const SEM_CACHE = [
-  "script.google.com",
-  "script.googleusercontent.com"
-];
-
-/* ============================================================
-   INSTALAÇÃO — guarda os arquivos do app
-============================================================ */
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // Um a um, e não addAll: se um arquivo faltar no repositório
-      // (um ícone que ainda não foi enviado, por exemplo), o resto
-      // continua sendo guardado em vez de a instalação inteira falhar.
-      return Promise.all(
-        ARQUIVOS_DO_APP.map((caminho) =>
-          cache.add(new Request(caminho, { cache: "reload" }))
-            .catch((err) => console.warn("[sw] não guardei", caminho, err))
-        )
-      );
-    })
-  );
-  self.skipWaiting();
-});
-
-/* ============================================================
-   ATIVAÇÃO — apaga os caches de versões anteriores
-============================================================ */
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((nomes) => Promise.all(
-        nomes
-          .filter((n) => n.startsWith("obraflow-") && n !== CACHE_NAME)
-          .map((n) => caches.delete(n))
-      ))
-      .then(() => self.clients.claim())
-  );
-});
-
-/* ============================================================
-   REQUISIÇÕES
-============================================================ */
-self.addEventListener("fetch", (event) => {
-  const req = event.request;
-
-  // POST e afins (envio de formulário, Asana) passam direto.
-  if (req.method !== "GET") return;
-
-  let url;
-  try {
-    url = new URL(req.url);
-  } catch (err) {
-    return;
-  }
-
-  // Só http/https — extensões do navegador ficam de fora.
-  if (url.protocol !== "http:" && url.protocol !== "https:") return;
-
-  // Dados da planilha: sempre rede, nunca cache.
-  if (SEM_CACHE.indexOf(url.hostname) >= 0) return;
-
-  // A tela do app: rede primeiro, cache como rede de segurança.
-  if (req.mode === "navigate") {
-    event.respondWith(redePrimeiro(req));
-    return;
-  }
-
-  const mesmaOrigem = url.origin === self.location.origin;
-  const cdnConhecida = CDNS_PERMITIDAS.indexOf(url.hostname) >= 0;
-
-  if (mesmaOrigem || cdnConhecida) {
-    event.respondWith(cachePrimeiro(req));
-  }
-  // Qualquer outro endereço (a logo do GitHub usada no PDF, por
-  // exemplo) segue o caminho normal, sem o service worker no meio.
-});
-
-/**
- * Rede primeiro. Usado na tela do app: garante que uma publicação
- * nova apareça assim que houver sinal. Sem sinal, devolve a última
- * versão guardada; e se nem isso existir, a página inicial.
- */
-function redePrimeiro(req) {
-  return fetch(req)
-    .then((resposta) => {
-      if (resposta && resposta.ok) {
-        const copia = resposta.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copia));
-      }
-      return resposta;
-    })
-    .catch(() => {
-      return caches.match(req)
-        .then((guardada) => guardada || caches.match("./index.html"))
-        .then((guardada) => guardada || caches.match("./"))
-        .then((guardada) => guardada || respostaSemConexao());
-    });
-}
-
-/**
- * Cache primeiro, atualizando por trás. A tela aparece na hora com
- * o que já está guardado, e a versão nova do arquivo é baixada em
- * silêncio para o próximo acesso.
- */
-function cachePrimeiro(req) {
-  return caches.match(req).then((guardada) => {
-    const daRede = fetch(req)
-      .then((resposta) => {
-        // Resposta opaca (CDN sem CORS) tem status 0 e não dá para
-        // conferir — guardo assim mesmo, é o que o navegador permite.
-        if (resposta && (resposta.ok || resposta.type === "opaque")) {
-          const copia = resposta.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copia));
+    <link rel="icon" type="image/x-icon" href="/Localizador-de-Itens/favicon.ico">
+    <link rel="shortcut icon" href="/Localizador-de-Itens/favicon.ico">
+    <link rel="apple-touch-icon" href="/Localizador-de-Itens/favicon.ico">
+    <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
+    <meta name="theme-color" content="#0c4a31">
+    <!-- Avisa o sistema que o app é escuro. É isto que faz a lista de
+         Pedidos do celular (desenhada pelo Android, não pelo CSS) sair
+         preta com letra branca, em vez de branca. -->
+    <meta name="color-scheme" content="dark">
+    <meta name="apple-mobile-web-app-title" content="Localizador SR">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="Localizador SR">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+        /* ... Estilos CSS ... */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
         }
-        return resposta;
-      })
-      .catch(() => guardada);
+        .spinner {
+            border-top-color: #3b82f6;
+            -webkit-animation: spin 1s ease-in-out infinite;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        :root {
+            /* Faz os controles nativos (lista de Pedidos, calendário,
+               barra de rolagem) nascerem no tema escuro. */
+            color-scheme: dark;
+            --green-title: #4ade80;
+        }
+        /* Reforço para os navegadores que pintam as opções da lista pelo
+           CSS. No Android quem manda é o color-scheme acima. */
+        option {
+            background-color: #1f1f1f;
+            color: #ffffff;
+        }
+        /* ============================================================
+           Lista de Pedidos própria
+           A lista de um <select> é desenhada pelo Android, e em muitos
+           aparelhos ela sai branca por mais que a página seja escura.
+           Por isso o <select> continua aqui, escondido, apenas guardando
+           o valor — quem aparece na tela é esta lista, feita em HTML.
+        ============================================================ */
+        .sel { position: relative; }
+        .sel-nativo {
+            position: absolute; left: 0; bottom: 0;
+            width: 1px; height: 1px; opacity: 0; pointer-events: none;
+        }
+        .sel-botao {
+            width: 100%; display: flex; align-items: center; gap: 10px;
+            padding: 0.625rem 0.75rem;
+            background: #1f1f1f; border: 1px solid #444; border-radius: 0.5rem;
+            color: #fff; font-size: 0.95rem; font-weight: 500; text-align: left;
+            cursor: pointer;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .sel-botao:hover { border-color: #555; }
+        .sel.aberta .sel-botao {
+            border-color: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+        }
+        .sel-rotulo {
+            flex: 1; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .sel-botao svg {
+            width: 16px; height: 16px; flex: 0 0 auto; color: #9ca3af;
+            transition: transform .2s ease;
+        }
+        .sel.aberta .sel-botao svg { transform: rotate(180deg); }
+        .sel-lista {
+            position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 6px);
+            background: #1f1f1f; border: 1px solid #3d3d3d; border-radius: 10px;
+            box-shadow: 0 12px 28px rgba(0,0,0,.55);
+            max-height: 320px; overflow-y: auto; padding: 5px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sel-opcao {
+            display: block; width: 100%; text-align: left;
+            padding: 11px 12px; border: none; background: none;
+            border-radius: 7px; color: #e0e0e0;
+            font-size: 0.9rem; line-height: 1.35; cursor: pointer;
+        }
+        .sel-opcao:hover { background: #2e2e2e; color: #fff; }
+        .sel-opcao.ativa {
+            background: rgba(74,222,128,.14); color: #4ade80; font-weight: 600;
+        }
+        /* Abre para cima quando não há espaço embaixo (campo no fim de um
+           formulário longo, por exemplo). */
+        .sel-lista.acima { top: auto; bottom: calc(100% + 6px); }
 
-    return guardada || daRede;
-  });
-}
+        /* Versão compacta: os OK / NC / NA do Checklist de Entrega. */
+        .sel-mini { flex: 0 0 56px; width: 56px; }
+        .sel-mini .sel-botao {
+            width: 56px; padding: 4px 2px; gap: 0; justify-content: center;
+            font-size: 11px; font-weight: 700; border-radius: 6px; color: #9ca3af;
+        }
+        .sel-mini .sel-botao svg { display: none; }
+        .sel-mini .sel-rotulo { text-align: center; }
+        .sel-mini .sel-lista { left: 0; right: auto; min-width: 76px; padding: 4px; }
+        .sel-mini .sel-opcao { padding: 9px 10px; text-align: center; font-weight: 700; }
+        .sel-mini .sel-botao[data-valor="OK"] {
+            background: rgba(74,222,128,.15); color: #4ade80; border-color: #4ade80;
+        }
+        .sel-mini .sel-botao[data-valor="NC"] {
+            background: rgba(248,113,113,.15); color: #f87171; border-color: #f87171;
+        }
+        .sel-mini .sel-botao[data-valor="NA"] {
+            background: rgba(156,163,175,.15); color: #9ca3af; border-color: #6b7280;
+        }
+        /* O checklist tem uma regra genérica para "button" que atropelaria
+           a lista aqui dentro. Estas quatro devolvem o visual certo. */
+        #checklistElevadorRoot .sel-botao {
+            padding: 0.625rem 0.75rem; font-size: 0.95rem; font-weight: 500;
+            border-radius: 0.5rem; justify-content: flex-start; gap: 10px;
+            background: #1f1f1f; border: 1px solid #444; color: #fff;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao {
+            padding: 4px 2px; font-size: 11px; font-weight: 700;
+            border-radius: 6px; justify-content: center; gap: 0;
+            color: #9ca3af;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="OK"] {
+            background: rgba(74,222,128,.15); color: #4ade80; border-color: #4ade80;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="NC"] {
+            background: rgba(248,113,113,.15); color: #f87171; border-color: #f87171;
+        }
+        #checklistElevadorRoot .sel-mini .sel-botao[data-valor="NA"] {
+            background: rgba(156,163,175,.15); color: #9ca3af; border-color: #6b7280;
+        }
+        #checklistElevadorRoot .sel-opcao {
+            padding: 11px 12px; font-size: 0.9rem; font-weight: 400;
+            border-radius: 7px; justify-content: flex-start; display: block;
+        }
+        #checklistElevadorRoot .sel-mini .sel-opcao {
+            padding: 9px 10px; font-weight: 700; text-align: center;
+        }
+        .btn-green-custom {
+            background-color: var(--green-title);
+        }
+        .btn-green-custom:hover {
+            background-color: #22c55e;
+        }
+        .compact-input {
+             padding: 0.625rem 0.75rem;
+        }
+        .modal-input {
+             padding: 0.5rem 0.75rem;
+        }
+        .modal-input,
+        .compact-input,
+        #clientSelect,
+        #itemCode,
+        #formInconformidades input,
+        #formInconformidades select,
+        #formMelhorias input,
+        #formMelhorias select,
+        #modal-checklist-tipo select,
+        #checklistElevadorRoot input,
+        #checklistElevadorRoot select,
+        #checklistElevadorRoot textarea {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+            line-height: 1.4 !important;
+            letter-spacing: 0.01em !important;
+        }
+        #itemCode {
+            font-family: 'Inter', sans-serif !important;
+        }
+        #formInconformidades input::placeholder,
+        #formMelhorias input::placeholder,
+        #checklistElevadorRoot input::placeholder,
+        #checklistElevadorRoot textarea::placeholder {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+        }
+        /* Foco verde nos campos de Inconformidades, Melhorias, Localizador de Itens
+           e Cronograma de Obra (mesmo padrão visual usado no Retorno de Obra) */
+        #formInconformidades input:focus,
+        #formInconformidades select:focus,
+        #formMelhorias input:focus,
+        #formMelhorias select:focus,
+        #clientSelect:focus,
+        #itemCode:focus,
+        #cronogramaClientSelect:focus {
+            outline: none !important;
+            border-color: #4ade80 !important;
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15) !important;
+        }
+        .compact-button {
+             padding-top: 0.5rem;
+             padding-bottom: 0.5rem;
+             font-size: 0.875rem;
+        }
+        .cache-badge {
+            font-size: 0.65rem;
+            color: #6b7280;
+            text-align: right;
+            margin-top: 0.25rem;
+            min-height: 0.9rem;
+            transition: opacity 0.3s ease;
+        }
+        body {
+            padding-bottom: 2rem;
+        }
+        /* ============================================================
+           Página inicial — logo e menu de opções
+           Substitui a antiga barra de abas do rodapé. As opções são
+           desenhadas por JavaScript (renderMenu), o que faz elas
+           entrarem em cascata toda vez que a tela inicial aparece.
+        ============================================================ */
+        /* Faixa do logo: atravessa a tela de ponta a ponta e encosta no
+           topo. As margens negativas anulam o respiro do body (p-4 no
+           celular, md:p-6 no computador), que é o que deixava sobrar
+           aquela borda escura dos dois lados. */
+        .inicio-topo {
+            margin: -1rem -1rem 22px;
+            /* A faixa acompanha a proporção da arte (1939 x 733), então a
+               imagem aparece inteira em qualquer largura de tela, sem corte.
+               Trocar o arquivo por outro de proporção diferente? Ajuste
+               estes dois números para os do arquivo novo. */
+            aspect-ratio: 1939 / 733;
+            /* A cor fica como reserva: é o que aparece enquanto a imagem
+               carrega, e se o arquivo faltar. */
+            background-color: #0c4a31;
+            background-image: url('fundo-topo.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        @media (min-width: 768px) {
+            .inicio-topo { margin: -1.5rem -1.5rem 26px; }
+        }
+        .menu-cabecalho {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; margin-bottom: 16px;
+            padding-bottom: 12px; border-bottom: 1px solid #3a3a3a;
+        }
+        .menu-titulo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        /* Risquinho verde à esquerda da palavra: dá peso ao título sem
+           precisar aumentar a fonte. */
+        .menu-titulo::before {
+            content: ""; flex: 0 0 3px; width: 3px; height: 15px;
+            border-radius: 2px;
+            background: linear-gradient(180deg, #4ade80, #22c55e);
+        }
+        .menu-cabecalho h2 {
+            font-size: 12px; font-weight: 800; color: #d1d5db; margin: 0;
+            text-transform: uppercase; letter-spacing: 1.7px;
+        }
+        .menu-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #262626; border: 1px solid #3d3d3d; cursor: pointer;
+            color: #9ca3af; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            padding: 5px 11px; border-radius: 999px;
+            transition: color .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .menu-toggle:hover { color: #e5e7eb; background: #303030; border-color: #4a4a4a; }
+        .menu-toggle svg {
+            width: 15px; height: 15px; transition: transform .25s ease;
+        }
+        .menu-toggle.recolhido svg { transform: rotate(-90deg); }
+        .menu-lista { display: flex; flex-direction: column; gap: 10px; }
+        .menu-lista.recolhida { display: none; }
+        .menu-item {
+            display: flex; align-items: center; gap: 14px;
+            width: 100%; text-align: left;
+            background: #2e2e2e; border: 1px solid #3d3d3d;
+            border-radius: 12px; padding: 13px 15px;
+            color: #e0e0e0; cursor: pointer;
+            transition: border-color .18s ease, background .18s ease, transform .1s ease;
+            opacity: 0; transform: translateY(10px);
+            animation: menuEntra .34s ease forwards;
+        }
+        .menu-item:hover { border-color: #4ade80; background: #333; }
+        .menu-item:active { transform: scale(.995); }
+        .menu-item-icone {
+            flex: 0 0 42px; height: 42px; border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(74,222,128,.10);
+            border: 1px solid rgba(74,222,128,.22);
+            color: var(--green-title);
+        }
+        .menu-item-icone svg { width: 21px; height: 21px; }
+        .menu-item-texto { flex: 1; min-width: 0; }
+        .menu-item-texto strong {
+            display: block; font-size: 14.5px; font-weight: 600; color: #f3f4f6;
+        }
+        .menu-item-texto span {
+            display: block; font-size: 11.5px; color: #9ca3af;
+            margin-top: 2px; line-height: 1.35;
+        }
+        .menu-item-seta { flex: 0 0 auto; color: #6b7280; display: flex; }
+        .menu-item-seta svg { width: 16px; height: 16px; }
+        @keyframes menuEntra {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Respeita quem desligou animações no sistema */
+        @media (prefers-reduced-motion: reduce) {
+            .menu-item { animation-duration: .01ms; animation-delay: 0ms !important; }
+        }
+        /* ============================================================
+           Andamento das obras — painel da tela inicial
+           Aparece no lugar das opções quando o menu está recolhido.
+           A cor da barra é a mesma faixa de progresso da planilha e do
+           Gantt. A porcentagem fica em BRANCO de propósito: o azul da
+           faixa 50–75% dá 3,47:1 contra este fundo, abaixo dos 4,5:1
+           que texto pequeno precisa. Cor na barra, número em branco —
+           assim o valor nunca depende da cor para ser lido.
+        ============================================================ */
+        /* ============================================================
+           DOCUMENTOS DE MONTAGEM
+           Duas telas dentro do mesmo cartão: a lista de pastas do
+           pedido e, ao tocar numa, o que tem dentro dela. A seta de
+           voltar aparece só na segunda.
+        ============================================================ */
+        .doc-cabecalho {
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 14px;
+        }
+        .doc-voltar {
+            flex: 0 0 auto; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; border: 1px solid #4a4a4a; background: #333;
+            color: #d1d5db; cursor: pointer;
+        }
+        .doc-voltar:hover { background: #414141; color: #fff; }
+        .doc-voltar svg { width: 16px; height: 16px; }
+        .doc-item {
+            display: flex; align-items: center; gap: 11px; width: 100%;
+            text-align: left; cursor: pointer;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
+            padding: 12px 13px; margin-bottom: 8px; color: #e0e0e0;
+            transition: border-color .18s ease, background .18s ease;
+        }
+        .doc-item:hover { border-color: #4ade80; background: #262626; }
+        .doc-item:active { opacity: .85; }
+        .doc-icone {
+            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            background: #14301f; border: 1px solid #2f6b46; color: #6ee7a8;
+        }
+        .doc-icone svg { width: 17px; height: 17px; }
+        .doc-texto { flex: 1; min-width: 0; }
+        .doc-nome {
+            font-size: 13.5px; font-weight: 600; color: #fff;
+            word-break: break-word; line-height: 1.35;
+        }
+        .doc-detalhe { font-size: 11px; color: #6b7280; margin-top: 2px; }
+        .doc-seta { flex: 0 0 auto; color: #4b5563; }
+        .doc-seta svg { width: 16px; height: 16px; display: block; }
+        .doc-vazio {
+            font-size: 13px; color: #6b7280; font-style: italic;
+            padding: 14px 2px; line-height: 1.5;
+        }
+        .doc-erro { font-size: 13px; color: #f87171; padding: 10px 2px; line-height: 1.5; }
+        /* O grupo dos links 3D, separado dos arquivos. */
+        .doc-secao {
+            font-size: 10px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; color: #6b7280;
+            margin: 4px 0 8px;
+        }
 
-/** Última linha de defesa: sem rede e sem nada guardado. */
-function respostaSemConexao() {
-  return new Response(
-    "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>" +
-    "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
-    "<title>Sem conexão</title></head>" +
-    "<body style=\"font-family:system-ui,sans-serif;background:#1a1a1a;" +
-    "color:#e0e0e0;display:flex;align-items:center;justify-content:center;" +
-    "height:100vh;margin:0;text-align:center;padding:24px\">" +
-    "<div><h1 style='color:#4ade80;font-size:18px;margin:0 0 8px'>Sem conexão</h1>" +
-    "<p style='color:#9ca3af;font-size:14px;margin:0'>Abra o aplicativo uma vez " +
-    "com internet para ele funcionar offline depois.</p></div></body></html>",
-    { headers: { "Content-Type": "text/html; charset=utf-8" } }
-  );
-}
+        /* ============================================================
+           TELA DE ENTRADA
+           Verde igual ao da tela de abertura do Android, para o app
+           parecer continuar carregando em vez de mudar de assunto.
+        ============================================================ */
+        .ent-fundo {
+            position: fixed; inset: 0; z-index: 90;
+            background: #0c4a31;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 24px; overflow-y: auto;
+        }
+        .ent-caixa { width: 100%; max-width: 340px; }
+        /* O ícone já traz "Grupo SR / ObraFlow" escrito dentro dele —
+           por isso não há nome nem frase repetida embaixo.
+           O min() segura o tamanho em tela pequena: 200px num celular
+           estreito empurraria os campos para fora com o teclado aberto. */
+        .ent-logo {
+            display: block; width: min(220px, 62vw); height: auto;
+            margin: 0 auto 30px; border-radius: 28px;
+        }
+        /* O olho fica dentro do campo, encostado à direita. */
+        .ent-senha { position: relative; }
+        .ent-senha input { padding-right: 46px; }
+        .ent-olho {
+            position: absolute; right: 4px; bottom: 4px;
+            width: 38px; height: 38px; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: none; border: none; cursor: pointer;
+            color: #8fd9b3;
+        }
+        .ent-olho:hover { color: #eafff2; }
+        .ent-olho svg { width: 21px; height: 21px; }
+        .ent-campo { margin-bottom: 12px; }
+        .ent-campo label {
+            display: block; font-size: 11px; font-weight: 700;
+            letter-spacing: .6px; text-transform: uppercase;
+            color: #8fd9b3; margin-bottom: 5px;
+        }
+        .ent-campo input {
+            width: 100%; padding: 11px 12px; font-size: 16px;
+            background: #0a3d29; border: 1px solid #2f6b46;
+            border-radius: 9px; color: #fff;
+        }
+        .ent-campo input:focus {
+            outline: none; border-color: #6ee7a8; background: #093522;
+        }
+        .ent-lembrar {
+            display: flex; align-items: center; gap: 9px;
+            color: #cdeedd; font-size: 13px; margin: 14px 0 18px;
+            cursor: pointer;
+        }
+        .ent-lembrar input { width: 18px; height: 18px; accent-color: #4ade80; }
+        .ent-botao {
+            width: 100%; padding: 12px; border: none; border-radius: 9px;
+            background: #4ade80; color: #0a3d29;
+            font-size: 15px; font-weight: 800; letter-spacing: .5px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .ent-botao:hover { background: #6ee7a8; }
+        .ent-botao[disabled] { opacity: .6; cursor: default; }
+        .ent-erro {
+            margin-top: 14px; text-align: center; font-size: 12.5px;
+            color: #ffc9c9; background: #5a2020; border: 1px solid #7d2f2f;
+            border-radius: 8px; padding: 9px 11px; line-height: 1.45;
+        }
+        /* A linha "conectado como" no rodapé da tela inicial. */
+        .ent-rodape {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; margin-top: 16px;
+            font-size: 11.5px; color: #6b7280;
+        }
+        .ent-sair {
+            background: none; border: none; padding: 0; cursor: pointer;
+            color: #9ca3af; font-size: 11.5px; text-decoration: underline;
+        }
+        .ent-sair:hover { color: #e5e7eb; }
+
+        /* ============================================================
+           VISUALIZADOR DE DESENHO
+           O PDF é desenhado pelo próprio aplicativo, folha por folha,
+           num quadro em branco. Não é a tela do Drive nem o leitor do
+           navegador — por isso não há botão de baixar, imprimir ou
+           compartilhar: só o desenho.
+
+           Uma ressalva honesta: isto ESCONDE as opções, não protege o
+           arquivo. Quem souber mexer ainda alcança o PDF. O que protege
+           de verdade é a permissão da pasta no Drive.
+        ============================================================ */
+        .dsn-fundo {
+            position: fixed; inset: 0; z-index: 80;
+            background: #101010; display: flex; flex-direction: column;
+        }
+        .dsn-topo {
+            flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; background: #1a1a1a;
+            border-bottom: 1px solid #2e2e2e;
+        }
+        .dsn-nome {
+            flex: 1; min-width: 0; font-size: 12.5px; color: #d1d5db;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .dsn-fechar {
+            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px;
+            border: 1px solid #4a4a4a; background: #2e2e2e; color: #d1d5db;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .dsn-fechar:hover { background: #3a3a3a; color: #fff; }
+        .dsn-fechar svg { width: 18px; height: 18px; }
+        /* O quadro rola nos dois sentidos e aceita o gesto de pinça:
+           um desenho técnico na largura do celular é ilegível sem zoom. */
+        .dsn-area {
+            flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y pinch-zoom;
+            padding: 10px; text-align: center;
+        }
+        .dsn-area canvas {
+            display: block; margin: 0 auto 10px; max-width: 100%;
+            height: auto; background: #fff; border-radius: 3px;
+        }
+        .dsn-estado {
+            color: #9ca3af; font-size: 13px; padding: 40px 20px; text-align: center;
+            line-height: 1.5;
+        }
+        .dsn-estado.erro { color: #f87171; }
+        /* Aviso embaixo do botão Abrir Desenho. Com CSS próprio, e não
+           classes do Tailwind, porque o Tailwind vem de um CDN: se ele
+           demorar, a mensagem de erro ainda sai vermelha. */
+        .desenho-aviso {
+            font-size: 11.5px; color: #9ca3af; line-height: 1.45;
+            margin-top: 8px; text-align: center;
+        }
+        .desenho-aviso.erro { color: #f87171; }
+        .prog-card {
+            margin-top: 16px;
+            background: #2e2e2e;
+            border: 1px solid #3d3d3d;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
+        .prog-topo {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 8px 12px; margin-bottom: 12px;
+            /* Em tela estreita a data e o botão descem uma linha inteiros,
+               em vez de espremerem o título e quebrarem "ANDAMENTO DAS
+               OBRAS" no meio. */
+            flex-wrap: wrap;
+        }
+        .prog-topo strong {
+            font-size: 12px; font-weight: 800; color: #d1d5db;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            white-space: nowrap;
+        }
+        .prog-topo span { font-size: 10.5px; color: #6b7280; flex: 0 0 auto; }
+        /* Data e botão andam juntos, encostados na direita. */
+        .prog-topo-dir {
+            display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+            margin-left: auto;   /* encostado na direita, na linha que estiver */
+        }
+        /* Mesmo desenho do botão Mostrar/Recolher do menu, um ponto menor. */
+        .prog-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #262626; border: 1px solid #3d3d3d; cursor: pointer;
+            color: #9ca3af; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            padding: 4px 9px; border-radius: 999px;
+            transition: color .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .prog-btn:hover { color: #e5e7eb; background: #303030; border-color: #4a4a4a; }
+        .prog-btn svg { width: 12px; height: 12px; }
+        .prog-btn[disabled] { opacity: .55; cursor: default; }
+        /* Gira a seta enquanto a busca está em curso. */
+        .prog-btn.girando svg { animation: progGira 1s linear infinite; }
+        @keyframes progGira { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .prog-btn.girando svg { animation: none; }
+        }
+        .prog-linha {
+            display: block; width: 100%; text-align: left; cursor: pointer;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
+            padding: 11px 13px; margin-bottom: 8px; color: #e0e0e0;
+            transition: border-color .18s ease, background .18s ease;
+        }
+        .prog-linha:hover { border-color: #4ade80; background: #262626; }
+        .prog-linha:active { opacity: .85; }
+        .prog-cab { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .prog-num { flex: 0 0 auto; font-size: 13.5px; font-weight: 700; color: #fff; }
+        .prog-cliente {
+            flex: 1; min-width: 0; font-size: 11.5px; color: #9ca3af;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .prog-pct {
+            flex: 0 0 auto; font-size: 14px; font-weight: 700; color: #fff;
+            font-variant-numeric: tabular-nums;
+        }
+        .prog-trilho {
+            height: 8px; border-radius: 4px; background: #333; overflow: hidden;
+        }
+        .prog-barra {
+            display: block; height: 100%; border-radius: 4px;
+            transition: width .5s ease;
+        }
+        .prog-pe { margin-top: 7px; font-size: 11px; color: #6b7280; }
+        .prog-pe b { color: #9ca3af; font-weight: 600; }
+        .prog-aviso {
+            font-size: 11.5px; color: #6b7280; font-style: italic;
+            padding: 4px 0 2px;
+        }
+        .prog-erro { font-size: 11.5px; color: #f87171; padding: 4px 0 2px; }
+        .btn-voltar {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; margin-right: 8px; flex: 0 0 auto;
+            border-radius: 8px; border: 1px solid #4a4a4a; background: #333;
+            color: #d1d5db; cursor: pointer;
+            transition: background .15s ease, color .15s ease;
+        }
+        .btn-voltar:hover { background: #414141; color: #fff; }
+        .btn-voltar svg { width: 16px; height: 16px; }
+        /* O ícone do cabeçalho é trocado por JavaScript a cada página;
+           esta regra garante que ele mantenha o tamanho certo. */
+        #headerIcon {
+            display: inline-flex; width: 1rem; height: 1rem;
+            flex: 0 0 auto; margin-right: .5rem;
+        }
+        #headerIcon svg { width: 100%; height: 100%; display: block; }
+        /* Rede de segurança: "hidden" vem do Tailwind, que é carregado de
+           um CDN. Se ele demorar ou falhar, sem esta regra todas as
+           páginas apareceriam empilhadas de uma vez. */
+        .hidden { display: none; }
+        .form-card {
+            background-color: #2e2e2e;
+            border: 1px solid #3d3d3d;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            width: 100%;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            color: #e0e0e0;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            line-height: 1.2;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        .form-card:hover {
+            border-color: #4ade80;
+            background-color: #333;
+        }
+        .form-card svg {
+            width: 30px;
+            height: 30px;
+            display: block;
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .form-card span {
+            display: inline-flex;
+            align-items: center;
+        }
+        /* ============================================================
+           Checklist de Entrega — Elevador de Canecas (escopado)
+           Todas as regras abaixo são prefixadas com #checklistElevadorRoot
+           para não vazar estilos (ex: seletor genérico "button") para o
+           restante do app.
+        ============================================================ */
+        #checklistElevadorRoot {
+            --chk-card:       #2e2e2e;
+            --chk-border:     #3d3d3d;
+            --chk-border-2:   #444;
+            --chk-input-bg:   #1f1f1f;
+            --chk-text:       #e0e0e0;
+            --chk-muted:      #9ca3af;
+            --chk-green:      #4ade80;
+            --chk-green-hover:#22c55e;
+            --chk-ok:         #4ade80;
+            --chk-nc:         #f87171;
+            --chk-na:         #9ca3af;
+            --chk-radius:     8px;
+            --chk-radius-lg:  12px;
+        }
+        #checklistElevadorRoot .card {
+            background: var(--chk-card);
+            border: 1px solid var(--chk-border);
+            border-radius: var(--chk-radius-lg);
+            padding: 20px;
+            margin-bottom: 14px;
+        }
+        #checklistElevadorRoot .card-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px; padding-bottom: 12px;
+            border-bottom: 1px solid var(--chk-border);
+        }
+        #checklistElevadorRoot .card-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: rgba(74,222,128,.15);
+            color: var(--chk-green);
+            font-weight: 700; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            flex: 0 0 26px;
+        }
+        #checklistElevadorRoot .card-title {
+            font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .8px;
+            color: var(--chk-green);
+            margin: 0;
+        }
+        #checklistElevadorRoot .hint {
+            font-size: 11.5px; color: var(--chk-muted); font-style: italic;
+            margin: -10px 0 16px;
+        }
+        #checklistElevadorRoot .fields { display: grid; gap: 12px; }
+        #checklistElevadorRoot .fields-4 { grid-template-columns: repeat(4, 1fr); }
+        #checklistElevadorRoot .fields-3 { grid-template-columns: repeat(3, 1fr); }
+        #checklistElevadorRoot .fields-2 { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 680px) {
+            #checklistElevadorRoot .fields-4 { grid-template-columns: repeat(2, 1fr); }
+            #checklistElevadorRoot .fields-3 { grid-template-columns: repeat(2, 1fr); }
+            #checklistElevadorRoot .fields-2 { grid-template-columns: 1fr; }
+        }
+        #checklistElevadorRoot .field { display: flex; flex-direction: column; gap: 5px; }
+        #checklistElevadorRoot .field-label {
+            font-size: 10.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            color: var(--chk-muted);
+        }
+        #checklistElevadorRoot input[type=text],
+        #checklistElevadorRoot input[type=date],
+        #checklistElevadorRoot textarea,
+        #checklistElevadorRoot .chk-plain-sel {
+            font-family: 'Inter', sans-serif; font-size: 13.5px;
+            padding: 8px 11px; border: 1px solid var(--chk-border-2);
+            border-radius: var(--chk-radius); background: var(--chk-input-bg); color: var(--chk-text);
+            width: 100%; transition: border-color .15s;
+        }
+        #checklistElevadorRoot input[type=text]:focus,
+        #checklistElevadorRoot input[type=date]:focus,
+        #checklistElevadorRoot textarea:focus,
+        #checklistElevadorRoot .chk-plain-sel:focus {
+            outline: none; border-color: var(--chk-green);
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+        }
+        #checklistElevadorRoot input[type=date] { color-scheme: dark; }
+        #checklistElevadorRoot .chk-mono-input { font-family: 'Inter', sans-serif; letter-spacing: .4px; }
+        #checklistElevadorRoot textarea { min-height: 90px; resize: vertical; font-size: 13px; }
+        #checklistElevadorRoot select.chk-plain-sel {
+            appearance: none; -webkit-appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 30px;
+        }
+        #checklistElevadorRoot .checklist-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+        @media (max-width: 640px) { #checklistElevadorRoot .checklist-cols { grid-template-columns: 1fr; } }
+        #checklistElevadorRoot .group-label {
+            font-size: 10px; font-weight: 700; color: var(--chk-green);
+            text-transform: uppercase; letter-spacing: .6px;
+            padding: 10px 0 4px; margin-top: 4px;
+            border-top: 1px dashed var(--chk-border);
+        }
+        #checklistElevadorRoot .group-label:first-child { border-top: none; padding-top: 0; }
+        #checklistElevadorRoot .item-row { display: flex; align-items: center; gap: 9px; padding: 3.5px 0; }
+        #checklistElevadorRoot select.status-sel {
+            width: 56px; flex: 0 0 56px; font-size: 11px; font-weight: 700;
+            text-align: center; text-align-last: center;
+            padding: 4px 2px; border: 1px solid var(--chk-border-2);
+            border-radius: 6px; background: var(--chk-input-bg); color: var(--chk-muted);
+            appearance: none; -webkit-appearance: none; cursor: pointer;
+            transition: background .1s, border-color .1s, color .1s;
+        }
+        #checklistElevadorRoot select.status-sel.v-OK { background: rgba(74,222,128,.15); color: var(--chk-ok); border-color: var(--chk-green); }
+        #checklistElevadorRoot select.status-sel.v-NC { background: rgba(248,113,113,.15); color: var(--chk-nc); border-color: #f87171; }
+        #checklistElevadorRoot select.status-sel.v-NA { background: rgba(156,163,175,.15); color: var(--chk-na); border-color: #6b7280; }
+        #checklistElevadorRoot .item-label { font-size: 12.5px; line-height: 1.35; color: var(--chk-text); }
+        #checklistElevadorRoot .sign-row { margin-top: 18px; }
+        #checklistElevadorRoot .sign-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 640px) { #checklistElevadorRoot .sign-fields { grid-template-columns: 1fr; } }
+        #checklistElevadorRoot .sign-note {
+            font-size: 11px; color: var(--chk-muted); font-style: italic;
+            margin-top: 8px; padding-top: 8px;
+            border-top: 1px solid var(--chk-border);
+            line-height: 1.5;
+        }
+        #checklistElevadorRoot .radio-group { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        #checklistElevadorRoot .radio-pill {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 13px; padding: 8px 16px;
+            border: 1px solid var(--chk-border-2); border-radius: 50px;
+            cursor: pointer; background: var(--chk-input-bg); color: var(--chk-muted);
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        #checklistElevadorRoot .radio-pill input { accent-color: var(--chk-green); margin: 0; }
+        #checklistElevadorRoot .radio-pill:has(input:checked) {
+            border-color: var(--chk-green); background: rgba(74,222,128,.12); color: var(--chk-green);
+        }
+        #checklistElevadorRoot .footnotes {
+            font-size: 11px; color: var(--chk-muted); line-height: 1.65;
+            margin-top: 16px; padding-top: 14px;
+            border-top: 1px dashed var(--chk-border);
+        }
+        #checklistElevadorRoot .footnotes p { margin: 0 0 4px; }
+        #checklistElevadorRoot .action-bar {
+            position: sticky; bottom: 0;
+            display: flex; gap: 10px; align-items: center;
+            padding: 14px 0 4px;
+            background: linear-gradient(to top, var(--chk-card) 72%, transparent);
+        }
+        #checklistElevadorRoot button {
+            font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+            padding: 11px 20px; border-radius: var(--chk-radius);
+            border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            justify-content: center;
+            transition: background .15s, opacity .15s;
+        }
+        #checklistElevadorRoot #btnPdf {
+            background: var(--chk-green); color: #0a1f13; flex: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        }
+        #checklistElevadorRoot #btnPdf:hover { background: var(--chk-green-hover); }
+        #checklistElevadorRoot #btnPdf:disabled { opacity: .6; cursor: wait; }
+        #checklistElevadorRoot #btnReset {
+            background: var(--chk-border); color: var(--chk-text);
+            border: 1px solid var(--chk-border-2); flex: 0 0 auto;
+        }
+        #checklistElevadorRoot #btnReset:hover { background: #454545; }
+        #checklistElevadorRoot .status-msg {
+            font-size: 12px; color: var(--chk-green);
+            min-height: 18px; padding: 0 2px;
+        }
+        #checklistElevadorRoot .progress-wrap { position: relative; margin-bottom: 18px; }
+        #checklistElevadorRoot .progress-bar {
+            height: 4px; background: var(--chk-border); border-radius: 2px; overflow: hidden;
+        }
+        #checklistElevadorRoot .progress-fill {
+            height: 100%; width: 0; background: var(--chk-green);
+            border-radius: 2px; transition: width .3s ease;
+        }
+        #checklistElevadorRoot .progress-label {
+            font-size: 11px; color: var(--chk-muted); margin-top: 5px;
+            display: flex; justify-content: space-between;
+        }
+        #checklistElevadorRoot .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 10.5px; font-weight: 700;
+            padding: 2px 8px; border-radius: 50px;
+        }
+        #checklistElevadorRoot .badge-ok  { background: rgba(74,222,128,.15); color: var(--chk-ok); }
+        #checklistElevadorRoot .badge-nc  { background: rgba(248,113,113,.15); color: var(--chk-nc); }
+        #checklistElevadorRoot .badge-na  { background: rgba(156,163,175,.15); color: var(--chk-na); }
+        #checklistElevadorRoot .sig-pad-wrap {
+            position: relative;
+            border: 1px dashed var(--chk-border-2);
+            border-radius: var(--chk-radius);
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        #checklistElevadorRoot .sig-pad {
+            display: block;
+            width: 100%;
+            height: 110px;
+            touch-action: none;
+            cursor: crosshair;
+        }
+        #checklistElevadorRoot .sig-pad-placeholder {
+            position: absolute;
+            top: 50%; left: 12px;
+            transform: translateY(-50%);
+            font-size: 11px; color: #9aa0a6;
+            pointer-events: none;
+            font-style: italic;
+        }
+        #checklistElevadorRoot .sig-pad-actions {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 4px;
+        }
+        #checklistElevadorRoot .sig-clear-btn {
+            background: none; border: none; padding: 2px 4px;
+            font-size: 11px; font-weight: 600; color: var(--chk-muted);
+            cursor: pointer; text-decoration: underline;
+        }
+        #checklistElevadorRoot .sig-clear-btn:hover { color: var(--chk-text); }
+        #checklistElevadorRoot .sig-status {
+            font-size: 10.5px; color: var(--chk-muted);
+        }
+        #checklistElevadorRoot .sig-status.signed { color: var(--chk-ok); }
+        /* ============================================================
+           Retorno de Obra (escopado)
+           Prefixadas com #retornoObraRoot para não vazar estilos.
+        ============================================================ */
+        #retornoObraRoot {
+            --ret-card:       #2e2e2e;
+            --ret-border:     #3d3d3d;
+            --ret-border-2:   #444;
+            --ret-input-bg:   #1f1f1f;
+            --ret-text:       #e0e0e0;
+            --ret-muted:      #9ca3af;
+            --ret-green:      #4ade80;
+            --ret-green-hover:#22c55e;
+            --ret-radius:     8px;
+        }
+        #retornoObraRoot input[type=text],
+        #retornoObraRoot input[type=number],
+        #retornoObraRoot select,
+        #retornoObraRoot textarea {
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.95rem !important;
+            font-weight: 500 !important;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--ret-border-2);
+            border-radius: var(--ret-radius);
+            background: var(--ret-input-bg);
+            color: var(--ret-text);
+            width: 100%;
+            transition: border-color .15s;
+        }
+        #retornoObraRoot input:focus,
+        #retornoObraRoot select:focus,
+        #retornoObraRoot textarea:focus {
+            outline: none; border-color: var(--ret-green);
+            box-shadow: 0 0 0 3px rgba(74,222,128,.15);
+        }
+        #retornoObraRoot select {
+            appearance: none; -webkit-appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 30px;
+        }
+        #retornoObraRoot .ret-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+        #retornoObraRoot .ret-items-table th {
+            background: #14532d;
+            color: #ecfdf5;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            padding: 7px 6px;
+            border: 1px solid #1c7e40;
+            text-align: left;
+        }
+        #retornoObraRoot .ret-items-table td {
+            border: 1px solid var(--ret-border);
+            padding: 4px;
+        }
+        #retornoObraRoot .ret-items-table input {
+            border: none;
+            border-radius: 4px;
+            padding: 6px 7px;
+            font-size: 12.5px !important;
+            background: var(--ret-input-bg);
+        }
+        #retornoObraRoot .ret-items-table td.ret-col-remove {
+            width: 34px;
+            text-align: center;
+        }
+        #retornoObraRoot .ret-remove-row {
+            background: none; border: none; cursor: pointer;
+            color: #f87171; font-size: 16px; line-height: 1;
+            padding: 4px; border-radius: 6px;
+        }
+        #retornoObraRoot .ret-remove-row:hover { background: rgba(248,113,113,.12); }
+        #retornoObraRoot .ret-add-row-wrap { padding: 8px 0 0; }
+        #retornoObraRoot .ret-add-row {
+            background: #3d3d3d;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 7px 14px;
+            border-radius: var(--ret-radius);
+            cursor: pointer;
+        }
+        #retornoObraRoot .ret-add-row:hover { background: #454545; }
+        #retornoObraRoot .ret-items-scroll {
+            overflow-x: auto;
+            border-radius: var(--ret-radius);
+        }
+        #retornoObraRoot .ret-sig-wrap {
+            position: relative;
+            border: 1px dashed var(--ret-border-2);
+            border-radius: var(--ret-radius);
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        #retornoObraRoot .ret-sig-pad {
+            display: block; width: 100%; height: 110px;
+            touch-action: none; cursor: crosshair;
+        }
+        #retornoObraRoot .ret-sig-placeholder {
+            position: absolute; top: 50%; left: 12px;
+            transform: translateY(-50%);
+            font-size: 11px; color: #9aa0a6;
+            pointer-events: none; font-style: italic;
+        }
+        #retornoObraRoot .ret-sig-actions {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 4px;
+        }
+        #retornoObraRoot .ret-sig-clear {
+            background: none; border: none; padding: 2px 4px;
+            font-size: 11px; font-weight: 600; color: var(--ret-muted);
+            cursor: pointer; text-decoration: underline;
+        }
+        #retornoObraRoot .ret-sig-clear:hover { color: var(--ret-text); }
+        #retornoObraRoot .ret-sig-status { font-size: 10.5px; color: var(--ret-muted); }
+        #retornoObraRoot .ret-sig-status.signed { color: var(--ret-green); }
+                /* ============================================================
+           Cronograma de Obra — tabela com Gantt de rolagem lateral
+           A primeira coluna fica presa à esquerda; a grade de dias rola.
+           As cores vêm do Apps Script, para acompanharem a planilha.
+        ============================================================ */
+        #cronogramaResults { display: block; }
+        .cro-info {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 10px; margin-bottom: 14px;
+        }
+        .cro-info > div {
+            background: #1f1f1f; border: 1px solid #333;
+            border-radius: 8px; padding: 8px 10px; min-width: 0;
+        }
+        .cro-info .cro-pedido  { grid-column: span 1; }
+        .cro-info .cro-cliente { grid-column: span 3; }
+        .cro-info .cro-data    { grid-column: span 2; }
+        .cro-info span {
+            display: block; font-size: 10px; font-weight: 700; letter-spacing: .5px;
+            text-transform: uppercase; color: #9ca3af; margin-bottom: 2px;
+        }
+        .cro-info strong {
+            font-size: 14px; font-weight: 600; color: #fff; display: block;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cro-info strong.vence { color: #ff6b6b; }
+        .cro-scroll {
+            overflow-x: auto; border: 1px solid #333; border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .cro-table { border-collapse: separate; border-spacing: 0; font-size: 12px; }
+        .cro-table th, .cro-table td {
+            border-right: 1px solid #333; border-bottom: 1px solid #333;
+            padding: 6px 8px; white-space: nowrap;
+        }
+        .cro-table thead th {
+            background: #1f4e79; color: #fff; font-size: 10.5px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .3px;
+            position: sticky; top: 0; z-index: 2;
+        }
+        .cro-fix {
+            position: sticky; left: 0; z-index: 3;
+            background: #1f1f1f; box-shadow: 1px 0 0 #333;
+        }
+        .cro-table thead th.cro-fix { background: #1f4e79; z-index: 4; }
+        .cro-table tbody td { color: #d1d5db; }
+        .cro-desc { color: #9ca3af; }
+        .cro-num  { text-align: right; }
+        .cro-venc { color: #ff6b6b; font-weight: 700; }
+        .cro-prog { min-width: 148px; }
+        .cro-prog-in { display: flex; align-items: center; gap: 8px; }
+        .cro-pct {
+            font-weight: 700; min-width: 34px; text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .cro-barra {
+            flex: 1; height: 12px; border-radius: 3px;
+            background: #e0e0e0; overflow: hidden; min-width: 70px;
+        }
+        .cro-barra i { display: block; height: 100%; border-radius: 3px 0 0 3px; }
+        .cro-feito {
+            flex: 1; text-align: center; font-weight: 700; font-size: 11px;
+            color: #fff; border-radius: 3px; padding: 2px 0; min-width: 70px;
+        }
+        .cro-dia {
+            width: 36px; min-width: 36px; padding: 6px 2px !important;
+            text-align: center; font-size: 9.5px;
+        }
+        .cro-fds { background: #262626 !important; }
+        .cro-hoje-cab { background: #cc0000 !important; color: #fff; font-weight: 700; }
+        .cro-cel { padding: 0 !important; height: 30px; }
+        .cro-legenda {
+            display: flex; flex-wrap: wrap; gap: 12px;
+            margin-top: 12px; font-size: 11px; color: #9ca3af;
+        }
+        .cro-legenda i {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 3px; margin-right: 5px; vertical-align: -2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+    <div id="app" class="max-w-3xl mx-auto">
+
+        <header id="appHeader" class="flex items-center justify-between bg-[#3d3d3d] p-3 mb-4 rounded-lg shadow-xl border border-[#444]">
+            <div class="flex items-center min-w-0">
+                <button type="button" id="btnVoltar" class="btn-voltar hidden" onclick="voltarInicio()" title="Voltar ao menu">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12 19 5 12 12 5"/>
+                    </svg>
+                </button>
+                <h1 class="text-base font-bold text-green-400 flex items-center min-w-0">
+                    <svg id="headerIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>
+                    </svg>
+                    <span id="headerTitle" class="truncate">ObraFlow</span>
+                </h1>
+            </div>
+            <div>
+                <img id="headerLogo" src="sr-sem-fundo.png" alt="Grupo SR Logo" class="h-7 md:h-8">
+            </div>
+        </header>
+
+        <!-- ===================== PÁGINA INICIAL ===================== -->
+        <div id="page-inicio">
+            <div class="inicio-topo" role="img" aria-label="ObraFlow — Grupo SR"></div>
+            <div class="bg-[#2e2e2e] p-5 rounded-xl shadow-lg border border-[#3d3d3d]">
+                <div class="menu-cabecalho">
+                    <div class="menu-titulo"><h2>Menu</h2></div>
+                    <button type="button" id="menuToggle" class="menu-toggle recolhido" onclick="alternarMenu()">
+                        <span id="menuToggleTexto">Mostrar</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="menuLista" class="menu-lista recolhida"></div>
+            </div>
+            <!-- Andamento das obras: cartão próprio, sempre visível. Quando
+                 o menu abre, ele é empurrado para baixo e a página rola. -->
+            <div id="painelProgresso" class="prog-card"></div>
+            <div class="ent-rodape">
+                <span id="entConectado"></span>
+                <button type="button" class="ent-sair" onclick="sair()">Sair</button>
+            </div>
+        </div>
+
+        <div id="page-localizador" class="hidden">
+            <div id="clientFilterBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+                <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+                <label for="clientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+                    Pedido (com nome do Cliente)
+                </label>
+                <div class="sel">
+                    <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                        <span class="sel-rotulo">Carregando Pedidos...</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="sel-lista hidden"></div>
+                    <select id="clientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                            onchange="enableItemSearch(this.value)">
+                        <option value="">Carregando Pedidos...</option>
+                    </select>
+                </div>
+                <p id="cacheStatus" class="cache-badge"></p>
+            </div>
+            <div id="itemSearchBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Buscar Item (do Pedido Selecionado)</h2>
+
+                <div class="mb-4">
+                    <label for="itemCode" class="block text-sm font-medium text-gray-400 mb-1">
+                        Código do Item (COD ITEM)
+                    </label>
+                    <input type="text" id="itemCode" placeholder="Informe o código do item"
+                            class="w-full compact-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 uppercase bg-[#1f1f1f] text-white">
+                </div>
+                <button id="searchButton" onclick="searchItem()" disabled
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center opacity-50 cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                    </svg>
+                    Buscar
+                </button>
+            </div>
+
+            <div id="resultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Itens do Carregamento</h2>
+
+                <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
+                    </div>
+
+            <!-- Abrir Desenho: dentro do mesmo cartão dos resultados, para
+                 nascer com a mesma largura e a mesma cor do botão Buscar.
+                 Só aparece quando a busca encontra o item, porque é o
+                 código dele que abre o desenho. -->
+            <div id="desenhoBlock" class="mt-4 hidden">
+                <button type="button" id="desenhoBotao" onclick="abrirDesenho()"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2.5" y="4" width="19" height="16" rx="1.5"/>
+                        <path d="M13.5 20v-4h8"/>
+                        <rect x="5.5" y="7.5" width="6.5" height="5"/>
+                        <path d="M5.5 15h6.5"/>
+                    </svg>
+                    Abrir Desenho
+                </button>
+                <p id="desenhoAviso" class="desenho-aviso hidden"></p>
+            </div>
+            </div>
+        </div>
+        <div id="page-formularios" class="hidden">
+            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
+                <h2 class="text-base font-semibold mb-4 text-gray-200">Selecione um formulário</h2>
+                <div class="flex flex-col gap-3">
+                    <button type="button" class="form-card" onclick="openForm('inconformidades')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Inconformidades
+                    </button>
+                   <button type="button" class="form-card" onclick="openForm('retorno')">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 1 3 6.7"/>
+        <path d="M3 12V7"/>
+        <path d="M3 12h5"/>
+    </svg>
+    Retorno de Obra
+</button>
+                    <button type="button" class="form-card" onclick="openForm('checklist')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5dcaa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        Checklist de Montagem
+                    </button>
+                    <button type="button" class="form-card" onclick="openChecklistTipo()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M8 12.5l2.5 2.5L17 8"/>
+                        </svg>
+                        Checklist de Entrega
+                    </button>
+                    <button type="button" class="form-card" onclick="openForm('melhorias')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <g transform="translate(12,12) scale(1.35) translate(-12,-12)" stroke-width="1.48">
+                                <path d="M9 18h6"/>
+                                <path d="M10 22h4"/>
+                                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.68.68 1.25 1.44 1.41 2.5"/>
+                            </g>
+                        </svg>
+                        Melhorias
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+<!-- =====================================================================
+     SEPARADOR DE OBRA — bloco completo
+
+     COMO USAR: no index.html, apague TODO o bloco que começa em
+
+         <div id="page-separador" ...>
+
+     e termina no </div> que o fecha, e cole tudo que está neste
+     arquivo no lugar. Estilo, telas, leitor de código de barras e
+     JavaScript estão todos aqui dentro — nada mais no index.html
+     precisa ser tocado.
+
+     DEPOIS DE COLAR, publique a nova versão do Apps Script:
+     Implantar > Gerenciar implantações > editar > Nova versão.
+
+     O QUE ESTA VERSÃO TRAZ
+       · duas abas depois de escolher o pedido: Buscar e Resumo
+       · contador de peças, com campo para digitar e botão "todas"
+       · botão para declarar o que procurou e não achou
+       · carimbo Separado / Não encontrada / Pendente
+       · resumo em itens, com filtro por conjunto e marcação na lista
+       · exportar em PDF
+
+     AINDA NÃO FUNCIONA SEM INTERNET. Cada marcação vai direto à
+     planilha. A fila de envio entra numa etapa seguinte.
+===================================================================== -->
+
+<div id="page-separador" class="hidden">
+
+    <style>
+        /* Campo de busca com o botão da câmera ao lado.
+           Os cartões de resultado usam as mesmas classes do
+           Localizador de Itens. */
+        .sep-busca { display: flex; gap: 8px; align-items: stretch; }
+        .sep-busca input { flex: 1; min-width: 0; }
+        .sep-camera {
+            flex: 0 0 46px; width: 46px;
+            display: flex; align-items: center; justify-content: center;
+            background: #1f1f1f; border: 1px solid #444; border-radius: 0.5rem;
+            color: #4ade80; cursor: pointer;
+            transition: border-color .15s ease, background .15s ease;
+        }
+        .sep-camera:hover { border-color: #4ade80; background: #262626; }
+        /* O campo é uppercase para o que o supervisor digita, mas o
+           texto de exemplo herdava isso e não cabia na tela do celular. */
+        #sepCodigo::placeholder {
+            text-transform: none;
+            font-size: 0.9rem;
+            opacity: .75;
+        }
+        .sep-camera svg { width: 22px; height: 22px; }
+        .sep-leitor-video {
+            width: 100%; max-height: 62vh; background: #000;
+            border-radius: 10px; display: block; object-fit: cover;
+        }
+        .sep-leitor-mira {
+            position: absolute; left: 8%; right: 8%; top: 50%;
+            height: 2px; background: rgba(74,222,128,.85);
+            transform: translateY(-50%); pointer-events: none;
+            box-shadow: 0 0 12px rgba(74,222,128,.7);
+        }
+        .sep-leitor-dica {
+            font-size: 12px; color: #9ca3af; text-align: center;
+            margin-top: 10px; line-height: 1.5;
+        }
+
+        /* ---- abas Bipar / Resumo ---- */
+        .sep-abas { display: flex; gap: 6px; margin-bottom: 16px; }
+        .sep-abas button {
+            flex: 1; padding: 9px 10px;
+            background: #1f1f1f; border: 1px solid #3d3d3d;
+            border-radius: 8px; color: #9ca3af;
+            font-size: 13.5px; font-weight: 700; cursor: pointer;
+        }
+        .sep-abas button.ativa {
+            background: #14301f; border-color: #2f6b46; color: #6ee7a8;
+        }
+
+        /* ---- corrente até o topo ---- */
+        .sep-destaque {
+            background: #14301f; border: 1px solid #2f6b46;
+            border-radius: 9px; padding: 11px 13px; margin-bottom: 12px;
+        }
+        .sep-destaque > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #6ee7a8; margin-bottom: 4px;
+        }
+        .sep-destaque strong {
+            display: block; font-size: 14.5px; font-weight: 600;
+            color: #fff; line-height: 1.35;
+        }
+        .sep-destaque em {
+            display: block; font-style: normal; font-size: 12px;
+            color: #9ca3af; margin-top: 4px;
+        }
+        .sep-tag {
+            display: inline-block; margin-top: 6px;
+            background: #2f6b46; color: #eafff2;
+            font-size: 12px; font-weight: 700; letter-spacing: .4px;
+            padding: 2px 9px; border-radius: 999px;
+        }
+
+        .sep-caminho { margin-bottom: 12px; }
+        .sep-caminho > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #9ca3af; margin-bottom: 6px;
+        }
+        /* Cada caminho numa caixa própria. Sem ela, com sete
+           caminhos na tela, um se confunde com o outro. */
+        .sep-caminho-cx {
+            border: 1px solid #3a3a3a; border-radius: 9px;
+            padding: 8px 10px; margin-bottom: 8px; background: #171717;
+        }
+        .sep-caminho-cx:last-child { margin-bottom: 0; }
+        .sep-passo {
+            display: flex; gap: 8px; align-items: baseline;
+            padding: 5px 0 5px 12px;
+            border-left: 2px solid #2f6b46;
+        }
+        .sep-passo:first-of-type { border-left-color: #4ade80; }
+        /* Tocar num conjunto abre a lista dele no resumo. */
+        .sep-passo.clicavel { cursor: pointer; }
+        .sep-passo.clicavel:active { background: #222; }
+        .sep-passo.clicavel .sep-passo-cod { color: #6ee7a8; text-decoration: underline; }
+        .sep-passo-qt { border-left-color: #3d3d3d !important; }
+        .sep-passo-cod {
+            flex: 0 0 auto; font-size: 12.5px; font-weight: 600; color: #fff;
+        }
+        .sep-passo-desc {
+            flex: 1; min-width: 0; font-size: 11.5px; color: #b8b8b8;
+            line-height: 1.35; word-break: break-word;
+        }
+        .sep-mais {
+            margin-top: 8px; font-size: 12px; color: #6ee7a8;
+            background: none; border: none; padding: 0; cursor: pointer;
+            text-decoration: underline;
+        }
+        .sep-obs {
+            margin-top: 10px; font-size: 11.5px; color: #fac775;
+            background: #2a2417; border: 1px solid #4a3f22;
+            border-radius: 7px; padding: 7px 10px; line-height: 1.45;
+        }
+
+        /* ---- carimbo e contador ---- */
+        .sep-cartao { position: relative; }
+        .sep-carimbo-linha { display: flex; justify-content: flex-end; }
+        .sep-carimbo {
+            display: inline-block; margin-bottom: 10px;
+            font-size: 11px; font-weight: 800; letter-spacing: .1em;
+            text-transform: uppercase; padding: 3px 10px;
+            border: 2px solid currentColor; border-radius: 4px;
+        }
+        .sep-carimbo.ok   { color: #4ade80; }
+        .sep-carimbo.bad  { color: #f87171; }
+        .sep-carimbo.pend { color: #fac775; }
+
+        .sep-contador {
+            margin-top: 12px; padding: 10px 12px;
+            background: #202020; border: 1px solid #3a3a3a; border-radius: 9px;
+        }
+        .sep-contador > span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #9ca3af; margin-bottom: 8px;
+        }
+        .sep-linha-qt { display: flex; align-items: center; gap: 10px; }
+        .sep-qt-valor {
+            flex: 1; font-size: 15px; color: #d1d5db;
+        }
+        .sep-qt-valor b { color: #fff; font-size: 19px; font-weight: 700; }
+        .sep-bt {
+            width: 40px; height: 40px; flex: 0 0 40px;
+            border-radius: 9px; border: none;
+            background: #3a3a3a; color: #fff;
+            font-size: 21px; font-weight: 700; line-height: 1; cursor: pointer;
+        }
+        .sep-bt:active { opacity: .75; }
+        .sep-bt:disabled { opacity: .3; cursor: not-allowed; }
+        .sep-bt.mais { background: #2f6b46; }
+        .sep-qt-campo {
+            width: 74px; flex: 0 0 74px; text-align: center;
+            background: #141414; border: 1px solid #4a4a4a; border-radius: 9px;
+            color: #fff; font-size: 19px; font-weight: 700; padding: 8px 4px;
+            -moz-appearance: textfield;
+        }
+        .sep-qt-campo::-webkit-outer-spin-button,
+        .sep-qt-campo::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .sep-qt-de { flex: 1; font-size: 13px; color: #9ca3af; }
+        .sep-bt-todas {
+            width: 100%; margin-top: 9px; padding: 9px;
+            border-radius: 9px; border: 1px solid #2f6b46;
+            background: #14301f; color: #6ee7a8;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-bt-todas:active { opacity: .8; }
+        .sep-salvando {
+            font-size: 11px; color: #9ca3af; margin-top: 7px; display: block;
+        }
+        .sep-salvando.erro { color: #f87171; }
+        .sep-busca-fant { display: flex; gap: 8px; margin-bottom: 12px; }
+        .sep-busca-fant input {
+            flex: 1; min-width: 0; padding: 9px 11px;
+            background: #1f1f1f; border: 1px solid #444; border-radius: 8px;
+            color: #fff; font-size: 14px;
+        }
+        /* Buscar e Limpar lado a lado. O Limpar é discreto de
+           propósito: é usado entre uma peça e outra, não é a ação
+           principal da tela. */
+        .sep-acoes { display: flex; gap: 8px; }
+        .sep-acoes #sepBotao { flex: 1; }
+        .sep-acoes #sepBotaoLimpar {
+            flex: 0 0 auto; padding: 0 18px; border-radius: 0.5rem;
+            border: 1px solid #4a4a4a; background: #1f1f1f; color: #9ca3af;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .sep-acoes #sepBotaoLimpar:active { background: #2a2a2a; }
+        .sep-busca-fant button {
+            flex: 0 0 auto; padding: 9px 14px; border-radius: 8px;
+            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-falta {
+            margin-top: 9px; display: flex; align-items: center;
+            justify-content: space-between; gap: 8px;
+            font-size: 12.5px; color: #f8b4b4;
+        }
+        .sep-bt-texto {
+            background: none; border: none; padding: 0; cursor: pointer;
+            font-size: 12.5px; color: #6ee7a8; text-decoration: underline;
+        }
+        .sep-bt-falta {
+            width: 100%; margin-top: 9px; padding: 9px;
+            border-radius: 9px; border: 1px solid #5a2f2f;
+            background: #2a1717; color: #f8b4b4;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-bt-falta:active { opacity: .8; }
+
+        /* ---- resumo ---- */
+        .sep-num { display: flex; gap: 8px; margin-bottom: 14px; }
+        .sep-num-cx {
+            flex: 1; text-align: center; padding: 10px 6px;
+            background: #1f1f1f; border: 1.5px solid #3a3a3a; border-radius: 10px;
+        }
+        .sep-num-cx b { display: block; font-size: 21px; font-weight: 700; color: #fff; }
+        .sep-num-cx span {
+            display: block; font-size: 9.5px; font-weight: 700;
+            letter-spacing: .05em; text-transform: uppercase; color: #9ca3af;
+            margin-top: 2px;
+        }
+        .sep-num-cx.ok   { border-color: #2f6b46; } .sep-num-cx.ok b   { color: #4ade80; }
+        .sep-num-cx.bad  { border-color: #5a2f2f; } .sep-num-cx.bad b  { color: #f87171; }
+        .sep-num-cx.pend { border-color: #4a3f22; } .sep-num-cx.pend b { color: #fac775; }
+
+        .sep-barra {
+            height: 8px; border-radius: 999px; background: #2a2a2a;
+            overflow: hidden; display: flex; margin-bottom: 16px;
+        }
+        .sep-barra i { display: block; height: 100%; }
+        .sep-barra i.ok  { background: #4ade80; }
+        .sep-barra i.bad { background: #f87171; }
+
+        .sep-conj-nome {
+            background: #14301f; border: 1px solid #2f6b46; border-radius: 8px;
+            padding: 9px 11px; margin-bottom: 12px;
+            font-size: 13px; color: #fff; line-height: 1.35;
+        }
+        .sep-conj-nome span {
+            display: block; font-size: 10px; font-weight: 700;
+            letter-spacing: .5px; text-transform: uppercase;
+            color: #6ee7a8; margin-bottom: 3px;
+        }
+        .sep-fichas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .sep-ficha {
+            padding: 6px 12px; border-radius: 999px;
+            background: #1f1f1f; border: 1.5px solid #3a3a3a;
+            color: #9ca3af; font-size: 12.5px; font-weight: 700; cursor: pointer;
+        }
+        .sep-ficha.ativa { background: #14301f; border-color: #2f6b46; color: #6ee7a8; }
+
+        .sep-carga {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 11px; margin-bottom: 6px;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
+        }
+        .sep-carga b { flex: 0 0 auto; font-size: 13.5px; color: #fff; }
+        .sep-carga span { flex: 1; text-align: right; font-size: 12.5px; color: #9ca3af; }
+        .sep-carga.conferida { border-color: #2f6b46; }
+        .sep-carga.conferida span { color: #6ee7a8; }
+
+        .sep-item-lista {
+            padding: 9px 11px; margin-bottom: 6px;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 8px;
+            font-size: 12.5px;
+        }
+        .sep-item-lista b { color: #fff; }
+        .sep-item-lista span { display: block; color: #9ca3af; margin-top: 2px; line-height: 1.35; }
+
+        /* Ações da lista no topo: com 300 itens, o botão no fim da
+           página nunca era alcançado. */
+        .sep-lista-acoes { display: flex; gap: 8px; margin-bottom: 12px; }
+        .sep-lista-acoes button {
+            flex: 1; padding: 9px; border-radius: 9px;
+            border: 1px solid #3d3d3d; background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .sep-lista-acoes button.pdf { border-color: #2f6b46; color: #6ee7a8; }
+        .sep-acao-pdf {
+            width: 100%; margin-top: 10px; padding: 10px;
+            border-radius: 9px; border: 1px solid #3d3d3d;
+            background: #2e2e2e; color: #e5e7eb;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+    </style>
+
+    <!-- 1. Pedido -->
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+        <label for="separadorClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+            Pedido (com nome do Cliente)
+        </label>
+        <div class="sel">
+            <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                <span class="sel-rotulo">Carregando Pedidos...</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+            <div class="sel-lista hidden"></div>
+            <select id="separadorClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                    onchange="onSeparadorPedidoChange(this.value)">
+                <option value="">Carregando Pedidos...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Abas, só aparecem depois de escolher o pedido -->
+    <div id="sepAbas" class="sep-abas hidden">
+        <button type="button" id="sepAbaBipar" class="ativa" onclick="sepTrocarAba('bipar')">Buscar peça</button>
+        <button type="button" id="sepAbaResumo" onclick="sepTrocarAba('resumo')">Resumo da obra</button>
+    </div>
+
+    <!-- ============ ABA BIPAR ============ -->
+    <div id="sepPainelBipar">
+
+        <div id="sepBuscaBlock" class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4 hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">2. Ler código de barras ou digitar código</h2>
+            <div class="mb-4">
+                <label for="sepCodigo" class="block text-sm font-medium text-gray-400 mb-1">
+                    Etiqueta ou código do item
+                </label>
+                <div class="sep-busca">
+                    <input type="text" id="sepCodigo" inputmode="numeric"
+                           placeholder="Etiqueta ou código"
+                           class="compact-input border border-[#444] rounded-lg text-base bg-[#1f1f1f] text-white uppercase"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSeparador();}">
+                    <button type="button" class="sep-camera" onclick="abrirLeitor()" title="Ler código de barras">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                            <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="sep-acoes">
+                <button id="sepBotao" onclick="buscarSeparador()"
+                        class="btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                    </svg>
+                    Buscar
+                </button>
+                <button type="button" id="sepBotaoLimpar" onclick="sepLimparBusca()">Limpar</button>
+            </div>
+        </div>
+
+        <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
+            <div id="sepResults"></div>
+        </div>
+
+    </div>
+
+    <!-- ============ ABA RESUMO ============ -->
+    <div id="sepPainelResumo" class="hidden">
+        <div class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4">
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Como está a obra</h2>
+            <div id="sepResumo"></div>
+        </div>
+    </div>
+
+    <!-- Leitor de código de barras -->
+    <div id="modal-leitor" class="fixed inset-0 z-[70] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.85);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 8v8"/><path d="M10 8v8"/><path d="M13.5 8v8"/><path d="M17 8v8"/>
+                    </svg>
+                    Ler etiqueta
+                </h2>
+                <button type="button" onclick="fecharLeitor()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <div style="position:relative;">
+                    <video id="sepLeitorVideo" class="sep-leitor-video" playsinline muted></video>
+                    <div class="sep-leitor-mira"></div>
+                </div>
+                <p class="sep-leitor-dica" id="sepLeitorDica">Preparando a câmera...</p>
+                <div class="flex gap-2" style="margin-top:12px;">
+                    <button type="button" onclick="document.getElementById('sepLeitorFoto').click()"
+                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
+                        Ler por foto
+                    </button>
+                    <button type="button" onclick="fecharLeitor()"
+                            class="flex-1 bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition duration-150">
+                        Cancelar
+                    </button>
+                </div>
+                <input type="file" id="sepLeitorFoto" accept="image/*" capture="environment" class="hidden"
+                       onchange="sepLerPorFoto(this)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* =================================================================
+       SEPARADOR DE OBRA
+       Tudo desta página vive aqui: nada precisa ser tocado no resto
+       do index.html.
+    ================================================================= */
+
+    /* A URL do app da web. Ao publicar uma versão nova pelo caminho
+       'Gerenciar implantações > editar > Nova versão', esta URL NÃO
+       muda — só muda se você criar uma implantação nova. */
+    const SEPARADOR_URL = "https://script.google.com/macros/s/AKfycbwd47cNVd98nGiHTE7ZRw1vuJfJx8eRlS1ZeKiKv1IQZHXOaGyTSVncwiXpGn9KtkJV/exec";
+
+    /* Campos do resultado, na ordem em que aparecem.
+       [ nome do campo na resposta , rótulo lido , esconder se vazio ]
+       Para tirar um campo, apague a linha. É o único lugar a editar. */
+    const SEP_CAMPOS = [
+        ['PEDIDO',        'NÚMERO DO PEDIDO'],   /* a API devolve PEDIDO, não NUM_PEDIDO */
+        ['COD_PECA',      'CÓDIGO PEÇA'],
+        ['DESC_PECA',     'DESCRIÇÃO DA PEÇA'],
+        ['QTDE_CARGA',    'QTDE'],
+        ['CARREGAMENTO',  'NÚMERO DO CARREGAMENTO']
+    ];
+
+    let sepPedido = null;
+    let sepAba = 'bipar';
+    let sepUltimos = [];        /* cartões da aba Buscar */
+    let sepLista = [];          /* itens da lista do Resumo */
+
+    /* ---------------------------------------------------------------
+       Lista de pedidos e troca de aba
+    --------------------------------------------------------------- */
+    function sepAtualizarPedidos() {
+        const select = document.getElementById('separadorClientSelect');
+        if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
+        if (select.dataset.carregado === String(allPedidos.length)) return;
+        populateSelectWithPedidos(select, allPedidos);
+        select.dataset.carregado = String(allPedidos.length);
+    }
+
+    function onSeparadorPedidoChange(valor) {
+        sepPedido = (valor || '').trim().toUpperCase();
+        sepUltimos = [];
+        sepLista = [];
+        sepResumoDados = null;
+        document.getElementById('sepResultsBlock').classList.add('hidden');
+        document.getElementById('sepCodigo').value = '';
+        const abas = document.getElementById('sepAbas');
+        const busca = document.getElementById('sepBuscaBlock');
+        if (sepPedido) {
+            abas.classList.remove('hidden');
+            busca.classList.remove('hidden');
+            sepTrocarAba('bipar');
+            document.getElementById('sepCodigo').focus();
+        } else {
+            abas.classList.add('hidden');
+            busca.classList.add('hidden');
+        }
+    }
+
+    function sepTrocarAba(qual) {
+        sepAba = qual;
+        document.getElementById('sepAbaBipar').classList.toggle('ativa', qual === 'bipar');
+        document.getElementById('sepAbaResumo').classList.toggle('ativa', qual === 'resumo');
+        document.getElementById('sepPainelBipar').classList.toggle('hidden', qual !== 'bipar');
+        document.getElementById('sepPainelResumo').classList.toggle('hidden', qual !== 'resumo');
+        if (qual === 'resumo' && !sepResumoDados) sepCarregarResumo();
+    }
+
+    /* ---------------------------------------------------------------
+       Busca
+    --------------------------------------------------------------- */
+    async function buscarSeparador() {
+        const codigo = document.getElementById('sepCodigo').value.trim();
+        const botao = document.getElementById('sepBotao');
+        const alvo = document.getElementById('sepResults');
+
+        if (!codigo) {
+            sepMensagem('Bipe a etiqueta ou digite o código do item.', false);
+            return;
+        }
+
+        const htmlBotao = botao.innerHTML;
+        botao.disabled = true;
+        botao.innerHTML = '<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...';
+        document.getElementById('sepResultsBlock').classList.remove('hidden');
+        alvo.className = '';
+        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+
+        try {
+            const url = SEPARADOR_URL + '?mode=separador'
+                      + '&pedido=' + encodeURIComponent(sepPedido || '')
+                      + '&codigo=' + encodeURIComponent(codigo);
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const dados = await resposta.json();
+
+            if (dados && dados.error) {
+                sepMensagem(dados.error, true);
+            } else if (dados && dados.tipoBusca === 'conjunto') {
+                /* O código é um conjunto — item de venda, fantasma ou
+                   conjunto do meio. Nada disso é expedido nem tem
+                   etiqueta, então o que serve é a lista do que vai
+                   dentro dele. */
+                sepAbrirConjunto(dados.conjunto, dados.descConjunto, dados.aviso || '');
+            } else if (dados && Array.isArray(dados.itens) && dados.itens.length) {
+                sepUltimos = dados.itens;
+                sepDesenhar();
+            } else {
+                sepMensagem('Nenhum resultado.', true);
+            }
+        } catch (erro) {
+            sepMensagem('Erro de conexão. ' + erro.message, true);
+        } finally {
+            botao.disabled = false;
+            botao.innerHTML = htmlBotao;
+        }
+    }
+
+    /**
+     * Limpa a busca e devolve o foco ao campo, para o supervisor já
+     * bipar a próxima peça sem tocar em mais nada.
+     */
+    function sepLimparBusca() {
+        document.getElementById('sepCodigo').value = '';
+        document.getElementById('sepResultsBlock').classList.add('hidden');
+        sepUltimos = [];
+        document.getElementById('sepCodigo').focus();
+    }
+
+    /* =================================================================
+       MARCAÇÃO
+       Fila com espera, um envio por vez em cada etiqueta.
+
+       Sem isto, apertar o "+" cinco vezes rápido dispara cinco
+       gravações que se cruzam: a resposta da primeira chega depois da
+       terceira e devolve o número velho para a tela. Foi o que
+       aconteceu no app da obra de captação, e a solução de lá é esta.
+
+       A tela muda na hora; o envio espera 600 ms de silêncio. Se
+       chegou toque novo durante um envio, manda de novo no fim.
+    ================================================================= */
+    const SEP_ESPERA_MS = 600;
+    const sepDesejado = {};   /* chave -> {sep, ne} ainda não confirmado */
+    const sepTimer = {};      /* chave -> timeout da espera */
+    const sepIndo = {};       /* chave -> true enquanto o fetch está em curso */
+    const sepErro = {};       /* chave -> mensagem do último erro */
+
+    function sepChave(it) {
+                return String(it.ID) + '|' + String(it.CARREGAMENTO) + '|' + String(it.TAG || '');
+    }
+
+    /** Acha o mesmo item nas duas telas, para as duas ficarem certas. */
+    function sepTodosComChave(chave) {
+        return sepUltimos.concat(sepLista).filter(function (x) {
+            return sepChave(x) === chave;
+        });
+    }
+
+    function sepAplicar(it, sep, ne) {
+        const total = Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
+        sep = Math.max(0, Math.min(Math.round(sep), total));
+        ne  = Math.max(0, Math.min(Math.round(ne), total - sep));
+
+        const chave = sepChave(it);
+        sepTodosComChave(chave).forEach(function (x) {
+            x.SEPARADAS = sep;
+            x.NAO_ENCONTRADAS = ne;
+            x.PENDENTES = Math.max(0, total - sep - ne);
+            x.SITUACAO_SEP = sepSituacao(sep, ne, total);
+        });
+        delete sepErro[chave];
+                sepDesejado[chave] = { sep: sep, ne: ne, pedido: it.PEDIDO, id: it.ID, carga: it.CARREGAMENTO, tag: it.TAG || '' };
+        sepRedesenhar();
+
+        if (sepTimer[chave]) clearTimeout(sepTimer[chave]);
+        sepTimer[chave] = setTimeout(function () {
+            delete sepTimer[chave];
+            sepEnviarFila(chave);
+        }, SEP_ESPERA_MS);
+    }
+
+    async function sepEnviarFila(chave) {
+        if (sepIndo[chave]) return;                 /* já tem um indo; ele reenvia no fim */
+        const alvo = sepDesejado[chave];
+        if (!alvo) return;
+
+        sepIndo[chave] = true;
+        try {
+            const url = SEPARADOR_URL + '?mode=marcar'
+                      + '&pedido=' + encodeURIComponent(alvo.pedido)
+                      + '&id=' + encodeURIComponent(alvo.id)
+                      + '&carga=' + encodeURIComponent(alvo.carga)
+                      + '&sep=' + alvo.sep + '&ne=' + alvo.ne
+                      + (alvo.tag ? '&tag=' + encodeURIComponent(alvo.tag) : '');
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const dados = await resposta.json();
+            if (dados && dados.error) throw new Error(dados.error);
+
+            /* Se o supervisor continuou tocando durante o envio, o que
+               vale é o toque novo — não sobrescreve a tela com o que
+               foi gravado agora. */
+            const aindaIgual = sepDesejado[chave] &&
+                               sepDesejado[chave].sep === alvo.sep &&
+                               sepDesejado[chave].ne === alvo.ne;
+            if (aindaIgual) {
+                delete sepDesejado[chave];
+                sepTodosComChave(chave).forEach(function (x) {
+                    const total = Number(x.QTDE_CARGA !== undefined ? x.QTDE_CARGA : x.QTDE) || 0;
+                    x.SEPARADAS = dados.SEPARADAS;
+                    x.NAO_ENCONTRADAS = dados.NAO_ENCONTRADAS;
+                    x.PENDENTES = Math.max(0, total - dados.SEPARADAS - dados.NAO_ENCONTRADAS);
+                    x.SITUACAO_SEP = dados.SITUACAO_SEP;
+                });
+            }
+            delete sepErro[chave];
+        } catch (e) {
+            sepErro[chave] = e.message || 'falhou';
+        } finally {
+            delete sepIndo[chave];
+            sepRedesenhar();
+            /* chegou valor novo enquanto enviava: manda de novo */
+            if (sepDesejado[chave]) sepEnviarFila(chave);
+        }
+    }
+
+    function sepRedesenhar() {
+        if (sepAba === 'bipar') { if (sepUltimos.length) sepDesenhar(); }
+        else { sepDesenharLista(); }
+    }
+
+    /* A mesma regra do Apps Script, repetida só para a tela responder
+       antes da resposta chegar. Quem manda é o servidor. */
+    function sepSituacao(sep, ne, total) {
+        if (sep === 0 && ne === 0) return '';
+        if (sep >= total) return 'Separado';
+        if (ne  >= total) return 'Não encontrada';
+        return 'Pendente';
+    }
+
+    /* ---- ações dos botões ---- */
+    function sepAchar(onde, n) {
+        return (onde === 'busca' ? sepUltimos : sepLista)[n];
+    }
+    function sepTotal(it) {
+        return Number(it.QTDE_CARGA !== undefined ? it.QTDE_CARGA : it.QTDE) || 0;
+    }
+
+    function sepSomar(onde, n, delta) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, (Number(it.SEPARADAS) || 0) + delta, Number(it.NAO_ENCONTRADAS) || 0);
+    }
+
+    function sepDigitar(onde, n, campo) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        const v = parseInt(campo.value, 10);
+        sepAplicar(it, isNaN(v) ? 0 : v, Number(it.NAO_ENCONTRADAS) || 0);
+    }
+
+    function sepTodas(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, sepTotal(it), 0);
+    }
+
+    function sepMarcarFalta(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        const sep = Number(it.SEPARADAS) || 0;
+        sepAplicar(it, sep, sepTotal(it) - sep);
+    }
+
+    function sepLimparFalta(onde, n) {
+        const it = sepAchar(onde, n);
+        if (!it) return;
+        sepAplicar(it, Number(it.SEPARADAS) || 0, 0);
+    }
+
+    /**
+     * O contador. É o mesmo nas duas telas — no cartão da busca e em
+     * cada linha da lista do resumo.
+     *
+     * Some quando a peça não entra na separação: carga que ainda não
+     * embarcou, ou item comprado. Nesses casos o cartão explica o
+     * motivo em vez de deixar o supervisor contando à toa.
+     */
+    function sepContador(it, onde, n) {
+        if (it.EM_OBRA === false) {
+            return '<div class="sep-obs">Esta peça ainda não embarcou. A carga existe no sistema, '
+                 + 'mas o caminhão não saiu — por isso ela não entra na separação.</div>';
+        }
+        if (it.NA_LISTA === false) {
+            return '<div class="sep-obs">Item comprado. Não entra na lista de separação.</div>';
+        }
+
+        const total = sepTotal(it);
+        const sep   = Number(it.SEPARADAS) || 0;
+        const ne    = Number(it.NAO_ENCONTRADAS) || 0;
+        const pend  = Math.max(0, total - sep - ne);
+        const chave = sepChave(it);
+        const a = "'" + onde + "'," + n;
+
+        let h = '<div class="sep-contador"><span>Separação</span>';
+
+        h += '<div class="sep-linha-qt">';
+        h += '<button type="button" class="sep-bt" onclick="sepSomar(' + a + ',-1)"'
+           + (sep <= 0 ? ' disabled' : '') + '>&minus;</button>';
+        h += '<input type="number" class="sep-qt-campo" inputmode="numeric" min="0" max="' + total + '" '
+           + 'value="' + sep + '" onchange="sepDigitar(' + a + ',this)" '
+           + 'onfocus="this.select()">';
+        h += '<span class="sep-qt-de">de ' + total + '</span>';
+        h += '<button type="button" class="sep-bt mais" onclick="sepSomar(' + a + ',1)"'
+           + (pend <= 0 ? ' disabled' : '') + '>+</button>';
+        h += '</div>';
+
+        if (sep < total && ne === 0) {
+            h += '<button type="button" class="sep-bt-todas" onclick="sepTodas(' + a + ')">'
+               + 'Achei todas as ' + total + '</button>';
+        }
+        if (ne > 0) {
+            h += '<div class="sep-falta">'
+               + '<span>' + ne + ' não encontrada' + (ne === 1 ? '' : 's') + '</span>'
+               + '<button type="button" class="sep-bt-texto" onclick="sepLimparFalta(' + a + ')">Desfazer</button>'
+               + '</div>';
+        }
+        if (pend > 0) {
+            h += '<button type="button" class="sep-bt-falta" onclick="sepMarcarFalta(' + a + ')">'
+               + 'Não achei ' + (pend === total ? 'nenhuma' : ('as ' + pend + ' restantes')) + '</button>';
+        }
+
+        if (sepErro[chave]) {
+            h += '<span class="sep-salvando erro">Não salvou: ' + sepEsc(sepErro[chave])
+               + ' — toque de novo com internet.</span>';
+        } else if (sepDesejado[chave] || sepIndo[chave]) {
+            h += '<span class="sep-salvando">salvando…</span>';
+        }
+
+        h += '</div>';
+        return h;
+    }
+
+    function sepCarimbo(item) {
+        const s = item.SITUACAO_SEP;
+        if (!s) return '';
+        const classe = s === 'Separado' ? 'ok' : (s === 'Não encontrada' ? 'bad' : 'pend');
+        let texto = s;
+        /* Item fechado com falta continua Pendente, mas mostrando a
+           falta ali no carimbo — senão parece que ainda falta contar. */
+        if (s === 'Pendente' && Number(item.NAO_ENCONTRADAS) > 0) {
+            texto += ' · ' + item.NAO_ENCONTRADAS + ' não encontrada'
+                   + (Number(item.NAO_ENCONTRADAS) === 1 ? '' : 's');
+        }
+        return '<div class="sep-carimbo-linha">'
+             + '<div class="sep-carimbo ' + classe + '">' + sepEsc(texto) + '</div></div>';
+    }
+
+    /* ---------------------------------------------------------------
+       O cartão da busca
+    --------------------------------------------------------------- */
+    function sepDesenhar() {
+        const alvo = document.getElementById('sepResults');
+        alvo.className = 'border-green-600 border-2 p-3 rounded-lg';
+
+        let html = '';
+        sepUltimos.forEach(function (item, n) {
+            let corpo = sepCarimbo(item);
+
+            /* onde a peça vai — é o que o supervisor precisa saber com
+               a peça na mão, então vem primeiro */
+            if (item.TOPO) {
+                let sub = 'Código ' + sepEsc(item.TOPO);
+                if (item.MASCARA) sub += ' · Máscara ' + sepEsc(item.MASCARA);
+                corpo += '<div class="sep-destaque">'
+                       + '<span>Vai em</span>'
+                       + '<strong>' + sepEsc(item.DESC_TOPO || '—') + '</strong>'
+                       + '<em>' + sub + '</em>'
+                       + (item.TAG ? '<span class="sep-tag">' + sepEsc(item.TAG) + '</span>' : '')
+                       + '</div>';
+            }
+
+            const caminhos = Array.isArray(item.CAMINHOS) ? item.CAMINHOS : [];
+            if (caminhos.length) {
+                corpo += '<div class="sep-caminho">'
+                       + '<span id="sepCamRot' + n + '">Caminho'
+                       + (caminhos.length > 1 ? ' 1 de ' + caminhos.length : '') + '</span>'
+                       + '<div id="sepCam' + n + '" data-aberto="0">'
+                       + sepPassos(caminhos[0]) + '</div>';
+                if (caminhos.length > 1) {
+                    corpo += '<button type="button" class="sep-mais" '
+                           + 'onclick="sepVerCaminhos(' + n + ')" id="sepMais' + n + '">'
+                           + 'Ver os outros ' + (caminhos.length - 1) + ' caminhos</button>';
+                }
+                corpo += '</div>';
+            } else if (item.COD_FANTASMA && !item.TOPO) {
+                /* Sem estrutura e sem topo, o fantasma é a única pista
+                   de onde a peça entra. Só nesse caso ele aparece. */
+                corpo += '<div class="sep-destaque">'
+                       + '<span>Entra em</span>'
+                       + '<strong>' + sepEsc(item.DESC_FANTASMA || '—') + '</strong>'
+                       + '<em>Código ' + sepEsc(item.COD_FANTASMA) + '</em>'
+                       + '</div>';
+            }
+
+            SEP_CAMPOS.forEach(function (par) {
+                const valor = item[par[0]];
+                const vazio = (valor === '' || valor === null || valor === undefined);
+                if (vazio && par[2]) return;
+                corpo += '<div class="flex flex-col mb-1">'
+                       + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
+                       + '<span class="text-sm text-white font-medium break-words">'
+                       + sepEsc(vazio ? '—' : valor)
+                       + '</span></div>';
+            });
+
+            corpo += sepContador(item, 'busca', n);
+
+            const aviso = sepAviso(item.ESTRUTURA_OBS);
+            if (aviso) corpo += '<div class="sep-obs">' + aviso + '</div>';
+
+            html += '<div class="sep-cartao bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">'
+                  + '<div class="p-1 text-white">' + corpo + '</div></div>';
+        });
+
+        alvo.innerHTML = html;
+    }
+
+    /* ---------------------------------------------------------------
+       Caminho
+    --------------------------------------------------------------- */
+    function sepPassos(caminho) {
+        if (!caminho || !Array.isArray(caminho.passos)) return '';
+        let h = '<div class="sep-caminho-cx">';
+        caminho.passos.forEach(function (p) {
+            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\',\''
+               + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\',\'\')">'
+               + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
+               + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
+               + '</div>';
+        });
+        if (caminho.qtde) {
+            h += '<div class="sep-passo sep-passo-qt">'
+               + '<span class="sep-passo-cod">' + sepEsc(caminho.qtde) + '</span>'
+               + '<span class="sep-passo-desc">'
+               + (caminho.qtde === 1 ? 'Peça' : 'Peças') + ' por este caminho</span>'
+               + '</div>';
+        }
+        return h + '</div>';
+    }
+
+    /**
+     * Tocar num conjunto do caminho leva para o resumo já filtrado
+     * nele. É o mesmo movimento que o supervisor faz na cabeça: "esta
+     * peça vai no corrimão — o que mais vai no corrimão?".
+     */
+    function sepAbrirConjunto(codigo, descricao, aviso) {
+        sepFantasma = String(codigo || '').trim();
+        sepFantasmaDesc = String(descricao || '').trim();
+        if (aviso !== undefined) sepAvisoConjunto = aviso;
+        sepFiltro = 'todas';
+        sepTrocarAba('resumo');
+        if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function sepVerCaminhos(n) {
+        const item = sepUltimos[n];
+        if (!item || !Array.isArray(item.CAMINHOS)) return;
+
+        const lista  = document.getElementById('sepCam' + n);
+        const botao  = document.getElementById('sepMais' + n);
+        const rotulo = document.getElementById('sepCamRot' + n);
+        const total  = item.CAMINHOS.length;
+        const aberto = lista.getAttribute('data-aberto') === '1';
+
+        if (aberto) {
+            lista.innerHTML = sepPassos(item.CAMINHOS[0]);
+            lista.setAttribute('data-aberto', '0');
+            if (rotulo) rotulo.textContent = 'Caminho 1 de ' + total;
+            if (botao)  botao.textContent = 'Ver os outros ' + (total - 1) + ' caminhos';
+        } else {
+            let h = '';
+            item.CAMINHOS.forEach(function (c) { h += sepPassos(c); });
+            lista.innerHTML = h;
+            lista.setAttribute('data-aberto', '1');
+            if (rotulo) rotulo.textContent = 'Caminhos (' + total + ')';
+            if (botao)  botao.textContent = 'Recolher';
+        }
+    }
+
+    function sepAviso(obs) {
+        if (!obs) return '';
+        const partes = String(obs).split(',');
+        const texto = {
+            'varios-topos':      'Esta peça entra em mais de um equipamento neste pedido e não deu para saber qual. Confira com o projeto.',
+            'varias-unidades':   'O pedido tem mais de uma unidade deste equipamento. Os dados são do primeiro.',
+            'mascara-compartilhada':    'Dois equipamentos deste pedido têm a mesma configuração. Não dá para saber em qual esta peça vai.',
+            'mascara-sem-par-no-asana': 'A máscara deste equipamento não foi encontrada no Asana. Confira a TAG antes de usar.',
+            'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
+            'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
+            'sem-aba-corrente':  'A estrutura ainda não foi importada.',
+            'tags-faltando-no-asana':   'Este equipamento tem mais de uma unidade neste pedido, mas o Asana só tem uma TAG cadastrada. Confira a TAG antes de separar.',
+        };
+        const linhas = partes.map(function (p) { return texto[p.trim()]; }).filter(Boolean);
+        return linhas.join('<br>');
+    }
+
+    function sepMensagem(texto, erro) {
+        const alvo = document.getElementById('sepResults');
+        document.getElementById('sepResultsBlock').classList.remove('hidden');
+        if (erro) {
+            alvo.className = 'p-3 rounded-lg border-red-600 border-2 bg-[#1a1a1a]';
+            alvo.innerHTML = '<div class="text-center">'
+                + '<p class="text-base font-bold text-red-500 mb-2">❌ Não encontrado:</p>'
+                + '<p class="text-gray-400 break-words text-sm">' + sepEsc(texto) + '</p></div>';
+        } else {
+            alvo.className = 'p-3 rounded-lg border border-dashed border-[#444] bg-[#1a1a1a]';
+            alvo.innerHTML = '<p class="text-sm text-gray-500 italic text-center">' + sepEsc(texto) + '</p>';
+        }
+    }
+
+    function sepEsc(t) {
+        return String(t === null || t === undefined ? '' : t).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+        });
+    }
+
+    /* =================================================================
+       RESUMO DA OBRA
+       Os três números, e a lista embaixo — que também separa peça,
+       para o supervisor não ter que voltar na aba de busca a cada uma.
+    ================================================================= */
+    let sepResumoDados = null;
+    let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
+    let sepFantasma = '';
+    let sepFantasmaDesc = '';
+    let sepAvisoConjunto = '';
+    let sepEquipCod = '';
+    let sepEquipDesc = '';
+        /* explica por que caiu no resumo */
+
+    async function sepCarregarResumo() {
+        const alvo = document.getElementById('sepResumo');
+        alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+        try {
+            const url = SEPARADOR_URL + '?mode=resumo&pedido=' + encodeURIComponent(sepPedido || '')
+                + (sepFantasma && /^[A-Za-z]{1,3}\s*-\s*\d/.test(sepFantasma)
+                ? '&tag=' + encodeURIComponent(sepFantasma) : '');
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            sepResumoDados = await resposta.json();
+            if (sepResumoDados.error) throw new Error(sepResumoDados.error);
+            sepDesenharResumo();
+            sepCarregarLista();
+        } catch (e) {
+            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar o resumo. ' + sepEsc(e.message) + '</p>';
+        }
+    }
+
+    function sepDesenharResumo() {
+        const alvo = document.getElementById('sepResumo');
+        const d = sepResumoDados;
+        if (!d) return;
+
+        if (d.semNadaEmObra) {
+            alvo.innerHTML = '<div class="sep-obs">Este pedido ainda não tem carga embarcada. '
+                + 'Existem ' + d.foraDeObra + ' linhas com carga aberta ou sem carga, '
+                + 'que só entram na separação depois que o caminhão sair.</div>';
+            return;
+        }
+
+        if (d.tagSemPecas) {
+            alvo.innerHTML = '<div class="sep-obs">Não achei nenhuma peça para a TAG '
+                + sepEsc(sepFantasma) + ' neste pedido. '
+                + 'Ou a TAG não existe no Asana para o pedido, ou o equipamento dela '
+                + 'ainda não embarcou.</div>';
+            return;
+        }
+        
+
+        const g = d.geral;
+        const pcOk  = g.itens ? (g.separados      / g.itens * 100) : 0;
+        const pcBad = g.itens ? (g.naoEncontrados / g.itens * 100) : 0;
+
+        let h = '';
+
+        h += '<div class="sep-num">'
+           + '<div class="sep-num-cx ok"><b>' + g.separados + '</b><span>Separados</span></div>'
+           + '<div class="sep-num-cx bad"><b>' + g.naoEncontrados + '</b><span>Não encontrados</span></div>'
+           + '<div class="sep-num-cx pend"><b>' + g.pendentes + '</b><span>Pendentes</span></div>'
+           + '</div>';
+
+        h += '<div class="sep-barra">'
+           + '<i class="ok" style="width:' + pcOk + '%"></i>'
+           + '<i class="bad" style="width:' + pcBad + '%"></i>'
+           + '</div>';
+
+        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra. '
+           + d.compradas + ' itens comprados ficam de fora da separação.</p>';
+
+        /* filtrar por conjunto: o supervisor separa um conjunto de cada
+           vez, então ver só o que pertence a ele é o modo natural */
+        h += '<div class="sep-busca-fant">'
+           + '<input type="text" id="sepFantCampo" '
+           + 'placeholder="Código do conjunto ou TAG (ex: EL-10)" value="' + sepEsc(sepFantasma) + '" '
+           + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sepFiltrarFantasma();}">'
+           + '<button type="button" onclick="sepFiltrarFantasma()">Filtrar</button>'
+           + (sepFantasma ? '<button type="button" onclick="sepLimparFantasma()">Limpar</button>' : '')
+           + '</div>';
+
+        if (sepAvisoConjunto) {
+            h += '<div class="sep-obs" style="margin-bottom:12px">' + sepEsc(sepAvisoConjunto) + '</div>';
+        }
+        if (sepFantasma) {
+            const ehTag = /^[A-Za-z]{1,3}\s*-\s*\d/.test(sepFantasma);
+            let rot, dsc;
+            if (ehTag) {
+                rot = 'Equipamento ' + sepEsc(sepFantasma)
+                    + (sepEquipCod ? ' · Código ' + sepEsc(sepEquipCod) : '');
+                dsc = sepEquipDesc || '';
+            } else {
+                rot = 'Conjunto ' + sepEsc(sepFantasma);
+                dsc = sepFantasmaDesc || '';
+            }
+            h += '<div class="sep-conj-nome"><span>' + rot + '</span>' + sepEsc(dsc) + '</div>';
+        }
+
+        h += '<div class="sep-fichas">'
+           + sepFicha('pendente', 'Pendentes (' + g.pendentes + ')')
+           + sepFicha('naoencontrada', 'Não encontradas (' + g.naoEncontrados + ')')
+           + sepFicha('separado', 'Separadas (' + g.separados + ')')
+           + sepFicha('todas', 'Todas (' + g.itens + ')')
+           + '</div>';
+
+        h += '<div id="sepResumoLista"></div>';
+
+        alvo.innerHTML = h;
+    }
+
+    function sepFicha(chave, rotulo) {
+        return '<button type="button" class="sep-ficha' + (sepFiltro === chave ? ' ativa' : '') + '" '
+             + 'onclick="sepTrocarFiltro(\'' + chave + '\')">' + rotulo + '</button>';
+    }
+
+    function sepTrocarFiltro(chave) {
+        sepFiltro = chave;
+        sepDesenharResumo();
+        sepCarregarLista();
+    }
+
+        function sepFiltrarFantasma() {
+        const campo = document.getElementById('sepFantCampo');
+        sepFantasma = campo ? campo.value.trim() : '';
+        sepFantasmaDesc = '';
+        sepAvisoConjunto = '';
+        sepEquipCod = '';
+        sepEquipDesc = '';
+        sepCarregarResumo();
+    }
+
+    function sepLimparFantasma() {
+        sepFantasma = '';
+        sepFantasmaDesc = '';
+        sepAvisoConjunto = '';
+        sepEquipCod = '';
+        sepEquipDesc = '';
+        sepCarregarResumo();
+    }
+
+    async function sepCarregarLista() {
+        const alvo = document.getElementById('sepResumoLista');
+        if (!alvo) return;
+        alvo.innerHTML = '<div class="flex items-center justify-center p-3"><div class="spinner border-4 border-[#333] border-t-4 h-5 w-5 rounded-full"></div></div>';
+        try {
+            const url = SEPARADOR_URL + '?mode=lista'
+                      + '&pedido=' + encodeURIComponent(sepPedido || '')
+                      + '&situacao=' + sepFiltro
+                      + (sepFantasma ? '&fantasma=' + encodeURIComponent(sepFantasma) : '');
+            const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+            const d = await resposta.json();
+            if (d.error) throw new Error(d.error);
+            sepLista = d.itens || [];
+            /* A descrição do conjunto vem da resposta: só o servidor
+               sabe qual nível da corrente casou com o código.
+               Se não vier — Apps Script antigo, por exemplo — tenta
+               achar na própria lista, pelo pai imediato. */
+            const _av = d.aviso || '', _ec = d.equipCod || '', _ed = d.equipDesc || '';
+            if (_av !== sepAvisoConjunto || _ec !== sepEquipCod || _ed !== sepEquipDesc) {
+                sepAvisoConjunto = _av;
+                sepEquipCod = _ec;
+                sepEquipDesc = _ed;
+                sepDesenharResumo();
+            }
+            if (sepFantasma) {
+                let nome = d.descFantasma || '';
+                if (!nome) {
+                    const igual = sepLista.find(function (x) {
+                        return String(x.COD_FANTASMA) === String(sepFantasma);
+                    });
+                    if (igual) nome = igual.DESC_FANTASMA || '';
+                }
+                if (nome && nome !== sepFantasmaDesc) {
+                    sepFantasmaDesc = nome;
+                    sepDesenharResumo();   /* redesenha o cabeçalho com o nome */
+                }
+            }
+            sepDesenharLista();
+        } catch (e) {
+            alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar a lista. ' + sepEsc(e.message) + '</p>';
+        }
+    }
+
+    /**
+     * A lista do resumo. Cada linha traz o mesmo contador do cartão —
+     * o supervisor separa direto daqui, sem voltar para a busca.
+     *
+     * A linha NÃO some quando muda de situação: se sumisse na hora, um
+     * toque errado tiraria o item da tela antes de dar para corrigir.
+     * Ela sai na próxima vez que a lista for carregada.
+     */
+    function sepDesenharLista() {
+        const alvo = document.getElementById('sepResumoLista');
+        if (!alvo) return;
+
+        if (!sepLista.length) {
+            alvo.innerHTML = '<p class="text-sm text-gray-500 italic">Nada nesta situação.</p>';
+            return;
+        }
+
+        let h = '<div class="sep-lista-acoes">'
+              + '<button type="button" onclick="sepCarregarLista()">Atualizar</button>'
+              + '<button type="button" class="pdf" onclick="sepExportarPDF()">Baixar em PDF</button>'
+              + '</div>';
+        sepLista.forEach(function (it, n) {
+            h += '<div class="sep-item-lista">'
+               + sepCarimbo(it)
+               + '<b>' + sepEsc(it.COD_PECA) + '</b> · carga ' + sepEsc(it.CARREGAMENTO)
+               + '<span>' + sepEsc(it.DESC_PECA) + '</span>';
+            if (it.DESC_FANTASMA) {
+                h += '<span>Entra em ' + sepEsc(it.COD_FANTASMA) + ' — ' + sepEsc(it.DESC_FANTASMA) + '</span>';
+            }
+            h += sepContador(it, 'lista', n)
+               + '</div>';
+        });
+        alvo.innerHTML = h;
+    }
+
+    /* ---------------------------------------------------------------
+       PDF — folha timbrada do Grupo SR
+
+       O topo e o rodapé são as duas imagens do modelo de folha
+       timbrada, reduzidas para 1240 px de largura e com paleta de 32
+       cores. Ficaram em 31 KB somados, então vão embutidas aqui: uma
+       coisa a menos para dar errado no dia em que alguém publicar o
+       app sem os arquivos.
+
+       As duas ocupam a largura inteira da página, como no modelo do
+       Word, e são redesenhadas em toda página pelo didDrawPage.
+    --------------------------------------------------------------- */
+    const SEP_TIMBRE_TOPO = 'data:image/png;base64,'
+        + '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';
+
+    const SEP_TIMBRE_RODAPE = 'data:image/png;base64,'
+        + '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'
+        + '1qTlXZ/h86p8uzxZdgTgAAAABJRU5ErkJggg==';
+
+    /* Altura em mm quando a imagem ocupa os 210 mm da folha A4. */
+    const SEP_TIMBRE_TOPO_H = 210 * 162 / 1240;
+    const SEP_TIMBRE_ROD_H  = 210 * 149 / 1240;
+
+    const SEP_PDF_URLS = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+    ];
+    let sepPdfPronto = null;
+
+    function sepCarregarPDF() {
+        if (sepPdfPronto) return sepPdfPronto;
+        sepPdfPronto = SEP_PDF_URLS.reduce(function (fila, src) {
+            return fila.then(function () {
+                return new Promise(function (ok, erro) {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.onload = ok;
+                    s.onerror = function () { erro(new Error('Não consegui baixar o gerador de PDF.')); };
+                    document.head.appendChild(s);
+                });
+            });
+        }, Promise.resolve());
+        return sepPdfPronto;
+    }
+
+    async function sepExportarPDF() {
+        if (!sepLista.length) return;
+        try {
+            await sepCarregarPDF();
+        } catch (e) {
+            alert(e.message);
+            return;
+        }
+
+        const titulo = { pendente: 'Peças pendentes',
+                         naoencontrada: 'Peças não encontradas',
+                         separado: 'Peças separadas',
+                         todas: 'Todas as peças' }[sepFiltro] || 'Separação';
+
+        const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+        const larg = doc.internal.pageSize.getWidth();
+        const alt  = doc.internal.pageSize.getHeight();
+        const agora = new Date();
+        const quando = agora.toLocaleDateString('pt-BR') + ' ' +
+                       agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        /* ---- cabeçalho da primeira página ---- */
+        doc.addImage(SEP_TIMBRE_TOPO, 'PNG', 0, 0, larg, SEP_TIMBRE_TOPO_H);
+
+        let y = SEP_TIMBRE_TOPO_H + 10;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(21, 84, 60);
+        doc.text('SEPARAÇÃO DE OBRA', 15, y);
+
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(60);
+        doc.text(titulo + ' — Pedido ' + sepPedido
+                 + (sepFantasma ? ' — Conjunto ' + sepFantasma : ''), 15, y);
+        if (sepFantasma && sepFantasmaDesc) {
+            y += 5;
+            doc.setFontSize(9.5);
+            doc.text(sepFantasmaDesc, 15, y);
+            doc.setFontSize(10);
+        }
+
+        y += 5;
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text('Emitido em ' + quando, 15, y);
+
+        /* Os números da obra no cabeçalho, para a folha valer sozinha
+           mesmo depois de impressa e passada adiante. */
+        if (sepResumoDados && sepResumoDados.geral) {
+            const g = sepResumoDados.geral;
+            y += 5;
+            doc.text(g.itens + ' itens em obra  ·  ' + g.separados + ' separados  ·  '
+                     + g.naoEncontrados + ' não encontrados  ·  ' + g.pendentes + ' pendentes', 15, y);
+        }
+
+        /* ---- tabela ---- */
+        doc.autoTable({
+            head: [['Carga', 'Código', 'Descrição', 'Qtde', 'Sep.', 'Falta']],
+            body: sepLista.map(function (it) {
+                return [it.CARREGAMENTO, it.COD_PECA, it.DESC_PECA,
+                        it.QTDE, it.SEPARADAS, it.NAO_ENCONTRADAS];
+            }),
+            startY: y + 6,
+            margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 12, left: 15, right: 15 },
+            styles: { fontSize: 8, cellPadding: 2, textColor: 40, lineColor: 220, lineWidth: 0.1 },
+            headStyles: { fillColor: [21, 84, 60], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [246, 248, 245] },
+            columnStyles: {
+                0: { cellWidth: 18 },
+                1: { cellWidth: 18 },
+                2: { cellWidth: 'auto' },
+                3: { cellWidth: 14, halign: 'right' },
+                4: { cellWidth: 14, halign: 'right' },
+                5: { cellWidth: 14, halign: 'right' }
+            },
+            /* Toda página leva o timbre. A primeira já recebeu o topo
+               acima, então aqui ele só é redesenhado a partir da
+               segunda — senão sai duas vezes no mesmo lugar. */
+            didDrawPage: function (dados) {
+                const pagina = doc.internal.getNumberOfPages();
+                if (pagina > 1) {
+                    doc.addImage(SEP_TIMBRE_TOPO, 'PNG', 0, 0, larg, SEP_TIMBRE_TOPO_H);
+                }
+                doc.addImage(SEP_TIMBRE_RODAPE, 'PNG', 0, alt - SEP_TIMBRE_ROD_H,
+                             larg, SEP_TIMBRE_ROD_H);
+                doc.setFontSize(8);
+                doc.setTextColor(140);
+                doc.text('Página ' + pagina, larg - 15, alt - SEP_TIMBRE_ROD_H - 3, { align: 'right' });
+                doc.text('Pedido ' + sepPedido + ' · ' + titulo, 15, alt - SEP_TIMBRE_ROD_H - 3);
+            }
+        });
+
+        const nome = 'separacao-' + sepPedido
+                   + (sepFantasma ? '-' + sepFantasma : '')
+                   + '-' + sepFiltro + '.pdf';
+        doc.save(nome);
+    }
+
+    /* ---------------------------------------------------------------
+       Leitor de código de barras
+       A biblioteca só é baixada quando a câmera abre pela primeira
+       vez — não pesa no carregamento do app.
+    --------------------------------------------------------------- */
+    const SEP_ZXING_URL = 'https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js';
+    let sepZxing = null;
+    let sepControles = null;
+
+    function sepCarregarZXing() {
+        if (sepZxing) return sepZxing;
+        sepZxing = new Promise(function (ok, erro) {
+            if (window.ZXingBrowser) return ok();
+            const s = document.createElement('script');
+            s.src = SEP_ZXING_URL;
+            s.onload = function () {
+                window.ZXingBrowser ? ok() : erro(new Error('A biblioteca carregou mas não inicializou.'));
+            };
+            s.onerror = function () {
+                erro(new Error('Não foi possível baixar o leitor. Verifique a internet.'));
+            };
+            document.head.appendChild(s);
+        });
+        return sepZxing;
+    }
+
+    /* Os hints precisam ir no CONSTRUTOR: é ele que chama setHints por
+       dentro. Passar depois não tem efeito. O TRY_HARDER (chave 3) é o
+       que faz ler a etiqueta deitada. */
+    function sepHints() {
+        const H = new Map();
+        const F = ZXingBrowser.BarcodeFormat || {};
+        H.set(2, [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8,
+                  F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.QR_CODE]
+                 .filter(function (v) { return v !== undefined; }));
+        H.set(3, true);
+        return H;
+    }
+
+    async function abrirLeitor() {
+        const modal = document.getElementById('modal-leitor');
+        const dica = document.getElementById('sepLeitorDica');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        dica.textContent = 'Preparando a câmera...';
+
+        try {
+            await sepCarregarZXing();
+        } catch (e) {
+            dica.textContent = e.message + ' Use o botão "Ler por foto".';
+            return;
+        }
+
+        try {
+            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints(), {
+                delayBetweenScanAttempts: 120
+            });
+            dica.textContent = 'Aponte para o código. Funciona também com a etiqueta deitada.';
+            sepControles = await leitor.decodeFromConstraints(
+                { video: { facingMode: { ideal: 'environment' } } },
+                document.getElementById('sepLeitorVideo'),
+                function (resultado) { if (resultado) sepAceitar(resultado.getText()); }
+            );
+        } catch (e) {
+            const negada = e && (e.name === 'NotAllowedError' ||
+                                 /permission|denied/i.test(e.message || ''));
+            dica.textContent = negada
+                ? 'Permissão de câmera negada. Libere nas configurações do navegador.'
+                : 'Não foi possível abrir a câmera. Use o botão "Ler por foto".';
+        }
+    }
+
+    function sepAceitar(texto) {
+        const limpo = String(texto || '').trim().replace(/^0+(?=\d)/, '');
+        if (!limpo) return;
+        if (navigator.vibrate) navigator.vibrate(60);
+        document.getElementById('sepCodigo').value = limpo;
+        fecharLeitor();
+        buscarSeparador();
+    }
+
+    function fecharLeitor() {
+        /* stop() e não reset(): reset() não existe na 0.2.x e o erro
+           era engolido, deixando a câmera ligada. */
+        try { if (sepControles) sepControles.stop(); } catch (e) {}
+        try { if (window.ZXingBrowser) ZXingBrowser.BrowserCodeReader.releaseAllStreams(); } catch (e) {}
+        sepControles = null;
+        const modal = document.getElementById('modal-leitor');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+    }
+
+    async function sepLerPorFoto(input) {
+        const arquivo = input.files && input.files[0];
+        input.value = '';
+        if (!arquivo) return;
+        const dica = document.getElementById('sepLeitorDica');
+        dica.textContent = 'Lendo a foto...';
+        try {
+            await sepCarregarZXing();
+            const leitor = new ZXingBrowser.BrowserMultiFormatReader(sepHints());
+            const url = URL.createObjectURL(arquivo);
+            const resultado = await leitor.decodeFromImageUrl(url);
+            URL.revokeObjectURL(url);
+            sepAceitar(resultado.getText());
+        } catch (e) {
+            dica.textContent = 'Não consegui ler o código nesta foto. Tente mais perto, com a etiqueta reta e boa luz.';
+        }
+    }
+
+    /* ---------------------------------------------------------------
+       Ligação com o app, sem alterar o código dele
+    --------------------------------------------------------------- */
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof switchPage === 'function' && !switchPage.sepLigado) {
+            const original = switchPage;
+            switchPage = function (pagina) {
+                original(pagina);
+                if (pagina === 'separador') sepAtualizarPedidos();
+            };
+            switchPage.sepLigado = true;
+        }
+    });
+    </script>        
+</div>
+        
+<div id="page-documentos" class="hidden">
+
+    <!-- 1. Pedido -->
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+        <label for="docsClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+            Pedido (com nome do Cliente)
+        </label>
+        <div class="sel">
+            <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                <span class="sel-rotulo">Carregando Pedidos...</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+            <div class="sel-lista hidden"></div>
+            <select id="docsClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                    onchange="onDocsPedidoChange(this.value)">
+                <option value="">Carregando Pedidos...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 2. As pastas do pedido, e o que tem dentro delas -->
+    <div id="docsBloco" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+        <div class="doc-cabecalho">
+            <button type="button" class="doc-voltar hidden" id="docsVoltar" onclick="docsVoltarPastas()" aria-label="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+            <h2 id="docsTitulo" class="text-base font-semibold text-gray-200">Documentos do Pedido</h2>
+        </div>
+        <div id="docsLista"></div>
+    </div>
+</div>
+        <div id="page-cronograma" class="hidden">
+            <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+                <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+                <label for="cronogramaClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+                    Pedido (com nome do Cliente)
+                </label>
+                <div class="sel">
+                    <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                        <span class="sel-rotulo">Carregando Pedidos...</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="sel-lista hidden"></div>
+                    <select id="cronogramaClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                            onchange="onCronogramaPedidoChange(this.value)">
+                        <option value="">Carregando Pedidos...</option>
+                    </select>
+                </div>
+            </div>
+            <div id="cronogramaResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] hidden">
+                <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Cronograma do Pedido</h2>
+                <div id="cronogramaResults"></div>
+            </div>
+        </div>
+    </div>
+    <!-- Tela de entrada. Nasce visível: enquanto o app não sabe quem
+         está entrando, ninguém vê a página inicial por baixo. -->
+    <div id="tela-entrada" class="ent-fundo">
+        <form class="ent-caixa" onsubmit="entrar(event)">
+            <img src="icon-512.png" alt="ObraFlow — Grupo SR" class="ent-logo">
+
+            <div class="ent-campo">
+                <label for="entUsuario">Usuário</label>
+                <input type="text" id="entUsuario" autocomplete="username"
+                       autocapitalize="none" autocorrect="off" spellcheck="false"
+                       inputmode="text" required>
+            </div>
+            <div class="ent-campo ent-senha">
+                <label for="entSenha">Senha</label>
+                <input type="password" id="entSenha" autocomplete="current-password" required>
+                <button type="button" class="ent-olho" id="entOlho"
+                        onclick="verSenha()" aria-label="Mostrar senha"></button>
+            </div>
+
+            <label class="ent-lembrar">
+                <input type="checkbox" id="entLembrar" checked>
+                <span>Manter conectado neste aparelho</span>
+            </label>
+
+            <button type="submit" class="ent-botao" id="entBotao">Entrar</button>
+            <div id="entErro" class="ent-erro hidden"></div>
+        </form>
+    </div>
+
+    <!-- Visualizador de desenho: ocupa a tela inteira, só com o nome
+         do arquivo e o X de fechar. -->
+    <div id="modal-desenho" class="dsn-fundo hidden">
+        <div class="dsn-topo">
+            <span class="dsn-nome" id="dsnNome">Desenho</span>
+            <button type="button" class="dsn-fechar" onclick="dsnFechar()" aria-label="Fechar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="dsn-area" id="dsnArea"></div>
+    </div>
+
+    <!-- Modal: Formulário de Inconformidades -->
+    <div id="modal-inconformidades" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Inconformidades
+                </h2>
+                <button type="button" onclick="closeForm('inconformidades')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <form id="formInconformidades" class="p-4" onsubmit="submitInconformidade(event)">
+                <div class="mb-3 hidden">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="inc_registro" class="block text-sm font-medium text-gray-400">Número de Protocolo <span class="text-red-500">*</span></label>
+                        <button type="button" id="inc_gerarRegistroButton" onclick="gerarNumeroRegistro()"
+                                class="bg-[#4ade80] text-[#4b5563] text-[11px] font-bold px-3 py-1 rounded-md border border-[#2f6f40] shadow-[inset_0_-2px_0_rgba(0,0,0,0.3)] transition duration-150 ease-in-out hover:brightness-95 whitespace-nowrap">
+                            GERAR REGISTRO
+                        </button>
+                    </div>
+                    <input type="text" id="inc_registro" readonly required placeholder="Clique em GERAR REGISTRO"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_pedido" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_cliente" required placeholder="Digite um nome"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_item" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_mascara" class="block text-sm font-medium text-gray-400 mb-0.5">Máscara <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_mascara" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="inc_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
+                        <input type="number" id="inc_quantidade" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="inc_carregamento" class="block text-sm font-medium text-gray-400 mb-0.5">Carregamento <span class="text-red-500">*</span></label>
+                        <input type="text" id="inc_carregamento" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="mb-2.5">
+                    <label for="inc_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a inconformidade encontrada? <span class="text-red-500">*</span></label>
+                    <input type="text" id="inc_descricao" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+                <div class="mb-2.5">
+                    <label for="inc_acao" class="block text-sm font-medium text-gray-400 mb-0.5">Qual foi a ação tomada para correção? <span class="text-red-500">*</span></label>
+                    <input type="text" id="inc_acao" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+                <div class="mb-2.5">
+                    <label for="inc_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                    <select id="inc_supervisor" required
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-400 mb-0.5">Anexos <span class="text-red-500">*</span></label>
+                    <div id="inc_dropzone"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         onclick="document.getElementById('inc_anexos').click()">
+                        <button type="button"
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-1.5 rounded-lg mb-1.5 transition duration-150">
+                            Selecione os arquivos
+                        </button>
+                        <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
+                        <p id="inc_fileNames" class="text-xs text-gray-400 mt-2 break-words"></p>
+                    </div>
+                    <input type="file" id="inc_anexos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                </div>
+                <p id="inc_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
+                <button type="submit" id="inc_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    Enviar
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- Modal: Formulário de Retorno de Obra -->
+    <div id="modal-retorno" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="retornoObraRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 1 3 6.7"/>
+                        <path d="M3 12V7"/>
+                        <path d="M3 12h5"/>
+                    </svg>
+                    Retorno de Obra
+                </h2>
+                <button type="button" onclick="closeForm('retorno')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <form id="formRetorno" class="p-4" onsubmit="submitRetorno(event)">
+                <div class="mb-2.5">
+                    <label for="ret_tipoItem" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Item de Retorno <span class="text-red-500">*</span></label>
+                    <select id="ret_tipoItem" required>
+                        <option value="">Escolha...</option>
+                        <option value="Comprados">Comprados</option>
+                        <option value="Fabricados">Fabricados</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="ret_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_pedido" required placeholder="Digite um número">
+                    </div>
+                    <div>
+                        <label for="ret_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_cliente" required placeholder="Digite um nome">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="ret_localidade" class="block text-sm font-medium text-gray-400 mb-0.5">Localidade <span class="text-red-500">*</span></label>
+                        <input type="text" id="ret_localidade" required placeholder="Cidade / UF">
+                    </div>
+                    <div>
+                        <label for="ret_responsavel" class="block text-sm font-medium text-gray-400 mb-0.5">Responsável pelo Envio <span class="text-red-500">*</span></label>
+                        <select id="ret_responsavel" required>
+                            <option value="">Escolha...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-2.5">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Itens de Retorno <span class="text-red-500">*</span></label>
+                    <div class="ret-items-scroll">
+                        <table class="ret-items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:16%">Código</th>
+                                    <th style="width:16%">Máscara</th>
+                                    <th style="width:14%">Quantidade</th>
+                                    <th style="width:14%">Unidade</th>
+                                    <th>Descrição</th>
+                                    <th class="ret-col-remove"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ret_itemsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="ret-add-row-wrap">
+                        <button type="button" class="ret-add-row" onclick="retAddRow()">+ Adicionar item</button>
+                    </div>
+                </div>
+                <div class="mb-2.5" style="margin-top:16px;">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Assinatura do Responsável</label>
+                    <div class="ret-sig-wrap">
+                        <canvas id="sigRetorno" class="ret-sig-pad"></canvas>
+                        <span class="ret-sig-placeholder" id="sigRetornoPlaceholder">Assine aqui com o dedo ou o mouse</span>
+                    </div>
+                    <div class="ret-sig-actions">
+                        <span class="ret-sig-status" id="sigRetornoStatus">Sem assinatura — pode enviar normalmente e assinar depois</span>
+                        <button type="button" class="ret-sig-clear" onclick="chkClearSignature('sigRetorno')">Limpar assinatura</button>
+                    </div>
+                </div>
+                <p id="ret_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight" style="margin-top:10px;"></p>
+                <button type="submit" id="ret_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
+                    Enviar Lista de Retorno de Obra
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- Modal: Formulário de Melhorias -->
+    <div id="modal-melhorias" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <g transform="translate(12,12) scale(1.35) translate(-12,-12)" stroke-width="1.48">
+                            <path d="M9 18h6"/>
+                            <path d="M10 22h4"/>
+                            <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.68.68 1.25 1.44 1.41 2.5"/>
+                        </g>
+                    </svg>
+                    Melhorias
+                </h2>
+                <button type="button" onclick="closeForm('melhorias')" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <form id="formMelhorias" class="p-4" onsubmit="submitMelhoria(event)">
+                <div class="mb-3 hidden">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label for="mel_registro" class="block text-sm font-medium text-gray-400">N° Registro de Melhoria <span class="text-red-500">*</span></label>
+                        <button type="button" id="mel_gerarRegistroButton" onclick="gerarNumeroRegistroMelhoria()"
+                                class="bg-[#4ade80] text-[#4b5563] text-[11px] font-bold px-3 py-1 rounded-md border border-[#2f6f40] shadow-[inset_0_-2px_0_rgba(0,0,0,0.3)] transition duration-150 ease-in-out hover:brightness-95 whitespace-nowrap">
+                            GERAR REGISTRO
+                        </button>
+                    </div>
+                    <input type="text" id="mel_registro" readonly required placeholder="Clique em GERAR REGISTRO"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white h-9">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_pedido" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_cliente" required placeholder="Digite um nome"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="mb-2.5">
+                    <label for="mel_tipoEquipamento" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Equipamento <span class="text-red-500">*</span></label>
+                    <select id="mel_tipoEquipamento" required
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                        <option value="Padrão">Padrão</option>
+                        <option value="Customizado">Customizado</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Define para qual projeto do Asana a tarefa será enviada.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="mel_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_item" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_mascara" class="block text-sm font-medium text-gray-400 mb-0.5">Máscara <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_mascara" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <div>
+                        <label for="mel_quantidade" class="block text-sm font-medium text-gray-400 mb-0.5">Quantidade <span class="text-red-500">*</span></label>
+                        <input type="number" id="mel_quantidade" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                    <div>
+                        <label for="mel_carregamento" class="block text-sm font-medium text-gray-400 mb-0.5">Carregamento <span class="text-red-500">*</span></label>
+                        <input type="text" id="mel_carregamento" required placeholder="Digite um número"
+                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                    </div>
+                </div>
+                <div class="mb-2.5">
+                    <label for="mel_descricao" class="block text-sm font-medium text-gray-400 mb-0.5">Inconformidade encontrada <span class="text-red-500">*</span></label>
+                    <input type="text" id="mel_descricao" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+                <div class="mb-2.5">
+                    <label for="mel_recorrencia" class="block text-sm font-medium text-gray-400 mb-0.5">A inconformidade é pontual, ou recorrente? <span class="text-red-500">*</span></label>
+                    <select id="mel_recorrencia" required
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                        <option value="Pontual">Pontual</option>
+                        <option value="Recorrente">Recorrente</option>
+                    </select>
+                </div>
+                <div class="mb-2.5">
+                    <label for="mel_melhoria" class="block text-sm font-medium text-gray-400 mb-0.5">Melhoria proposta/realizada <span class="text-red-500">*</span></label>
+                    <input type="text" id="mel_melhoria" required placeholder="Digite a sua resposta"
+                           class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                </div>
+                <div class="mb-2.5">
+                    <label for="mel_supervisor" class="block text-sm font-medium text-gray-400 mb-0.5">Supervisor de Montagem <span class="text-red-500">*</span></label>
+                    <select id="mel_supervisor" required
+                            class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white appearance-none pr-10">
+                        <option value="">Escolha...</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-sm font-medium text-gray-400 mb-0.5">Fotos em Anexo <span class="text-red-500">*</span></label>
+                    <div id="mel_dropzone"
+                         class="border border-dashed border-[#444] rounded-lg bg-[#1f1f1f] p-3 flex flex-col items-center justify-center text-center cursor-pointer transition duration-150"
+                         onclick="document.getElementById('mel_anexos').click()">
+                        <button type="button"
+                                class="bg-[#3d3d3d] hover:bg-[#454545] border border-[#555] text-gray-200 text-sm font-medium px-4 py-1.5 rounded-lg mb-1.5 transition duration-150">
+                            Selecione os arquivos
+                        </button>
+                        <p class="text-xs text-gray-500">ou arraste-os e solte aqui</p>
+                        <p id="mel_fileNames" class="text-xs text-gray-400 mt-2 break-words"></p>
+                    </div>
+                    <input type="file" id="mel_anexos" multiple accept="image/*" class="hidden">
+                </div>
+                <p id="mel_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight"></p>
+                <button type="submit" id="mel_submitButton"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    Enviar
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- Modal: Seleção do Tipo de Equipamento (Checklist de Entrega) -->
+    <div id="modal-checklist-tipo" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d]">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M8 12.5l2.5 2.5L17 8"/>
+                    </svg>
+                    Checklist de Entrega
+                </h2>
+                <button type="button" onclick="closeChecklistTipo()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-400 mb-3">Selecione o tipo de equipamento para abrir o checklist correspondente:</p>
+                <div class="flex flex-col gap-3">
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('elevador-canecas')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="2" width="4" height="20" rx="1"/>
+                            <rect x="16" y="2" width="4" height="20" rx="1"/>
+                            <path d="M8 6h8"/>
+                            <path d="M8 18h8"/>
+                        </svg>
+                        Elevador de Canecas
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('rosca-transportadora')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <path d="M4.5 9h15"/>
+                            <path d="M4.5 15h15"/>
+                        </svg>
+                        <span class="flex-1">Roscas Transportadoras</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Checklist de Entrega — Elevador de Canecas -->
+    <div id="modal-checklist-elevador" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" id="checklistElevadorRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 id="checklistTitle" class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M8 12.5l2.5 2.5L17 8"/>
+                    </svg>
+                    Checklist de Entrega — Elevador de Canecas
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="voltarTipoChecklist()" class="text-xs text-gray-400 hover:text-white transition duration-150">
+                        Trocar equipamento
+                    </button>
+                    <button type="button" onclick="closeChecklistElevador()" class="text-gray-400 hover:text-white transition duration-150">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <!-- Progress -->
+                <div class="progress-wrap">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <div class="progress-label">
+                        <span id="progressText">0 de 28 itens preenchidos</span>
+                        <span>
+                            <span class="badge badge-ok" id="cntOK">OK: 0</span>&ensp;
+                            <span class="badge badge-nc" id="cntNC">NC: 0</span>&ensp;
+                            <span class="badge badge-na" id="cntNA">NA: 0</span>
+                        </span>
+                    </div>
+                </div>
+                <form id="checklistForm" onsubmit="return false;">
+                    <!-- 1. Identificação -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">1</div>
+                            <p class="card-title">Identificação</p>
+                        </div>
+                        <div class="fields fields-4">
+                            <div class="field"><span class="field-label">TAG</span><input type="text" id="tag" class="chk-mono-input" placeholder="Digite o número, ex: 1"></div>
+                            <div class="field"><span class="field-label">Código</span><input type="text" id="codigo" class="chk-mono-input" placeholder="SR-2024-XXX"></div>
+                            <div class="field"><span class="field-label">Máscara</span><input type="text" id="mascara" class="chk-mono-input"></div>
+                            <div class="field">
+                                <span class="field-label">Modelo</span>
+                                <select id="modelo" class="chk-plain-sel">
+                                    <option value="">Selecione…</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="fields fields-3" style="margin-top:12px;">
+                            <div class="field"><span class="field-label">Pedido</span><input type="text" id="pedido"></div>
+                            <div class="field"><span class="field-label">Cliente</span><input type="text" id="cliente"></div>
+                            <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="local"></div>
+                        </div>
+                    </div>
+                    <!-- 2. Montagem -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">2</div>
+                            <p class="card-title">Conferência do processo de montagem</p>
+                        </div>
+                        <p class="hint">Marque cada item com OK, NC (não conforme) ou NA (não aplicável)</p>
+                        <div class="checklist-cols">
+                            <div id="colLeft"></div>
+                            <div id="colRight"></div>
+                        </div>
+                        <div class="sign-row">
+                            <div class="sign-fields">
+                                <div class="field"><span class="field-label">Teste a vazio — data</span><input type="date" id="vazioData"></div>
+                                <div class="field"><span class="field-label">Nome do supervisor</span>
+                                    <select id="supervisorNome" class="chk-plain-sel">
+                                        <option value="">Escolha...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field" style="margin-top:12px;">
+                                <span class="field-label">Assinatura do supervisor (opcional)</span>
+                                <div class="sig-pad-wrap">
+                                    <canvas id="sigSupervisor" class="sig-pad"></canvas>
+                                    <span class="sig-pad-placeholder" id="sigSupervisorPlaceholder">Assine aqui com o dedo ou o mouse</span>
+                                </div>
+                                <div class="sig-pad-actions">
+                                    <span class="sig-status" id="sigSupervisorStatus">Sem assinatura — pode gerar o PDF normalmente e assinar depois</span>
+                                    <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigSupervisor')">Limpar assinatura</button>
+                                </div>
+                            </div>
+                            <p class="sign-note">O supervisor de obra atesta que as informações estão corretas e o equipamento foi testado. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
+                        </div>
+                    </div>
+                    <!-- 3. Desempenho -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">3</div>
+                            <p class="card-title">Conferência do desempenho do equipamento</p>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">A capacidade do equipamento está de acordo com o projeto?</span>
+                            <div class="radio-group">
+                                <label class="radio-pill"><input type="radio" name="capacidade" value="Sim"> Sim</label>
+                                <label class="radio-pill"><input type="radio" name="capacidade" value="Não"> Não</label>
+                            </div>
+                        </div>
+                        <div class="sign-fields" style="margin-top:14px;">
+                            <div class="field"><span class="field-label">Teste com produto — data</span><input type="date" id="produtoData"></div>
+                            <div class="field"><span class="field-label">Nome do cliente</span><input type="text" id="clienteNome"></div>
+                        </div>
+                        <div class="field" style="margin-top:12px;">
+                            <span class="field-label">Assinatura do cliente (opcional)</span>
+                            <div class="sig-pad-wrap">
+                                <canvas id="sigCliente" class="sig-pad"></canvas>
+                                <span class="sig-pad-placeholder" id="sigClientePlaceholder">Assine aqui com o dedo ou o mouse</span>
+                            </div>
+                            <div class="sig-pad-actions">
+                                <span class="sig-status" id="sigClienteStatus">Sem assinatura — pode gerar o PDF normalmente e assinar depois</span>
+                                <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigCliente')">Limpar assinatura</button>
+                            </div>
+                        </div>
+                        <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
+                    </div>
+                    <!-- 4. Observações -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">4</div>
+                            <p class="card-title">Observações / Parecer técnico</p>
+                        </div>
+                        <textarea id="observacoes" placeholder="Escreva observações ou deixe em branco para preencher à mão após a impressão"></textarea>
+                    </div>
+                    <!-- 5. Encerramento -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-num">5</div>
+                            <p class="card-title">Encerramento</p>
+                        </div>
+                        <div class="fields fields-2">
+                            <div class="field"><span class="field-label">Local</span><input type="text" id="footerLocal"></div>
+                            <div class="field"><span class="field-label">Data</span><input type="date" id="footerData"></div>
+                        </div>
+                        <div class="fields fields-2" style="margin-top:12px;">
+                            <div class="field"><span class="field-label">Grupo SR</span><input type="text" id="srEngenharia"></div>
+                            <div class="field"><span class="field-label">Gestor de Montagem</span><input type="text" id="gestorMontagem"></div>
+                        </div>
+                        <div class="footnotes">
+                            <p>1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.</p>
+                            <p>2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.</p>
+                            <p>3 — A infiltração de água no equipamento somente será corrigida no período de garantia.</p>
+                            <p>* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.</p>
+                        </div>
+                    </div>
+                </form>
+                <div class="action-bar">
+                    <button id="btnPdf" type="button">⬇ Gerar PDF</button>
+                    <button id="btnReset" type="button">Limpar</button>
+                </div>
+                <div class="status-msg" id="statusMsg"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais (inalteradas)
+        let allPedidos = [];
+        let selectedPedido = null;
+        // Elementos DOM (inalterados)
+        const codeInput = document.getElementById('itemCode');
+        const itemSearchBlock = document.getElementById('itemSearchBlock');
+        const resultsDiv = document.getElementById('results');
+        const searchButton = document.getElementById('searchButton');
+        const clientSelect = document.getElementById('clientSelect');
+        const cronogramaClientSelect = document.getElementById('cronogramaClientSelect');
+        const cronogramaResultsBlock = document.getElementById('cronogramaResultsBlock');
+        const cronogramaResults = document.getElementById('cronogramaResults');
+        const resultsBlock = document.getElementById('resultsBlock');
+        const cacheStatus = document.getElementById('cacheStatus');
+      const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNyEYQEljYEbrSi6K_IXOM57Rgyr2Or1BDYVc4Pb3nAvrH61-OuFVcvEp1WUXV-NVvtA/exec"; // Localizador de Itens
+      const INCONFORMIDADES_URL = "https://script.google.com/macros/s/AKfycbzCLjwqsrGT_E1f7tSgV6OFDCWJwfXGQSPCqiIFZL5ZgK-V78pVjCPIVvwBX4dlka35/exec"; // Inconformidades
+      const MELHORIAS_URL = "https://script.google.com/macros/s/AKfycbwaxjUek9kNu_EwX4LIfNdKoD6-xTP_ZAHtc199O3_2rmedKzWhoYb_giBH_ieZZYcB/exec"; // Melhorias
+        const DISPLAY_ORDER = [
+            "CARREGAMENTO",
+            "CODIGO VOL",
+            "COD ITEM",
+            "DESC TECNICA",
+            "QTDE"
+        ];
+        // --- Configuração de cache e performance ---
+        const CACHE_KEY = "localizador_pedidos_cache_v1";
+        const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutos
+        const FETCH_TIMEOUT_MS = 15000; // 15 segundos (lista de pedidos)
+        const SEARCH_TIMEOUT_MS = 90000; // 30 segundos (busca de item, pode ter cold start / varredura mais longa no Apps Script)
+        // fetch com timeout, evita que o app fique "pendurado" se o Apps Script demorar
+        async function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                return response;
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    throw new Error(`O servidor demorou mais de ${Math.round(timeoutMs / 1000)}s para responder. Tente novamente em alguns segundos.`);
+                }
+                throw err;
+            } finally {
+                clearTimeout(id);
+            }
+        }
+        function getCachedPedidos() {
+            try {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !Array.isArray(parsed.data) || parsed.data.length === 0) return null;
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+        function setCachedPedidos(data) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+            } catch (e) {
+                // Armazenamento indisponível ou cheio: apenas ignora, app segue funcionando sem cache
+                console.warn("Não foi possível salvar cache local:", e);
+            }
+        }
+        function showCacheStatus(text) {
+            cacheStatus.textContent = text;
+            if (text) {
+                setTimeout(() => { cacheStatus.textContent = ""; }, 4000);
+            }
+        }
+        // --- Funções de Lógica ---
+        // Carrega pedidos: mostra cache local instantaneamente (se existir e válido)
+        // e sempre revalida em segundo plano, atualizando a lista silenciosamente.
+        async function fetchAllPedidos() {
+            const cached = getCachedPedidos();
+            if (cached) {
+                allPedidos = cached.data;
+                populateClientSelect(cached.data);
+                itemSearchBlock.classList.add('hidden');
+                const ageMs = Date.now() - cached.timestamp;
+                if (ageMs < CACHE_TTL_MS) {
+                    showCacheStatus("Carregado do cache local");
+                } else {
+                    showCacheStatus("Atualizando lista de pedidos...");
+                }
+                // Revalida em segundo plano independentemente da idade do cache
+                refreshPedidosInBackground();
+                return;
+            }
+            // Sem cache: carregamento normal, com o spinner já visível na tela
+            await loadPedidosFromServer(false);
+        }
+        async function loadPedidosFromServer(isBackground) {
+            try {
+                const fullUrl = `${APPS_SCRIPT_URL}?mode=pedidos`;
+                const response = await fetchWithTimeout(fullUrl);
+                if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    allPedidos = data;
+                    setCachedPedidos(data);
+                    if (isBackground) {
+                        // Preserva a seleção atual do usuário ao atualizar a lista
+                        const currentSelection = clientSelect.value;
+                        populateClientSelect(data);
+                        if (currentSelection) clientSelect.value = currentSelection;
+                        showCacheStatus("Lista de pedidos atualizada");
+                    } else {
+                        populateClientSelect(data);
+                    }
+                } else if (data.error) {
+                    if (!isBackground) displayError(data.error, true);
+                } else {
+                    if (!isBackground) displayError("Nenhum pedido encontrado. Verifique se a planilha tem dados.", true);
+                }
+            } catch (error) {
+                console.error("Erro na requisição de pedidos:", error);
+                if (!isBackground) {
+                    displayError(`Erro ao carregar a lista de pedidos. Detalhes: ${error.message}.`, true);
+                } else {
+                    showCacheStatus("Falha ao atualizar (usando dados salvos)");
+                }
+            }
+        }
+        function refreshPedidosInBackground() {
+            // Não bloqueia a interface; falhas aqui são silenciosas para o usuário,
+            // já que ele já está vendo os dados do cache.
+            loadPedidosFromServer(true);
+        }
+
+        function populateSelectWithPedidos(selectEl, pedidos) {
+            if (!selectEl) return;
+            const previousValue = selectEl.value;
+            selectEl.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "--- Selecione um Pedido ---";
+            selectEl.appendChild(defaultOption);
+            [...pedidos].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.PEDIDO;
+                option.textContent = `${item.PEDIDO} (${item.CLIENTE})`;
+                selectEl.appendChild(option);
+            });
+            if (previousValue) selectEl.value = previousValue;
+            selSincronizar(selectEl); // redesenha a lista visível
+        }
+        function populateClientSelect(pedidos) {
+            populateSelectWithPedidos(clientSelect, pedidos);
+            populateSelectWithPedidos(cronogramaClientSelect, pedidos);
+        }
+        /* ============================================================
+           Lista de Pedidos própria
+           O <select> continua sendo a fonte da verdade: guarda o valor e
+           dispara o onchange de sempre. Estas funções só desenham a lista
+           visível e devolvem a escolha para ele — nada da lógica do app
+           precisou mudar por causa disso.
+        ============================================================ */
+        const SEL_SETA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+        function selCaixa(el) { return el.closest('.sel'); }
+        /**
+         * Transforma um <select> comum na lista própria: cria o botão e o
+         * painel, e esconde o original. O <select> continua guardando o
+         * valor, então validação, form.reset() e o onchange seguem iguais.
+         */
+        function selPreparar(select) {
+            if (!select || select.dataset.selPronto === '1') return;
+            if (selCaixa(select)) { select.dataset.selPronto = '1'; return; } // já veio pronto do HTML
+
+            const caixa = document.createElement('div');
+            caixa.className = 'sel' + (select.classList.contains('status-sel') ? ' sel-mini' : '');
+            select.parentNode.insertBefore(caixa, select);
+
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'sel-botao';
+            botao.innerHTML = '<span class="sel-rotulo"></span>' + SEL_SETA;
+            botao.addEventListener('click', () => selAlternar(botao));
+
+            const lista = document.createElement('div');
+            lista.className = 'sel-lista hidden';
+
+            caixa.appendChild(botao);
+            caixa.appendChild(lista);
+            caixa.appendChild(select);
+
+            select.classList.add('sel-nativo');
+            select.setAttribute('tabindex', '-1');
+            select.dataset.selPronto = '1';
+            selSincronizar(select);
+        }
+        /** Prepara todos os <select> que ainda não foram trocados. */
+        function selPrepararTodos(raiz) {
+            (raiz || document).querySelectorAll('select').forEach(selPreparar);
+        }
+        /** Redesenha todas as listas de um trecho da tela (depois de reset). */
+        function selSincronizarTodos(raiz) {
+            (raiz || document).querySelectorAll('select').forEach(selSincronizar);
+        }
+        /** Redesenha o botão e a lista a partir das opções do <select>. */
+        function selSincronizar(select) {
+            const caixa = selCaixa(select);
+            if (!caixa) return;
+            const lista = caixa.querySelector('.sel-lista');
+            const rotulo = caixa.querySelector('.sel-rotulo');
+            const botao = caixa.querySelector('.sel-botao');
+            lista.innerHTML = '';
+            Array.from(select.options).forEach(op => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'sel-opcao' + (op.value === select.value ? ' ativa' : '');
+                item.textContent = op.textContent;
+                item.addEventListener('click', () => selEscolher(select, op.value));
+                lista.appendChild(item);
+            });
+            const atual = select.options[select.selectedIndex];
+            rotulo.textContent = atual ? atual.textContent : '';
+            // usado pelas cores de OK / NC / NA
+            if (select.value) botao.dataset.valor = select.value;
+            else delete botao.dataset.valor;
+        }
+        /** Grava a escolha no <select> e dispara o onchange original. */
+        function selEscolher(select, valor) {
+            select.value = valor;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            selSincronizar(select);
+            selFecharTodas();
+        }
+        function selFecharTodas() {
+            document.querySelectorAll('.sel.aberta').forEach(caixa => {
+                caixa.classList.remove('aberta');
+                caixa.querySelector('.sel-lista').classList.add('hidden');
+            });
+        }
+        function selAlternar(botao) {
+            const caixa = selCaixa(botao);
+            const abrindo = !caixa.classList.contains('aberta');
+            selFecharTodas();
+            if (!abrindo) return;
+            caixa.classList.add('aberta');
+            const lista = caixa.querySelector('.sel-lista');
+            lista.classList.remove('hidden', 'acima');
+            // Sem espaço embaixo (campo no fim de um formulário)? abre para cima.
+            const r = botao.getBoundingClientRect();
+            const alturaLista = lista.offsetHeight;
+            if (r.bottom + alturaLista + 12 > window.innerHeight && r.top > alturaLista + 12) {
+                lista.classList.add('acima');
+            }
+            // deixa a opção já escolhida à vista ao abrir
+            const ativa = caixa.querySelector('.sel-opcao.ativa');
+            if (ativa) ativa.scrollIntoView({ block: 'nearest' });
+        }
+        // Fecha ao tocar fora e ao apertar Esc.
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sel')) selFecharTodas();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') selFecharTodas();
+        });
+               // --- Cronograma de Obra: busca a aba da planilha com o nome do Pedido ---
+        // O Apps Script responde a ?mode=cronograma&pedido=XXXX com um OBJETO
+        // contendo os dados da obra, a lista de tarefas e as cores da planilha.
+        async function onCronogramaPedidoChange(pedidoValue) {
+            const pedido = pedidoValue.trim().toUpperCase();
+            if (!pedido) {
+                cronogramaResultsBlock.classList.add('hidden');
+                cronogramaResults.innerHTML = '';
+                return;
+            }
+            cronogramaResultsBlock.classList.remove('hidden');
+            cronogramaResults.innerHTML = `
+                <div class="flex items-center justify-center p-4">
+                    <div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div>
+                </div>
+            `;
+            try {
+                const fullUrl = `${APPS_SCRIPT_URL}?mode=cronograma&pedido=${encodeURIComponent(pedido)}`;
+                const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
+                const data = await response.json();
+                if (data && data.error) {
+                    renderCronogramaError(data.error);
+                } else if (data && Array.isArray(data.tarefas)) {
+                    renderCronograma(data);
+                } else {
+                    renderCronogramaError(`Nenhum cronograma encontrado para o Pedido ${pedido}.`);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar cronograma:', error);
+                renderCronogramaError(`Erro ao carregar o cronograma. Detalhes: ${error.message}.`);
+            }
+        }
+        // Converte "aaaa-mm-dd" em Date local, sem passar pelo fuso horário —
+        // usar new Date("2026-08-21") direto joga a data um dia para trás no Brasil.
+        function croIsoParaData(iso) {
+            if (!iso) return null;
+            const p = String(iso).split('-');
+            if (p.length !== 3) return null;
+            return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+        }
+        function croSomaDias(data, n) {
+            const d = new Date(data.getTime());
+            d.setDate(d.getDate() + n);
+            return d;
+        }
+        function croDiaMes(data) {
+            return String(data.getDate()).padStart(2, '0') + '/' +
+                   String(data.getMonth() + 1).padStart(2, '0');
+        }
+        function croMesmoDia(a, b) {
+            return a && b && a.getFullYear() === b.getFullYear() &&
+                   a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        }
+        function croEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+        function renderCronograma(dados) {
+            const tarefas = dados.tarefas || [];
+            if (tarefas.length === 0) {
+                cronogramaResults.innerHTML =
+                    '<p class="text-sm text-gray-400 italic">Nenhuma tarefa cadastrada neste cronograma.</p>';
+                return;
+            }
+            const hoje = croIsoParaData(dados.hoje);
+            const inicioGrade = croIsoParaData(dados.inicioGrade) || hoje;
+            const nDias = dados.diasGrade || 120;
+            const corVazia = dados.corBarraVazia || '#E0E0E0';
+            // --- Cabeçalho da obra ---
+            const prazoVenceHoje = dados.prazoEntregaISO && dados.prazoEntregaISO === dados.hoje;
+            let html = '<div class="cro-info">';
+            html += `<div class="cro-pedido"><span>Pedido</span><strong>${croEsc(dados.pedido)}</strong></div>`;
+            if (dados.cliente) {
+                html += `<div class="cro-cliente"><span>Cliente</span><strong title="${croEsc(dados.cliente)}">${croEsc(dados.cliente)}</strong></div>`;
+            }
+            if (dados.inicioCronograma) {
+                html += `<div class="cro-data"><span>Início do Cronograma</span><strong>${croEsc(dados.inicioCronograma)}</strong></div>`;
+            }
+            if (dados.prazoEntrega) {
+                html += `<div class="cro-data"><span>Prazo de Entrega</span><strong class="${prazoVenceHoje ? 'vence' : ''}">${croEsc(dados.prazoEntrega)}</strong></div>`;
+            }
+            html += '</div>';
+            // --- Dias da grade ---
+            const dias = [];
+            for (let i = 0; i < nDias; i++) dias.push(croSomaDias(inicioGrade, i));
+            html += '<div class="cro-scroll"><table class="cro-table"><thead><tr>';
+            html += '<th class="cro-fix">Equipamento</th>';
+            html += '<th>Descrição</th><th>Data Início</th><th>Duração</th><th>Data Final</th>';
+            html += '<th class="cro-prog">Progresso</th>';
+            dias.forEach(d => {
+                const fds = d.getDay() === 0 || d.getDay() === 6;
+                const eHoje = croMesmoDia(d, hoje);
+                const cls = 'cro-dia' + (eHoje ? ' cro-hoje-cab' : (fds ? ' cro-fds' : ''));
+                html += `<th class="${cls}">${croDiaMes(d)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            // --- Uma linha por tarefa ---
+            tarefas.forEach(t => {
+                const ini = croIsoParaData(t.inicioISO);
+                const fim = croIsoParaData(t.fimISO);
+                const venceHoje = t.fimISO && t.fimISO === dados.hoje;
+                html += '<tr>';
+                html += `<td class="cro-fix"><strong>${croEsc(t.equipamento)}</strong></td>`;
+                html += `<td class="cro-desc">${croEsc(t.descricao)}</td>`;
+                html += `<td>${croEsc(t.inicio)}</td>`;
+                html += `<td class="cro-num">${t.duracao == null ? '' : t.duracao}</td>`;
+                html += `<td class="${venceHoje ? 'cro-venc' : ''}">${croEsc(t.fim)}</td>`;
+                html += '<td class="cro-prog"><div class="cro-prog-in">';
+                if (t.concluido) {
+                    html += `<span class="cro-pct" style="color:${t.cor}">100%</span>`;
+                    html += `<span class="cro-feito" style="background:${t.cor}">Concluído</span>`;
+                } else {
+                    const pct = Math.round((t.progresso || 0) * 100);
+                    const cor = t.cor || '#9ca3af';
+                    html += `<span class="cro-pct" style="color:${cor}">${pct}%</span>`;
+                    html += `<span class="cro-barra" style="background:${corVazia}">`;
+                    html += `<i style="width:${pct}%;background:${cor}"></i></span>`;
+                }
+                html += '</div></td>';
+                dias.forEach(d => {
+                    const dentro = ini && fim && d >= ini && d <= fim;
+                    const eHoje = croMesmoDia(d, hoje);
+                    let fundo = '';
+                    if (dentro) fundo = t.cor || '#9DC3E6';
+                    else if (eHoje) fundo = dados.corHojeColuna;
+                    html += `<td class="cro-dia cro-cel"${fundo ? ` style="background:${fundo}"` : ''}></td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+            // --- Legenda das faixas ---
+            html += '<div class="cro-legenda">';
+            (dados.faixas || []).forEach(f => {
+                const de = Math.round(f.min * 100);
+                const ate = Math.min(100, Math.round(f.max * 100));
+                html += `<span><i style="background:${f.cor}"></i>${de}% a ${ate}%</span>`;
+            });
+            if (dados.corHoje) {
+                html += `<span><i style="background:${dados.corHoje}"></i>hoje</span>`;
+            }
+            html += '</div>';
+            cronogramaResults.innerHTML = html;
+            // Abre já rolado até a coluna de hoje
+            const scroll = cronogramaResults.querySelector('.cro-scroll');
+            const idxHoje = dias.findIndex(d => croMesmoDia(d, hoje));
+            if (scroll && idxHoje > 2) scroll.scrollLeft = (idxHoje - 2) * 36;
+        }
+        function renderCronogramaError(message) {
+            cronogramaResults.innerHTML = `
+                <div class="text-center p-3">
+                    <p class="text-base font-bold text-red-500 mb-1">❌ Erro:</p>
+                    <p class="text-gray-400 break-words text-sm">${message}</p>
+                </div>
+            `;
+        }
+        function enableItemSearch(pedidoValue) {
+            selectedPedido = pedidoValue.trim().toUpperCase();
+
+            resultsBlock.classList.add('hidden');
+            resultsDiv.innerHTML = "";
+            codeInput.value = "";
+            if (selectedPedido) {
+                itemSearchBlock.classList.remove('hidden');
+                searchButton.disabled = false;
+                searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                displayAwaitingSelection(`Pronto para buscar itens no Pedido: ${selectedPedido}. Digite o Código do Item acima.`, true);
+                codeInput.focus();
+            } else {
+                itemSearchBlock.classList.add('hidden');
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+                displayAwaitingSelection("Selecione um Pedido para começar.", true);
+            }
+        }
+        async function searchItem() {
+            if (!selectedPedido) {
+                displayError("Erro: Nenhum Pedido selecionado. Por favor, selecione um Pedido primeiro.", false);
+                return;
+            }
+            resultsBlock.classList.add('hidden');
+            desenhoMostrar(false);
+            searchButton.disabled = true;
+            searchButton.innerHTML = `<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...`;
+
+            const itemCode = codeInput.value.trim().toUpperCase();
+            if (!itemCode) {
+                displayError("Por favor, informe o Código do Item para buscar.", false);
+                searchButton.disabled = false;
+                searchButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg> Buscar`;
+                return;
+            }
+            const fullUrl = `${APPS_SCRIPT_URL}?query=${encodeURIComponent(itemCode)}`;
+            try {
+                const response = await fetchWithTimeout(fullUrl, SEARCH_TIMEOUT_MS);
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const filteredItems = data.filter(item =>
+                        String(item.PEDIDO || '').trim().toUpperCase() === selectedPedido
+                    );
+                    if (filteredItems.length > 0) {
+                        resultsBlock.classList.remove('hidden');
+                        displaySuccess(filteredItems);
+                    } else {
+                        displayError(`Nenhum item com o código ${itemCode} encontrado para o Pedido ${selectedPedido}.`, false);
+                    }
+                } else if (data.error) {
+                    displayError(data.error, false);
+                } else {
+                    displayError(`Código de Item ${itemCode} não encontrado na planilha.`, false);
+                }
+            } catch (error) {
+                console.error("Erro na requisição searchItem:", error);
+                displayError(`Erro de Conexão ou Requisição. Detalhes: ${error.message}.`, false);
+            } finally {
+                searchButton.disabled = false;
+                searchButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                </svg> Buscar`;
+            }
+        }
+
+        /* ============================================================
+           ABRIR DESENHO
+           O botão só aparece quando a busca encontrou o item — é o
+           código dele que abre o desenho.
+
+           No Drive o endereço de um arquivo não tem relação com o nome
+           dele: é um código aleatório. Por isso não dá para montar o
+           link aqui. O app pergunta ao Apps Script (?mode=desenho), que
+           procura na pasta o arquivo com aquele código e devolve o
+           endereço.
+
+           A ABA É ABERTA NA HORA DO TOQUE, ainda vazia, e só depois
+           recebe o endereço. Se ela fosse aberta quando a resposta
+           chegasse, o celular bloquearia — navegador só deixa abrir
+           aba nova como consequência direta de um toque.
+        ============================================================ */
+        let desenhoBuscando = false;
+
+        function desenhoMostrar(mostrar) {
+            const bloco = document.getElementById('desenhoBlock');
+            if (!bloco) return;
+            bloco.classList.toggle('hidden', !mostrar);
+            desenhoAvisar('');
+        }
+
+        function desenhoAvisar(texto, erro) {
+            const aviso = document.getElementById('desenhoAviso');
+            if (!aviso) return;
+            aviso.textContent = texto || '';
+            aviso.classList.toggle('hidden', !texto);
+            aviso.classList.toggle('erro', !!erro);
+        }
+
+        async function abrirDesenho() {
+            if (desenhoBuscando) return;
+            const botao = document.getElementById('desenhoBotao');
+            const codigo = (codeInput.value || '').trim().toUpperCase();
+            if (!codigo) return;
+
+            desenhoBuscando = true;
+            const htmlBotao = botao.innerHTML;
+            botao.disabled = true;
+            botao.innerHTML = '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Abrindo o desenho...';
+            desenhoAvisar('');
+
+            try {
+                // Já foi aberto neste aparelho? Então nem sai daqui.
+                const guardado = await dsnLer(codigo);
+                if (guardado) {
+                    dsnAbrir(guardado.nome, guardado.base64);
+                    return;
+                }
+                const url = `${APPS_SCRIPT_URL}?mode=desenhoArquivo&codigo=${encodeURIComponent(codigo)}`;
+                const resposta = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
+                const dados = await resposta.json();
+
+                if (dados && dados.base64) {
+                    dsnAbrir(dados.nome, dados.base64);
+                    dsnGravar(codigo, dados.nome, dados.base64);
+                    if (dados.total > 1) {
+                        desenhoAvisar('Há ' + dados.total + ' arquivos com este código; '
+                                    + 'abri o que mais combina.');
+                    }
+                } else if (dados && dados.url) {
+                    // Grande demais ou não é PDF: aí vale a tela do Drive.
+                    desenhoAvisar((dados.motivo || '') + ' Abri no Drive.');
+                    window.open(dados.url, '_blank', 'noopener');
+                } else {
+                    desenhoAvisar(dados && dados.error
+                        ? dados.error
+                        : 'Não achei desenho para o item ' + codigo + '.', true);
+                }
+            } catch (erro) {
+                desenhoAvisar('Não consegui abrir o desenho. ' + erro.message, true);
+            } finally {
+                desenhoBuscando = false;
+                botao.disabled = false;
+                botao.innerHTML = htmlBotao;
+            }
+        }
+
+        /* ============================================================
+           O VISUALIZADOR
+           O pdf.js desenha cada folha num quadro em branco. O arquivo
+           nunca vira um endereço que o navegador saiba baixar — vira
+           pixels. Por isso não existe botão de baixar: não há o que
+           baixar na tela.
+
+           A biblioteca só é buscada na primeira vez que alguém abre um
+           desenho, para não pesar na abertura do aplicativo.
+        ============================================================ */
+        const DESENHO_TIMEOUT_MS = 45000;   // um PDF grande demora mais que uma busca
+
+        /* ------------------------------------------------------------
+           OS ÚLTIMOS DESENHOS FICAM NO APARELHO
+           Abrir de novo o mesmo desenho não deveria custar outra ida
+           ao Drive. Os últimos ficam guardados aqui; o segundo toque
+           é instantâneo e funciona sem sinal.
+
+           Fica no IndexedDB, e não no localStorage: um PDF de 2 MB não
+           cabe nos 5 MB que o localStorage costuma ter, e ali ele
+           disputaria espaço com a lista de Pedidos e o andamento.
+        ------------------------------------------------------------ */
+        const DSN_BANCO = 'obraflow_desenhos';
+        const DSN_LOJA = 'arquivos';
+        const DSN_GUARDAR = 8;        // quantos desenhos manter
+        let dsnBancoPronto = null;
+
+        function dsnBanco() {
+            if (dsnBancoPronto) return dsnBancoPronto;
+            dsnBancoPronto = new Promise(function (ok, erro) {
+                if (!window.indexedDB) return erro(new Error('sem IndexedDB'));
+                const p = indexedDB.open(DSN_BANCO, 1);
+                p.onupgradeneeded = function () {
+                    const db = p.result;
+                    if (!db.objectStoreNames.contains(DSN_LOJA)) {
+                        db.createObjectStore(DSN_LOJA, { keyPath: 'codigo' });
+                    }
+                };
+                p.onsuccess = function () { ok(p.result); };
+                p.onerror = function () { erro(p.error || new Error('falhou')); };
+            }).catch(function (e) { dsnBancoPronto = null; throw e; });
+            return dsnBancoPronto;
+        }
+
+        function dsnLer(codigo) {
+            return dsnBanco().then(function (db) {
+                return new Promise(function (ok) {
+                    const req = db.transaction(DSN_LOJA, 'readonly')
+                                  .objectStore(DSN_LOJA).get(codigo);
+                    req.onsuccess = function () { ok(req.result || null); };
+                    req.onerror = function () { ok(null); };
+                });
+            }).catch(function () { return null; });
+        }
+
+        function dsnGravar(codigo, nome, base64) {
+            return dsnBanco().then(function (db) {
+                const loja = db.transaction(DSN_LOJA, 'readwrite').objectStore(DSN_LOJA);
+                loja.put({ codigo: codigo, nome: nome, base64: base64, quando: Date.now() });
+                // Passou de DSN_GUARDAR? O mais antigo sai.
+                const todos = loja.getAll();
+                todos.onsuccess = function () {
+                    const lista = (todos.result || []).sort(function (a, b) { return b.quando - a.quando; });
+                    lista.slice(DSN_GUARDAR).forEach(function (x) { loja.delete(x.codigo); });
+                };
+            }).catch(function () { /* sem espaço ou sem IndexedDB: segue sem guardar */ });
+        }
+        const DSN_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        const DSN_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Quanto maior, mais nítido no zoom — e mais memória. 2 é o
+        // ponto em que um A1 ainda cabe num celular modesto.
+        const DSN_ESCALA = 2;
+        let dsnPronto = null;
+
+        function dsnCarregarBiblioteca() {
+            if (dsnPronto) return dsnPronto;
+            dsnPronto = new Promise(function (ok, erro) {
+                if (window.pdfjsLib) return ok();
+                const s = document.createElement('script');
+                s.src = DSN_PDFJS;
+                s.onload = function () {
+                    if (!window.pdfjsLib) return erro(new Error('A biblioteca carregou mas não inicializou.'));
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = DSN_PDFJS_WORKER;
+                    ok();
+                };
+                s.onerror = function () {
+                    erro(new Error('Não consegui baixar o visualizador. Verifique a internet.'));
+                };
+                document.head.appendChild(s);
+            });
+            return dsnPronto;
+        }
+
+        function dsnBytes(base64) {
+            const cru = atob(base64);
+            const bytes = new Uint8Array(cru.length);
+            for (let i = 0; i < cru.length; i++) bytes[i] = cru.charCodeAt(i);
+            return bytes;
+        }
+
+        async function dsnAbrir(nome, base64) {
+            const modal = document.getElementById('modal-desenho');
+            const area = document.getElementById('dsnArea');
+            document.getElementById('dsnNome').textContent = nome || 'Desenho';
+            area.innerHTML = '<p class="dsn-estado">Preparando o desenho...</p>';
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            try {
+                await dsnCarregarBiblioteca();
+                const pdf = await window.pdfjsLib.getDocument({ data: dsnBytes(base64) }).promise;
+                area.innerHTML = '';
+                const largura = Math.max(area.clientWidth - 20, 280);
+
+                for (let n = 1; n <= pdf.numPages; n++) {
+                    const pagina = await pdf.getPage(n);
+                    const bruta = pagina.getViewport({ scale: 1 });
+                    // Encaixa a folha na largura da tela e multiplica pela
+                    // escala, para o zoom não sair borrado.
+                    const escala = (largura / bruta.width) * DSN_ESCALA;
+                    const vista = pagina.getViewport({ scale: escala });
+
+                    const tela = document.createElement('canvas');
+                    tela.width = Math.round(vista.width);
+                    tela.height = Math.round(vista.height);
+                    tela.style.width = Math.round(vista.width / DSN_ESCALA) + 'px';
+                    area.appendChild(tela);
+
+                    await pagina.render({
+                        canvasContext: tela.getContext('2d'),
+                        viewport: vista
+                    }).promise;
+                }
+            } catch (e) {
+                area.innerHTML = '<p class="dsn-estado erro">Não consegui desenhar este PDF. '
+                               + progEsc(e.message || '') + '</p>';
+            }
+        }
+
+        function dsnFechar() {
+            const modal = document.getElementById('modal-desenho');
+            modal.classList.add('hidden');
+            // Solta a memória: um A1 em dobro de resolução não é pouco.
+            document.getElementById('dsnArea').innerHTML = '';
+            document.body.style.overflow = '';
+        }
+
+        function displayAwaitingSelection(message, isInitial) {
+            desenhoMostrar(false);
+            resultsDiv.classList.remove('border-green-600', 'border-red-600', 'border-2', 'bg-transparent');
+
+            if (isInitial) {
+                 resultsBlock.classList.add('hidden');
+            }
+            resultsDiv.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'p-3', 'rounded-lg', 'border', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
+
+            resultsDiv.innerHTML = `<p class="text-sm text-gray-500 italic text-center" id="initialMessage">${message}</p>`;
+        }
+        function displaySuccess(items) {
+            desenhoMostrar(true);
+            resultsDiv.classList.remove('flex', 'items-center', 'justify-center', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
+            resultsDiv.classList.add('border-green-600', 'border-2', 'p-3', 'bg-transparent');
+
+            let htmlContent = '';
+
+            items.forEach(item => {
+                let cardContent = '';
+                let validContentFoundInCard = false;
+
+                DISPLAY_ORDER.forEach(key => {
+                    if (item.hasOwnProperty(key)) {
+                        const value = item[key];
+
+                        cardContent += `
+                            <div class="flex flex-col mb-1">
+                                <span class="text-xs font-medium uppercase text-gray-400">${key.toUpperCase()}:</span>
+                                <span class="text-sm text-white font-medium break-words">${value}</span>
+                            </div>
+                        `;
+
+                        if (value !== null && value !== undefined && String(value).trim() !== "") {
+                            validContentFoundInCard = true;
+                        }
+                    }
+                });
+
+                if (validContentFoundInCard) {
+                    htmlContent += `
+                        <div class="bg-[#1a1a1a] rounded-lg shadow-xl p-2 border border-[#333] w-full mb-2">
+                            <div class="p-1 text-white">
+                                ${cardContent}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (htmlContent === '') {
+                resultsBlock.classList.add('hidden');
+                displayError("Nenhum item com dados para exibição encontrado.", false);
+            } else {
+                resultsDiv.innerHTML = htmlContent;
+            }
+        }
+        function displayError(message, isCritical) {
+            desenhoMostrar(false);
+            resultsBlock.classList.remove('hidden');
+
+            resultsDiv.classList.remove('flex', 'flex-col', 'items-center', 'justify-center', 'border-dashed', 'border-green-600', 'bg-transparent');
+            resultsDiv.classList.add('p-3', 'rounded-lg', 'border-red-600', 'border-2', 'bg-[#1a1a1a]');
+
+            let logMessage = isCritical ? `<p class="text-xs text-red-400 mt-2">Verifique a URL e a Implantação do Apps Script.</p>` : "";
+
+            resultsDiv.innerHTML = `
+                <div class="text-center">
+                    <p class="text-base font-bold text-red-500 mb-2">❌ Erro na Busca:</p>
+                    <p class="text-gray-400 break-words text-sm">${message}</p>
+                    ${logMessage}
+                </div>
+            `;
+            if (isCritical) {
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+                itemSearchBlock.classList.add('hidden');
+            }
+        }
+        // Inicializa a tela de resultados
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        /* ============================================================
+           DOCUMENTOS DE MONTAGEM
+           O supervisor escolhe o pedido, vê as pastas daquela obra e
+           entra numa delas. Quem monta as pastas é o Apps Script, a
+           partir da lista de equipamentos do cronograma; quem põe o
+           conteúdo dentro é a equipe, pelo Drive.
+
+           A pasta "02.Links 3D" é diferente: em vez de arquivos, ela
+           tem um bloco de notas com os endereços dos modelos. O app lê
+           esse bloco e desenha um botão por link — o endereço em si não
+           aparece na tela.
+        ============================================================ */
+        let docsPedido = null;
+        let docsPastas = [];
+        let docsPastaAberta = null;
+
+        const DOC_ICONE_PASTA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+        const DOC_ICONE_PDF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+        const DOC_ICONE_3D = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 12 21 7"/><path d="M12 12v10"/><path d="M12 12 3 7"/></svg>';
+        const DOC_SETA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+        function docsAtualizarPedidos() {
+            const select = document.getElementById('docsClientSelect');
+            if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
+            if (select.dataset.carregado === String(allPedidos.length)) return;
+            populateSelectWithPedidos(select, allPedidos);
+            select.dataset.carregado = String(allPedidos.length);
+        }
+
+        function docsEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        function docsCarregando(texto) {
+            document.getElementById('docsLista').innerHTML =
+                '<div class="flex items-center justify-center p-4">'
+              + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>'
+              + '<p class="doc-vazio" style="text-align:center">' + docsEsc(texto || '') + '</p>';
+        }
+
+        function docsErro(texto) {
+            document.getElementById('docsLista').innerHTML =
+                '<p class="doc-erro">' + docsEsc(texto) + '</p>';
+        }
+
+        async function onDocsPedidoChange(valor) {
+            docsPedido = (valor || '').trim().toUpperCase();
+            docsPastaAberta = null;
+            const bloco = document.getElementById('docsBloco');
+            if (!docsPedido) { bloco.classList.add('hidden'); return; }
+
+            bloco.classList.remove('hidden');
+            docsMostrarVoltar(false);
+            document.getElementById('docsTitulo').textContent = 'Documentos do Pedido ' + docsPedido;
+            docsCarregando('Procurando as pastas deste pedido...');
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docsPastas&pedido=${encodeURIComponent(docsPedido)}`;
+                const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const d = await r.json();
+                if (d && d.error) { docsErro(d.error); return; }
+                docsPastas = d.pastas || [];
+                docsDesenharPastas();
+            } catch (e) {
+                docsErro('Não consegui carregar as pastas. ' + e.message);
+            }
+        }
+
+        function docsMostrarVoltar(mostrar) {
+            document.getElementById('docsVoltar').classList.toggle('hidden', !mostrar);
+        }
+
+        function docsDesenharPastas() {
+            const alvo = document.getElementById('docsLista');
+            document.getElementById('docsTitulo').textContent = 'Documentos do Pedido ' + docsPedido;
+            docsMostrarVoltar(false);
+
+            if (!docsPastas.length) {
+                alvo.innerHTML = '<p class="doc-vazio">Este pedido ainda não tem pastas. '
+                               + 'Rode "Sincronizar pastas de documentos" no menu da planilha.</p>';
+                return;
+            }
+            let h = '';
+            docsPastas.forEach(function (p, i) {
+                const eh3D = p.nome.indexOf('02.') === 0;
+                h += '<button type="button" class="doc-item" onclick="docsAbrirPasta(' + i + ')">'
+                   + '<span class="doc-icone">' + (eh3D ? DOC_ICONE_3D : DOC_ICONE_PASTA) + '</span>'
+                   + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(p.nome) + '</span></span>'
+                   + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                   + '</button>';
+            });
+            alvo.innerHTML = h;
+        }
+
+        function docsVoltarPastas() {
+            docsPastaAberta = null;
+            docsDesenharPastas();
+        }
+
+        async function docsAbrirPasta(i) {
+            const pasta = docsPastas[i];
+            if (!pasta) return;
+            docsPastaAberta = pasta;
+            document.getElementById('docsTitulo').textContent = pasta.nome;
+            docsMostrarVoltar(true);
+            docsCarregando('Abrindo a pasta...');
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docsConteudo&pasta=${encodeURIComponent(pasta.id)}`;
+                const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const d = await r.json();
+                if (d && d.error) { docsErro(d.error); return; }
+                docsDesenharConteudo(d);
+            } catch (e) {
+                docsErro('Não consegui abrir a pasta. ' + e.message);
+            }
+        }
+
+        function docsTamanho(bytes) {
+            const n = Number(bytes) || 0;
+            if (n >= 1048576) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+            if (n >= 1024) return Math.round(n / 1024) + ' KB';
+            return n + ' B';
+        }
+
+        function docsDesenharConteudo(d) {
+            const alvo = document.getElementById('docsLista');
+            const arquivos = d.arquivos || [];
+            const links = d.links || [];
+
+            if (!arquivos.length && !links.length) {
+                alvo.innerHTML = '<p class="doc-vazio">Esta pasta ainda está vazia.</p>';
+                return;
+            }
+
+            // Guardado para o toque saber o que abrir sem precisar do id
+            // no HTML — o endereço do link 3D nunca chega à tela.
+            window.docsLinks = links;
+            window.docsArquivos = arquivos;
+
+            let h = '';
+            if (links.length) {
+                h += '<p class="doc-secao">Modelos 3D</p>';
+                links.forEach(function (l, i) {
+                    h += '<button type="button" class="doc-item" onclick="docsAbrirLink(' + i + ')">'
+                       + '<span class="doc-icone">' + DOC_ICONE_3D + '</span>'
+                       + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(l.nome) + '</span></span>'
+                       + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                       + '</button>';
+                });
+            }
+            if (arquivos.length) {
+                if (links.length) h += '<p class="doc-secao" style="margin-top:16px">Arquivos</p>';
+                arquivos.forEach(function (a, i) {
+                    h += '<button type="button" class="doc-item" onclick="docsAbrirArquivo(' + i + ')">'
+                       + '<span class="doc-icone">' + DOC_ICONE_PDF + '</span>'
+                       + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(a.nome) + '</span>'
+                       + '<span class="doc-detalhe">' + docsTamanho(a.tamanho) + '</span></span>'
+                       + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                       + '</button>';
+                });
+            }
+            alvo.innerHTML = h;
+        }
+
+        /** O endereço sai daqui direto para o navegador, sem passar pela tela. */
+        function docsAbrirLink(i) {
+            const l = (window.docsLinks || [])[i];
+            if (l && l.url) window.open(l.url, '_blank', 'noopener');
+        }
+
+        /** PDF abre no visualizador do app; o resto, no Drive. */
+        async function docsAbrirArquivo(i) {
+            const a = (window.docsArquivos || [])[i];
+            if (!a) return;
+            const antes = document.getElementById('docsLista').innerHTML;
+            docsCarregando('Abrindo ' + a.nome + '...');
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docArquivo&id=${encodeURIComponent(a.id)}`;
+                const r = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
+                const d = await r.json();
+                document.getElementById('docsLista').innerHTML = antes;
+                if (d && d.base64) {
+                    dsnAbrir(d.nome, d.base64);
+                } else if (d && d.url) {
+                    window.open(d.url, '_blank', 'noopener');
+                } else {
+                    docsErro((d && d.error) || 'Não consegui abrir este arquivo.');
+                }
+            } catch (e) {
+                document.getElementById('docsLista').innerHTML = antes;
+                docsErro('Não consegui abrir este arquivo. ' + e.message);
+            }
+        }
+
+        /* ============================================================
+           ENTRADA NO APLICATIVO
+
+           A senha NÃO sai do celular. O que viaja é uma impressão
+           digital dela (SHA-256); o Apps Script faz a mesma conta com
+           a senha da planilha e compara. Assim a senha não aparece no
+           endereço da requisição nem no registro de execução.
+
+           As senhas também não estão neste arquivo, de propósito: ele
+           mora num repositório público do GitHub, onde qualquer um
+           leria. Elas ficam na aba "Usuarios" da planilha.
+
+           SEM SINAL: quem já entrou uma vez continua entrando, porque
+           o cartão de acesso fica guardado no aparelho. A confirmação
+           com o servidor acontece por trás, quando há rede — é ela que
+           derruba quem foi desativado na planilha.
+        ============================================================ */
+        const ENT_CHAVE = 'obraflow_acesso_v1';
+        let usuarioAtual = null;
+
+        /* O olho do campo de senha. Dois desenhos: o aberto quando a
+           senha está escondida (toque para ver) e o riscado quando ela
+           está à mostra (toque para esconder). */
+        const ENT_OLHO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>'
+            + '<circle cx="12" cy="12" r="3"/></svg>';
+        const ENT_OLHO_RISCADO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+            + '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+            + '<path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>'
+            + '<line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+        function verSenha() {
+            const campo = document.getElementById('entSenha');
+            const botao = document.getElementById('entOlho');
+            const mostrando = campo.type === 'text';
+            campo.type = mostrando ? 'password' : 'text';
+            botao.innerHTML = mostrando ? ENT_OLHO : ENT_OLHO_RISCADO;
+            botao.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+            // Devolve o cursor ao fim do texto: sem isto o teclado do
+            // celular fecha e o supervisor perde o lugar.
+            campo.focus();
+            const n = campo.value.length;
+            try { campo.setSelectionRange(n, n); } catch (e) {}
+        }
+
+        function entLer() {
+            try {
+                const cru = localStorage.getItem(ENT_CHAVE);
+                if (!cru) return null;
+                const d = JSON.parse(cru);
+                return (d && d.token && d.usuario) ? d : null;
+            } catch (e) { return null; }
+        }
+
+        function entGravar(dados) {
+            try { localStorage.setItem(ENT_CHAVE, JSON.stringify(dados)); }
+            catch (e) { /* aparelho sem espaço: segue sem lembrar */ }
+        }
+
+        function entApagar() {
+            try { localStorage.removeItem(ENT_CHAVE); } catch (e) {}
+        }
+
+        /** A impressão digital da senha, igual à que o Apps Script calcula. */
+        async function entImpressao(texto) {
+            const dados = new TextEncoder().encode(texto);
+            const bruto = await crypto.subtle.digest('SHA-256', dados);
+            return Array.from(new Uint8Array(bruto))
+                .map(function (b) { return b.toString(16).padStart(2, '0'); })
+                .join('');
+        }
+
+        function entErro(texto) {
+            const el = document.getElementById('entErro');
+            el.textContent = texto || '';
+            el.classList.toggle('hidden', !texto);
+        }
+
+        async function entrar(evento) {
+            if (evento) evento.preventDefault();
+            const botao = document.getElementById('entBotao');
+            const usuario = (document.getElementById('entUsuario').value || '').trim().toLowerCase();
+            const senha = document.getElementById('entSenha').value || '';
+            if (!usuario || !senha) return;
+
+            entErro('');
+            botao.disabled = true;
+            botao.innerHTML = '<div class="spinner border-4 border-[#0a3d29] border-t-4 h-4 w-4 rounded-full"></div> Entrando...';
+
+            try {
+                const hash = await entImpressao(senha);
+                const url = `${APPS_SCRIPT_URL}?mode=login`
+                          + `&usuario=${encodeURIComponent(usuario)}`
+                          + `&hash=${encodeURIComponent(hash)}`;
+                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const dados = await resposta.json();
+
+                if (dados && dados.ok) {
+                    const lembrar = document.getElementById('entLembrar').checked;
+                    const sessao = { usuario: dados.usuario, nome: dados.nome, token: dados.token };
+                    if (lembrar) entGravar(sessao); else entApagar();
+                    const campoSenha = document.getElementById('entSenha');
+                    campoSenha.value = '';
+                    campoSenha.type = 'password';
+                    document.getElementById('entOlho').innerHTML = ENT_OLHO;
+                    abrirApp(sessao);
+                } else {
+                    entErro((dados && dados.error) || 'Usuário ou senha incorretos.');
+                }
+            } catch (e) {
+                entErro('Não consegui conferir o acesso. Verifique a internet e tente de novo.');
+            } finally {
+                botao.disabled = false;
+                botao.textContent = 'Entrar';
+            }
+        }
+
+        function sair() {
+            entApagar();
+            usuarioAtual = null;
+            const campo = document.getElementById('entSenha');
+            campo.value = '';
+            campo.type = 'password';   // nunca reabre com a senha à mostra
+            document.getElementById('entOlho').innerHTML = ENT_OLHO;
+            document.getElementById('tela-entrada').classList.remove('hidden');
+            entErro('');
+            document.getElementById('entUsuario').focus();
+        }
+
+        /** Confere o cartão guardado com o servidor, sem travar a tela. */
+        function entRevalidar(sessao) {
+            const url = `${APPS_SCRIPT_URL}?mode=sessao&token=${encodeURIComponent(sessao.token)}`;
+            fetchWithTimeout(url, SEARCH_TIMEOUT_MS)
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    // Só derruba com um "não" explícito do servidor. Falha de
+                    // rede não pode expulsar o supervisor no meio da obra.
+                    if (d && d.ok === false) sair();
+                    else if (d && d.ok && d.nome) {
+                        usuarioAtual = { usuario: d.usuario, nome: d.nome, token: sessao.token };
+                        entGravar(usuarioAtual);
+                        entMostrarNome();
+                    }
+                })
+                .catch(function () { /* sem sinal: segue com o cartão guardado */ });
+        }
+
+        function entMostrarNome() {
+            const el = document.getElementById('entConectado');
+            if (el) el.textContent = usuarioAtual ? ('Conectado como ' + usuarioAtual.nome) : '';
+        }
+
+        /** Passa da tela de entrada para o aplicativo. */
+        function abrirApp(sessao) {
+            usuarioAtual = sessao;
+            entMostrarNome();
+            document.getElementById('tela-entrada').classList.add('hidden');
+            if (!appIniciado) {
+                appIniciado = true;
+                iniciarConteudo();
+            }
+        }
+
+        let appIniciado = false;
+
+        function iniciarConteudo() {
+            const hasCache = !!getCachedPedidos();
+            if (!hasCache) {
+                displayAwaitingSelection("Carregando Pedidos, aguarde...", true);
+            }
+            itemSearchBlock.classList.add('hidden');
+            resultsBlock.classList.add('hidden');
+            selPrepararTodos();     // troca todas as listas nativas pelas nossas
+            switchPage('inicio');   // a tela inicial passa a ser o menu
+            fetchAllPedidos();
+        }
+
+        function initializeApp() {
+            document.getElementById('entOlho').innerHTML = ENT_OLHO;
+            const sessao = entLer();
+            if (sessao) {
+                abrirApp(sessao);      // já entrou antes: vai direto
+                entRevalidar(sessao);  // e confere por trás
+            } else {
+                document.getElementById('entUsuario').focus();
+            }
+        }
+
+        function copyToClipboard(text) {
+            console.log("Cópia de texto não implementada na interface.");
+            return false;
+        }
+        /* ============================================================
+           Navegação — página inicial com menu
+           A barra de abas do rodapé foi substituída por um menu na
+           tela inicial. Cada opção abre uma página; o botão de voltar
+           no cabeçalho traz de volta para o menu.
+        ============================================================ */
+        const PAGINAS = ['inicio', 'localizador', 'separador', 'documentos', 'formularios', 'cronograma'];
+        const appHeader = document.getElementById('appHeader');
+        const btnVoltar = document.getElementById('btnVoltar');
+        const headerLogo = document.getElementById('headerLogo');
+        const headerTitle = document.getElementById('headerTitle');
+        const PAGE_TITLES = {
+            inicio: 'ObraFlow',
+            localizador: 'Localizador de Itens',
+            separador: 'Separador de Obra',
+            documentos: 'Documentos de Montagem',
+            formularios: 'Formulários de Obra',
+            cronograma: 'Cronograma de Obra'
+        };
+        // Os desenhos são os mesmos que estavam nas abas do rodapé.
+        // Ficam sem cor fixa (currentColor) para servirem tanto no
+        // cabeçalho quanto dentro do quadrinho verde do menu.
+        const ICONES = {
+            inicio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
+            localizador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
+            separador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
+            // Prancha de desenho técnico: folha deitada, carimbo no canto
+            // inferior direito e a peça com a linha de cota embaixo.
+            documentos: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="1.5"/><path d="M13.5 20v-4h8"/><rect x="5.5" y="7.5" width="6.5" height="5"/><path d="M5.5 15h6.5"/></svg>',
+            formularios: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
+            // O mesmo calendário de antes, agora com uma data no corpo:
+            // tres grupos separados por duas barras, no formato dd/mm/aaaa.
+            // Os riscos da data usam traço mais fino para não empastar.
+            cronograma: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><g stroke-width="1.7"><path d="M5.6 16.6h2.4"/><path d="M9.3 18 10.3 15.2"/><path d="M11.4 16.6h2.4"/><path d="M15 18 16 15.2"/><path d="M17.1 16.6h2.3"/></g></svg>'
+        };
+        const SETA_MENU = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+        // A ORDEM DESTA LISTA é a ordem do menu na tela.
+        // Para acrescentar uma opção nova, basta incluir aqui e criar
+        // a <div id="page-XXX"> correspondente lá em cima.
+        const MENU_ITENS = [
+            { pagina: 'localizador', titulo: 'Localizador de Itens',    descricao: 'Identifique o volume pelo código do item' },
+            { pagina: 'separador',   titulo: 'Separador de Obra',       descricao: 'Identifique o conjunto pelo código do item' },
+            { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montagem e links 3D' },
+            { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
+            { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' }
+        ];
+        let menuRecolhido = true;   // o app abre com o andamento à vista
+        /**
+         * Desenha as opções do menu. É chamada toda vez que a tela
+         * inicial aparece — é isso que faz as opções entrarem em
+         * cascata, uma depois da outra, como uma lista carregando.
+         */
+        function renderMenu() {
+            const lista = document.getElementById('menuLista');
+            if (!lista) return;
+            lista.innerHTML = '';
+            MENU_ITENS.forEach((item, i) => {
+                const botao = document.createElement('button');
+                botao.type = 'button';
+                botao.className = 'menu-item';
+                botao.style.animationDelay = (i * 70) + 'ms';
+                botao.addEventListener('click', () => switchPage(item.pagina));
+                botao.innerHTML =
+                    '<span class="menu-item-icone">' + (ICONES[item.pagina] || '') + '</span>' +
+                    '<span class="menu-item-texto"><strong>' + item.titulo + '</strong>' +
+                    '<span>' + item.descricao + '</span></span>' +
+                    '<span class="menu-item-seta">' + SETA_MENU + '</span>';
+                lista.appendChild(botao);
+            });
+        }
+        /** Recolhe ou mostra as opções. Ao mostrar, a cascata roda de novo. */
+        function alternarMenu() {
+            menuRecolhido = !menuRecolhido;
+            const lista = document.getElementById('menuLista');
+            const botao = document.getElementById('menuToggle');
+            const texto = document.getElementById('menuToggleTexto');
+            botao.classList.toggle('recolhido', menuRecolhido);
+            texto.textContent = menuRecolhido ? 'Mostrar' : 'Recolher';
+            if (menuRecolhido) {
+                lista.classList.add('recolhida');
+            } else {
+                lista.classList.remove('recolhida');
+                renderMenu();
+            }
+            // O andamento não some mais: ele fica no cartão de baixo e só
+            // é empurrado quando as opções aparecem.
+        }
+        /* ============================================================
+           ANDAMENTO DAS OBRAS
+           O Apps Script devolve tudo pronto em ?mode=progresso: uma
+           chamada só, com a média já calculada na planilha. O app
+           guarda a última resposta e mostra ela na hora, revalidando
+           por trás — mesmo caminho da lista de Pedidos.
+
+           A média é PONDERADA PELA DURAÇÃO, feita lá no .gs:
+               Σ(progresso × duração) ÷ Σ(duração)
+        ============================================================ */
+        const PROG_CACHE_KEY = 'obraflow_progresso_v1';
+        const PROG_TTL_MS = 10 * 60 * 1000;   // 10 minutos
+        // Seta circular do botão Atualizar. Fica aqui em cima para não
+        // poluir a função que desenha o painel.
+        const PROG_ICONE_ATUALIZAR =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 4 21 10 15 10"/></svg>';
+        let progDados = null;
+        let progBuscando = false;
+        let progErro = '';
+        function progEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+        function progLerCache() {
+            try {
+                const cru = localStorage.getItem(PROG_CACHE_KEY);
+                if (!cru) return null;
+                const p = JSON.parse(cru);
+                return (p && p.dados && Array.isArray(p.dados.pedidos)) ? p : null;
+            } catch (e) { return null; }
+        }
+        function progGravarCache(dados) {
+            try {
+                localStorage.setItem(PROG_CACHE_KEY,
+                    JSON.stringify({ dados: dados, quando: Date.now() }));
+            } catch (e) { /* memória cheia: segue sem cache */ }
+        }
+        /**
+         * Liga o painel: desenha o que estiver guardado e busca o que falta.
+         * Ele não é mais escondido pelo menu — vive no cartão de baixo.
+         */
+        function progAtivar() {
+            const painel = document.getElementById('painelProgresso');
+            if (!painel) return;
+            const guardado = progLerCache();
+            if (guardado && !progDados) progDados = guardado.dados;
+            progDesenhar();
+            // Com dado guardado a busca é silenciosa; sem dado, mostra o spinner.
+            const velho = !guardado || (Date.now() - guardado.quando) > PROG_TTL_MS;
+            if (velho || !progDados) progCarregar();
+        }
+        async function progCarregar() {
+            if (progBuscando) return;
+            progBuscando = true;
+            progErro = '';
+            progDesenhar();
+            try {
+                const resposta = await fetchWithTimeout(
+                    `${APPS_SCRIPT_URL}?mode=progresso`, SEARCH_TIMEOUT_MS);
+                const dados = await resposta.json();
+                if (dados && dados.error) throw new Error(dados.error);
+                if (!dados || !Array.isArray(dados.pedidos)) {
+                    throw new Error('Resposta sem a lista de pedidos. Republique o Apps Script.');
+                }
+                progDados = dados;
+                progGravarCache(dados);
+            } catch (e) {
+                progErro = e.message || 'falhou';
+            } finally {
+                progBuscando = false;
+                progDesenhar();
+            }
+        }
+        function progDesenhar() {
+            const painel = document.getElementById('painelProgresso');
+            if (!painel) return;
+            let h = '<div class="prog-topo"><strong>Andamento das obras</strong>';
+            h += '<span class="prog-topo-dir">';
+            if (progDados && progDados.atualizadoEm) {
+                h += '<span>' + progEsc(progDados.atualizadoEm) + '</span>';
+            }
+            // O painel não se atualiza sozinho enquanto a tela fica aberta.
+            // Este botão é a saída para quem acabou de mexer na planilha e
+            // quer ver o efeito agora, sem sair e voltar.
+            h += '<button type="button" class="prog-btn' + (progBuscando ? ' girando' : '') + '" '
+               + 'onclick="progCarregar()"' + (progBuscando ? ' disabled' : '') + '>'
+               + PROG_ICONE_ATUALIZAR
+               + (progBuscando ? 'Buscando' : 'Atualizar')
+               + '</button>';
+            h += '</span></div>';
+            if (!progDados) {
+                h += progBuscando
+                    ? '<div class="flex items-center justify-center p-4">'
+                      + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>'
+                    : '<p class="prog-erro">' + progEsc(progErro || 'Sem dados.') + '</p>';
+                painel.innerHTML = h;
+                return;
+            }
+            (progDados.pedidos || []).forEach(function (p) {
+                const temDado = typeof p.progresso === 'number';
+                const pct = temDado ? Math.round(p.progresso * 100) : 0;
+                const cor = p.cor || '#4b5563';
+                h += '<button type="button" class="prog-linha" '
+                   + 'onclick="progAbrirCronograma(\'' + progEsc(p.pedido) + '\')">';
+                h += '<div class="prog-cab">'
+                   + '<span class="prog-num">' + progEsc(p.pedido) + '</span>'
+                   + '<span class="prog-cliente">' + progEsc(p.cliente || '') + '</span>'
+                   + '<span class="prog-pct">' + (temDado ? pct + '%' : '—') + '</span>'
+                   + '</div>';
+                h += '<div class="prog-trilho"><i class="prog-barra" style="width:'
+                   + pct + '%;background:' + cor + '"></i></div>';
+                let pe;
+                if (p.semAba) {
+                    pe = 'Sem aba de cronograma nesta planilha';
+                } else if (!temDado) {
+                    // Sem data ainda, mas o total de equipamentos já é sabido:
+                    // mostrar é melhor do que só dizer que falta preencher.
+                    pe = '<b>' + p.equipamentos + '</b> equipamento'
+                       + (p.equipamentos === 1 ? '' : 's')
+                       + ' · cronograma ainda sem datas';
+                } else {
+                    pe = '<b>' + p.concluidos + ' de ' + p.equipamentos + '</b> equipamento'
+                       + (p.equipamentos === 1 ? '' : 's') + ' concluído'
+                       + (p.equipamentos === 1 ? '' : 's');   // concorda com "equipamentos"
+                    if (p.prazoEntrega) pe += ' · entrega ' + progEsc(p.prazoEntrega);
+                }
+                h += '<div class="prog-pe">' + pe + '</div>';
+                h += '</button>';
+            });
+            if (progErro) {
+                h += '<p class="prog-erro">Não atualizou agora: ' + progEsc(progErro) + '</p>';
+            } else if (!progBuscando) {
+                // Enquanto busca, quem avisa é o próprio botão.
+                h += '<p class="prog-aviso">Média ponderada pela duração de cada equipamento. '
+                   + 'Toque num pedido para abrir o cronograma.</p>';
+            }
+            painel.innerHTML = h;
+        }
+        /** Toca no pedido e cai no Cronograma dele, já carregado. */
+        function progAbrirCronograma(pedido) {
+            switchPage('cronograma');
+            const sel = document.getElementById('cronogramaClientSelect');
+            if (!sel) return;
+            const existe = Array.from(sel.options).some(function (o) { return o.value === pedido; });
+            if (existe) selEscolher(sel, pedido);
+        }
+        function voltarInicio() {
+            switchPage('inicio');
+        }
+        function switchPage(page) {
+            PAGINAS.forEach(nome => {
+                const el = document.getElementById('page-' + nome);
+                if (el) el.classList.toggle('hidden', nome !== page);
+            });
+            headerTitle.textContent = PAGE_TITLES[page] || '';
+            const currentIcon = document.getElementById('headerIcon');
+            if (currentIcon && ICONES[page]) {
+                currentIcon.outerHTML =
+                    '<span id="headerIcon" class="h-4 w-4 mr-2 flex-shrink-0 inline-flex">' +
+                    ICONES[page] + '</span>';
+            }
+            // A tela inicial não usa a barra do topo: o logo dela já fica
+            // acima do menu, e não há para onde voltar.
+            appHeader.classList.toggle('hidden', page === 'inicio');
+            btnVoltar.classList.toggle('hidden', page === 'inicio');
+            headerLogo.classList.toggle('hidden', page === 'inicio');
+            window.scrollTo(0, 0);
+            if (page === 'inicio') {
+                if (!menuRecolhido) renderMenu();
+                progAtivar();   // o andamento está sempre na tela inicial
+            }
+            if (page === 'documentos') docsAtualizarPedidos();
+        }
+        // --- Formulários (Inconformidades / Melhorias) ---
+        const SUPERVISORES = [
+            "Jocélio Almeida",
+            "Juarez Barasuol",
+            "Marcelo de Oliveira",
+            "Jair Milbradt",
+            "Fernando Hendges Lopes",
+            "Marcos Malezan Tasquetto"
+        ];
+        function populateSupervisorSelect(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select || select.dataset.populated) return;
+            SUPERVISORES.forEach(nome => {
+                const option = document.createElement('option');
+                option.value = nome;
+                option.textContent = nome;
+                select.appendChild(option);
+            });
+            select.dataset.populated = "true";
+            selPreparar(select);
+            selSincronizar(select);
+        }
+        function setupDropzone(dropzoneId, fileInputId, fileNamesId) {
+            const dropzone = document.getElementById(dropzoneId);
+            const fileInput = document.getElementById(fileInputId);
+            const fileNames = document.getElementById(fileNamesId);
+            if (!dropzone || dropzone.dataset.bound) return;
+            function updateFileNames() {
+                const files = fileInput.files;
+                fileNames.textContent = files.length > 0
+                    ? Array.from(files).map(f => f.name).join(', ')
+                    : '';
+            }
+            fileInput.addEventListener('change', updateFileNames);
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('border-green-500');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-green-500');
+                });
+            });
+            dropzone.addEventListener('drop', (e) => {
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    updateFileNames();
+                }
+            });
+            dropzone.dataset.bound = "true";
+        }
+        function getNextLocalRegistro() {
+            const key = 'localizador_inconformidade_protocolo';
+            const current = Number(localStorage.getItem(key) || 0);
+            const next = current + 1;
+            localStorage.setItem(key, String(next));
+            return String(next).padStart(5, '0');
+        }
+        function getNextLocalRegistroMelhoria() {
+            const key = 'localizador_melhoria_registro';
+            const current = Number(localStorage.getItem(key) || 0);
+            const next = current + 1;
+            localStorage.setItem(key, String(next));
+            return String(next).padStart(5, '0');
+        }
+        async function filesToBase64Array(fileList) {
+            const files = Array.from(fileList || []);
+            const filesData = [];
+            for (const file of files) {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = () => reject(new Error(`Não foi possível ler o arquivo ${file.name}`));
+                    reader.readAsDataURL(file);
+                });
+                filesData.push({
+                    name: file.name,
+                    type: file.type,
+                    data: base64
+                });
+            }
+            return filesData;
+        }
+        async function gerarNumeroRegistro() {
+            const input = document.getElementById('inc_registro');
+            const button = document.getElementById('inc_gerarRegistroButton');
+            if (!input) return;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'GERANDO...';
+            }
+            try {
+                const response = await fetch(`${INCONFORMIDADES_URL}?action=getSequence`);
+                if (!response.ok) {
+                    throw new Error(`Falha ao consultar o protocolo (${response.status})`);
+                }
+                const data = await response.json();
+                const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
+                if (nextRegistro) {
+                    input.value = String(nextRegistro).trim();
+                    return;
+                }
+                throw new Error('Resposta do Apps Script sem número de protocolo.');
+            } catch (error) {
+                console.warn('Apps Script não respondeu com protocolo; usando fallback local.', error);
+                input.value = getNextLocalRegistro();
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'GERAR REGISTRO';
+                }
+            }
+        }
+        async function gerarNumeroRegistroMelhoria() {
+            const input = document.getElementById('mel_registro');
+            const button = document.getElementById('mel_gerarRegistroButton');
+            if (!input) return;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'GERANDO...';
+            }
+            try {
+                const response = await fetch(`${MELHORIAS_URL}?action=getSequence`);
+                if (!response.ok) {
+                    throw new Error(`Falha ao consultar o registro (${response.status})`);
+                }
+                const data = await response.json();
+                const nextRegistro = data?.numero || data?.protocolo || data?.registro || data?.nextRegistro;
+                if (nextRegistro) {
+                    input.value = String(nextRegistro).trim();
+                    return;
+                }
+                throw new Error('Resposta do Apps Script sem número de registro.');
+            } catch (error) {
+                console.warn('Apps Script não respondeu com registro; usando fallback local.', error);
+                input.value = getNextLocalRegistroMelhoria();
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'GERAR REGISTRO';
+                }
+            }
+        }
+        async function createAsanaTaskFromInconformidade(payload) {
+            const arquivos = await filesToBase64Array(document.getElementById('inc_anexos').files);
+           const response = await fetch(INCONFORMIDADES_URL, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify({
+                    numeroPedido: payload.pedido,
+                    nomeCliente: payload.cliente,
+                    codigoItem: payload.item,
+                    mascara: payload.mascara,
+                    quantidade: payload.quantidade,
+                    carregamento: payload.carregamento,
+                    inconformidade: payload.inconformidade,
+                    acaoCorrecao: payload.acaoCorrecao,
+                    supervisor: payload.supervisor,
+                    registro: payload.registro,
+                    arquivos
+                })
+            });
+            const contentType = response.headers.get('content-type') || '';
+            const body = contentType.includes('application/json')
+                ? await response.json()
+                : await response.text();
+            if (!response.ok) {
+                const message = typeof body === 'object' && body && body.message
+                    ? body.message
+                    : (typeof body === 'string' ? body : `HTTP ${response.status}`);
+                throw new Error(message);
+            }
+            return body;
+        }
+        async function createAsanaTaskFromMelhoria(payload) {
+            const arquivos = await filesToBase64Array(document.getElementById('mel_anexos').files);
+            const response = await fetch(MELHORIAS_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify({
+                    registro: payload.registro,
+                    numeroPedido: payload.pedido,
+                    nomeCliente: payload.cliente,
+                    tipoEquipamento: payload.tipoEquipamento,
+                    codigoItem: payload.item,
+                    mascara: payload.mascara,
+                    quantidade: payload.quantidade,
+                    carregamento: payload.carregamento,
+                    inconformidade: payload.inconformidade,
+                    recorrencia: payload.recorrencia,
+                    melhoria: payload.melhoria,
+                    supervisor: payload.supervisor,
+                    arquivos
+                })
+            });
+            const contentType = response.headers.get('content-type') || '';
+            const body = contentType.includes('application/json')
+                ? await response.json()
+                : await response.text();
+            if (!response.ok) {
+                const message = typeof body === 'object' && body && body.message
+                    ? body.message
+                    : (typeof body === 'string' ? body : `HTTP ${response.status}`);
+                throw new Error(message);
+            }
+            return body;
+        }
+        function resetInconformidadeForm() {
+            const form = document.getElementById('formInconformidades');
+            form.reset();
+            selSincronizarTodos(form);
+            document.getElementById('inc_fileNames').textContent = '';
+            const status = document.getElementById('inc_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+        }
+        async function submitInconformidade(event) {
+            event.preventDefault();
+            const submitButton = document.getElementById('inc_submitButton');
+            const status = document.getElementById('inc_formStatus');
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+            await gerarNumeroRegistro();
+            const payload = {
+                registro: document.getElementById('inc_registro').value.trim(),
+                pedido: document.getElementById('inc_pedido').value.trim(),
+                cliente: document.getElementById('inc_cliente').value.trim(),
+                item: document.getElementById('inc_item').value.trim().toUpperCase(),
+                mascara: document.getElementById('inc_mascara').value.trim(),
+                quantidade: document.getElementById('inc_quantidade').value.trim(),
+                carregamento: document.getElementById('inc_carregamento').value.trim(),
+                inconformidade: document.getElementById('inc_descricao').value.trim(),
+                acaoCorrecao: document.getElementById('inc_acao').value.trim(),
+                supervisor: document.getElementById('inc_supervisor').value
+            };
+            if (!payload.registro) {
+                status.textContent = 'Não foi possível gerar o número de protocolo. Tente novamente.';
+                status.classList.add('text-red-400');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+                return;
+            }
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+            try {
+                const taskResult = await createAsanaTaskFromInconformidade(payload);
+                console.log('Inconformidade enviada e tarefa criada no Asana:', payload, taskResult);
+                status.textContent = 'Inconformidade registrada com sucesso e tarefa enviada para o Asana!';
+                status.classList.add('text-green-400');
+                setTimeout(() => {
+                    closeForm('inconformidades');
+                }, 1200);
+            } catch (error) {
+                console.error('Erro ao enviar inconformidade:', error);
+                status.textContent = `Erro ao enviar: ${error.message}`;
+                status.classList.add('text-red-400');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+            }
+        }
+        function resetMelhoriaForm() {
+            const form = document.getElementById('formMelhorias');
+            form.reset();
+            selSincronizarTodos(form);
+            document.getElementById('mel_fileNames').textContent = '';
+            const status = document.getElementById('mel_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+        }
+        async function submitMelhoria(event) {
+            event.preventDefault();
+            const submitButton = document.getElementById('mel_submitButton');
+            const status = document.getElementById('mel_formStatus');
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Gerando registro...`;
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+            await gerarNumeroRegistroMelhoria();
+            const payload = {
+                registro: document.getElementById('mel_registro').value.trim(),
+                pedido: document.getElementById('mel_pedido').value.trim(),
+                cliente: document.getElementById('mel_cliente').value.trim(),
+                tipoEquipamento: document.getElementById('mel_tipoEquipamento').value,
+                item: document.getElementById('mel_item').value.trim().toUpperCase(),
+                mascara: document.getElementById('mel_mascara').value.trim(),
+                quantidade: document.getElementById('mel_quantidade').value.trim(),
+                carregamento: document.getElementById('mel_carregamento').value.trim(),
+                inconformidade: document.getElementById('mel_descricao').value.trim(),
+                recorrencia: document.getElementById('mel_recorrencia').value,
+                melhoria: document.getElementById('mel_melhoria').value.trim(),
+                supervisor: document.getElementById('mel_supervisor').value
+            };
+            if (!payload.registro) {
+                status.textContent = 'Não foi possível gerar o número de registro. Tente novamente.';
+                status.classList.add('text-red-400');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+                return;
+            }
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+            try {
+                const taskResult = await createAsanaTaskFromMelhoria(payload);
+                console.log('Melhoria enviada e tarefa criada no Asana:', payload, taskResult);
+                status.textContent = 'Melhoria registrada com sucesso e tarefa enviada para o Asana!';
+                status.classList.add('text-green-400');
+                setTimeout(() => {
+                    closeForm('melhorias');
+                }, 1200);
+            } catch (error) {
+                console.error('Erro ao enviar melhoria:', error);
+                status.textContent = `Erro ao enviar: ${error.message}`;
+                status.classList.add('text-red-400');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar';
+            }
+        }
+        function openForm(tipo) {
+            const modal = document.getElementById(`modal-${tipo}`);
+            if (!modal) {
+                console.log(`Formulário ainda não implementado: ${tipo}`);
+                return;
+            }
+            if (tipo === 'inconformidades') {
+                populateSupervisorSelect('inc_supervisor');
+                setupDropzone('inc_dropzone', 'inc_anexos', 'inc_fileNames');
+            }
+            if (tipo === 'melhorias') {
+                populateSupervisorSelect('mel_supervisor');
+                setupDropzone('mel_dropzone', 'mel_anexos', 'mel_fileNames');
+            }
+            if (tipo === 'retorno') {
+                populateSupervisorSelect('ret_responsavel');
+                if (!document.getElementById('ret_itemsBody').dataset.initialized) {
+                    retAddRow();
+                    retAddRow();
+                    retAddRow();
+                    document.getElementById('ret_itemsBody').dataset.initialized = 'true';
+                }
+                requestAnimationFrame(() => chkInitSignaturePad('sigRetorno'));
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeForm(tipo) {
+            const modal = document.getElementById(`modal-${tipo}`);
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+            if (tipo === 'inconformidades') {
+                resetInconformidadeForm();
+            }
+            if (tipo === 'melhorias') {
+                resetMelhoriaForm();
+            }
+            if (tipo === 'retorno') {
+                resetRetornoForm();
+            }
+        }
+        // ============================================================
+        // Retorno de Obra — tabela dinâmica de itens + assinatura
+        // ============================================================
+        let retRowCounter = 0;
+        function retAddRow() {
+            retRowCounter++;
+            const rowId = 'ret-row-' + retRowCounter;
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.innerHTML = `
+                <td><input type="text" class="ret-codigo" placeholder="Cód."></td>
+                <td><input type="text" class="ret-mascara" placeholder="Másc."></td>
+                <td><input type="number" class="ret-quantidade" placeholder="Qtde."></td>
+                <td><input type="text" class="ret-unidade" placeholder="Un."></td>
+                <td><input type="text" class="ret-descricao" placeholder="Desc."></td>
+                <td class="ret-col-remove">
+                    <button type="button" class="ret-remove-row" onclick="retRemoveRow('${rowId}')" title="Remover item">✕</button>
+                </td>
+            `;
+            document.getElementById('ret_itemsBody').appendChild(tr);
+        }
+        function retRemoveRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        }
+        function retCollectItems() {
+            const rows = document.querySelectorAll('#ret_itemsBody tr');
+            const items = [];
+            rows.forEach(row => {
+                const codigo = row.querySelector('.ret-codigo').value.trim();
+                const mascara = row.querySelector('.ret-mascara').value.trim();
+                const quantidade = row.querySelector('.ret-quantidade').value.trim();
+                const unidade = row.querySelector('.ret-unidade').value.trim();
+                const descricao = row.querySelector('.ret-descricao').value.trim();
+                if (codigo || mascara || quantidade || unidade || descricao) {
+                    items.push({ codigo, mascara, quantidade, unidade, descricao });
+                }
+            });
+            return items;
+        }
+        function resetRetornoForm() {
+            const form = document.getElementById('formRetorno');
+            form.reset();
+            selSincronizarTodos(form);
+            document.getElementById('ret_itemsBody').innerHTML = '';
+            document.getElementById('ret_itemsBody').dataset.initialized = '';
+            retAddRow();
+            retAddRow();
+            retAddRow();
+            document.getElementById('ret_itemsBody').dataset.initialized = 'true';
+            chkClearSignature('sigRetorno');
+            const status = document.getElementById('ret_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+        }
+        async function submitRetorno(event) {
+            event.preventDefault();
+            const submitButton = document.getElementById('ret_submitButton');
+            const status = document.getElementById('ret_formStatus');
+            status.textContent = '';
+            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
+            const items = retCollectItems();
+            if (items.length === 0) {
+                status.textContent = 'Informe ao menos um item na lista de retorno.';
+                status.classList.add('text-red-400');
+                return;
+            }
+            const payload = {
+                tipoItem: document.getElementById('ret_tipoItem').value,
+                pedido: document.getElementById('ret_pedido').value.trim(),
+                cliente: document.getElementById('ret_cliente').value.trim(),
+                localidade: document.getElementById('ret_localidade').value.trim(),
+                responsavel: document.getElementById('ret_responsavel').value,
+                itens: items,
+                assinatura: chkGetSignatureDataUrl('sigRetorno')
+            };
+            // Envio ainda não conectado a um backend — dados prontos em "payload"
+            // para quando a geração de PDF / integração for implementada.
+            console.log('Retorno de Obra pronto para envio:', payload);
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
+            setTimeout(() => {
+                status.textContent = 'Lista de retorno registrada!';
+                status.classList.add('text-green-400');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Enviar Lista de Retorno de Obra';
+                setTimeout(() => closeForm('retorno'), 1200);
+            }, 400);
+        }
+        // ============================================================
+        // Checklist de Entrega — seleção de equipamento + Elevador de Canecas
+        // ============================================================
+        function openChecklistTipo() {
+            const modal = document.getElementById('modal-checklist-tipo');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeChecklistTipo() {
+            const modal = document.getElementById('modal-checklist-tipo');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        const chkModelOptions = {
+            elevador: [
+                'EL5P', 'EL6P', 'EL8P', 'EL10P', 'EL11P', 'EL13P', 'EL15P'
+            ],
+            rosca: [
+                'RT150P', 'RT200P', 'RT250P', 'RT300P', 'RT350P', 'RT400P', 'RT500P'
+            ]
+        };
+        function renderChecklistModelOptions(mode) {
+            const select = document.getElementById('modelo');
+            if (!select) return;
+            const models = chkModelOptions[mode] || [];
+            select.innerHTML = '<option value="">Selecione…</option>';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                select.appendChild(option);
+            });
+            selPreparar(select);
+            selSincronizar(select);
+        }
+        function selectEquipamentoChecklist(tipo) {
+            closeChecklistTipo();
+            if (tipo === 'elevador-canecas') {
+                openChecklistElevador();
+            }
+            if (tipo === 'rosca-transportadora') {
+                openChecklistRosca();
+            }
+        }
+        function openChecklistElevador() {
+            currentChecklistMode = 'elevador';
+            renderChecklistModelOptions('elevador');
+            document.getElementById('checklistTitle').innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M8 12.5l2.5 2.5L17 8"/>
+                </svg>
+                Checklist de Entrega — Elevador de Canecas
+            `;
+            const modal = document.getElementById('modal-checklist-elevador');
+            populateSupervisorSelect('supervisorNome');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            renderChecklistColumns('elevador');
+            requestAnimationFrame(() => {
+                chkInitSignaturePad('sigSupervisor');
+                chkInitSignaturePad('sigCliente');
+            });
+        }
+        function openChecklistRosca() {
+            currentChecklistMode = 'rosca';
+            renderChecklistModelOptions('rosca');
+            document.getElementById('checklistTitle').innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <path d="M8 12.5l2.5 2.5L17 8"/>
+                </svg>
+                Checklist de Entrega — Rosca Transportadora
+            `;
+            const modal = document.getElementById('modal-checklist-elevador');
+            populateSupervisorSelect('supervisorNome');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            renderChecklistColumns('rosca');
+            requestAnimationFrame(() => {
+                chkInitSignaturePad('sigSupervisor');
+                chkInitSignaturePad('sigCliente');
+            });
+        }
+        function closeChecklistElevador() {
+            const modal = document.getElementById('modal-checklist-elevador');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        function voltarTipoChecklist() {
+            closeChecklistElevador();
+            openChecklistTipo();
+        }
+        // --- Conteúdo do Checklist de Entrega ---
+        let currentChecklistMode = 'elevador';
+        const chkElevadorLeftItems = [
+          {group:'Conjunto Pé', label:'União da correia'},
+          {group:'Conjunto Pé', label:'Esticamento da correia'},
+          {group:'Conjunto Pé', label:'Fixação do pé (chumbadores)'},
+          {group:'Conjunto Pé', label:'Montagem das caçambas (fixação/distribuição)'},
+          {group:'Conjunto Pé e Cabeça', label:'Alinhamento dos módulos'},
+          {group:'Conjunto Pé e Cabeça', label:'Lubrificação e fixação dos mancais'},
+          {group:'Conjunto Pé e Cabeça', label:'Pontos de estaiamento'},
+          {group:'Conjunto Pé e Cabeça', label:'Adesivos de segurança'},
+          {group:'Conjunto Pé e Cabeça', label:'Montagem interligações (carga e descarga)'},
+          {group:'Conjunto Pé e Cabeça', label:'Acabamento e pintura'},
+          {group:'Conjunto Pé e Cabeça', label:'Ponto de captação de pó'},
+          {group:'Conjunto Cabeça', label:'Localização e altura conforme projeto'},
+          {group:'Conjunto Cabeça', label:'Prumo do elevador'},
+          {group:'Conjunto Cabeça', label:'Lado acionamento oposto ao alçapão'},
+          {group:'Conjunto Cabeça', label:'Fixação do acionamento (arruelas de pressão)'},
+        ];
+        const chkElevadorRightItems = [
+          {group:'Conjunto Cabeça', label:'Nível de óleo e posição do motoredutor'},
+          {group:'Conjunto Cabeça', label:'Plataformas (alçapão / corrimão)'},
+          {group:'Conjunto Cabeça', label:'Respiro do motoredutor destravado'},
+          {group:'Conjunto Cabeça', label:'Montagem das escadas e guarda corpo'},
+          {group:'Conjunto Cabeça', label:'Tensão dos cabos de aço do estaiamento'},
+          {group:'Conjunto Cabeça', label:'Vedação (infiltração de água)'},
+          {group:'Conjunto Cabeça', label:'Potência (W) / Tensão (V) / Frequência do motor (RPM)'},
+          {group:'Teste a vazio', label:'Centralização da correia no rolo inferior'},
+          {group:'Teste a vazio', label:'Centralização da correia no rolo superior'},
+          {group:'Teste a vazio', label:'Curso do conjunto deslizante'},
+          {group:'Teste a vazio', label:'Caçambas não colidem com a estrutura dos módulos'},
+          {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
+          {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
+        ];
+        const chkRoscaLeftItems = [
+        // Análise Mecânica Geral
+        { group: 'Análise Mecânica Geral', label: 'Localização e comprimento conforme projeto' },
+        { group: 'Análise Mecânica Geral', label: 'Alinhamento dos módulos' },
+        { group: 'Análise Mecânica Geral', label: 'Posicionamento das tampas' },
+        { group: 'Análise Mecânica Geral', label: 'Fechamento e vedação das tampas superiores' },
+        { group: 'Análise Mecânica Geral', label: 'Remoção do excesso de massa de calafetar' },
+        { group: 'Análise Mecânica Geral', label: 'Pontos de carga e descarga conforme projeto' },
+        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de carga' },
+        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de descarga' },
+        { group: 'Análise Mecânica Geral', label: 'Pontos de captação de pó' },
+        { group: 'Análise Mecânica Geral', label: 'Fixação do equipamento' },
+        { group: 'Análise Mecânica Geral', label: 'Vedação (equipamento externo)' },
+        // Acionamento
+        { group: 'Acionamento', label: 'Posição do acionamento conforme projeto' },
+        { group: 'Acionamento', label: 'Fixação dos acionamentos por arruelas de pressão' },
+        { group: 'Acionamento', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+        { group: 'Acionamento', label: 'Nível do óleo do motoredutor' },
+        ];
+        const chkRoscaRightItems = [
+        // Acionamento
+        { group: 'Acionamento', label: 'Respiro do redutor destravado' },
+        { group: 'Acionamento', label: 'Montagem e alinhamento do acoplamento' },
+        { group: 'Acionamento', label: 'Lubrificação e fixação dos mancais externos' },
+        // Sem Tampas
+        { group: 'Sem Tampas', label: 'Posição de montagem dos helicóides (início/fim)' },
+        { group: 'Sem Tampas', label: 'Alinhamento dos helicóides' },
+        { group: 'Sem Tampas', label: 'Altura dos helicóides' },
+        { group: 'Sem Tampas', label: 'Montagem correta dos helicóides com reforço' },
+        { group: 'Sem Tampas', label: 'Lubrificação dos mancais intermediários' },
+        // Teste
+        { group: 'Teste', label: 'Sentido de rotação (fluxo)' },
+        { group: 'Teste', label: 'Alinhamento/ruído do helicoide' },
+        // Geral
+        { group: 'Geral', label: 'Funcionamento de acessórios especiais' },
+        { group: 'Geral', label: 'Acabamento e pintura do equipamento' },
+        ];
+        function getChecklistItems(mode) {
+            if (mode === 'rosca') {
+                return { left: chkRoscaLeftItems, right: chkRoscaRightItems };
+            }
+            return { left: chkElevadorLeftItems, right: chkElevadorRightItems };
+        }
+        function chkBuildColumn(container, items, prefix) {
+            let lastGroup = null;
+            items.forEach((item, i) => {
+                if (item.group !== lastGroup) {
+                    const h = document.createElement('div');
+                    h.className = 'group-label';
+                    h.textContent = item.group;
+                    container.appendChild(h);
+                    lastGroup = item.group;
+                }
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                const sel = document.createElement('select');
+                sel.className = 'status-sel';
+                sel.id = prefix + '-' + i;
+                [['','—'],['OK','OK'],['NC','NC'],['NA','NA']].forEach(([v,t]) => {
+                    const opt = document.createElement('option');
+                    opt.value = v; opt.textContent = t;
+                    sel.appendChild(opt);
+                });
+                sel.addEventListener('change', () => {
+                    sel.classList.remove('v-OK','v-NC','v-NA');
+                    if (sel.value) sel.classList.add('v-' + sel.value);
+                    chkUpdateProgress();
+                });
+                const lbl = document.createElement('div');
+                lbl.className = 'item-label';
+                lbl.textContent = item.label;
+                row.appendChild(sel); row.appendChild(lbl);
+                container.appendChild(row);
+            });
+        }
+        function renderChecklistColumns(mode) {
+            const { left, right } = getChecklistItems(mode);
+            const leftCol = document.getElementById('colLeft');
+            const rightCol = document.getElementById('colRight');
+            leftCol.innerHTML = '';
+            rightCol.innerHTML = '';
+            chkBuildColumn(leftCol, left, mode === 'rosca' ? 'RL' : 'L');
+            chkBuildColumn(rightCol, right, mode === 'rosca' ? 'RR' : 'R');
+            selPrepararTodos(leftCol);   // OK / NC / NA também trocam de lista
+            selPrepararTodos(rightCol);
+            chkUpdateProgress();
+        }
+        // Segurança extra: impede que o formulário do checklist seja enviado
+        // (o que recarregaria a página e apagaria os dados) caso o navegador
+        // dispare um submit implícito, por exemplo ao confirmar uma data com Enter.
+        document.getElementById('checklistForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+        });
+        function chkUpdateProgress() {
+            const { left, right } = getChecklistItems(currentChecklistMode);
+            const chkTotal = left.length + right.length;
+            let filled = 0, ok = 0, nc = 0, na = 0;
+            left.forEach((_, i) => {
+                const prefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
+                const v = document.getElementById(prefix + '-' + i)?.value;
+                if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
+            });
+            right.forEach((_, i) => {
+                const prefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
+                const v = document.getElementById(prefix + '-' + i)?.value;
+                if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
+            });
+            document.getElementById('progressFill').style.width = (filled/chkTotal*100) + '%';
+            document.getElementById('progressText').textContent = `${filled} de ${chkTotal} itens preenchidos`;
+            document.getElementById('cntOK').textContent = `OK: ${ok}`;
+            document.getElementById('cntNC').textContent = `NC: ${nc}`;
+            document.getElementById('cntNA').textContent = `NA: ${na}`;
+        }
+        // Auto-formatação do campo TAG: usuário digita apenas o número (ex: 1) e o campo
+        // exibe automaticamente no padrão EL-01 para elevador e RT-01 para rosca.
+        (function(){
+            const tagInput = document.getElementById('tag');
+            tagInput.addEventListener('input', () => {
+                const digits = tagInput.value.replace(/\D/g, '');
+                if (!digits) { tagInput.value = ''; return; }
+                const num = parseInt(digits, 10);
+                const prefix = currentChecklistMode === 'rosca' ? 'RT-' : 'EL-';
+                tagInput.value = prefix + (num < 10 ? '0' + num : String(num));
+            });
+        })();
+        function chkVal(id){ return document.getElementById(id).value.trim(); }
+        function chkFmtDate(iso){
+            if(!iso) return '____/____/______';
+            const [y,m,d] = iso.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        function chkGetRadio(name){
+            for(const el of document.getElementsByName(name)) if(el.checked) return el.value;
+            return '';
+        }
+        // ── Quadro de assinatura digital (desenho na tela) ──
+        // Assinar é opcional: se o campo ficar em branco, o PDF é gerado normalmente
+        // com a linha vazia para assinatura à mão, exatamente como já era antes.
+        const chkSignaturePads = {};
+        function chkInitSignaturePad(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || canvas.dataset.bound === 'true') return;
+            canvas.dataset.bound = 'true';
+            const ctx = canvas.getContext('2d');
+            const ratio = window.devicePixelRatio || 1;
+            const displayWidth = canvas.clientWidth || 300;
+            const displayHeight = canvas.clientHeight || 110;
+            canvas.width = displayWidth * ratio;
+            canvas.height = displayHeight * ratio;
+            ctx.scale(ratio, ratio);
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#1a1a1a';
+            const state = { drawing: false, hasDrawn: false };
+            chkSignaturePads[canvasId] = { canvas, ctx, state };
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const p = e.touches && e.touches.length ? e.touches[0] : e;
+                return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+            }
+            function start(e) {
+                e.preventDefault();
+                state.drawing = true;
+                if (!state.hasDrawn) {
+                    state.hasDrawn = true;
+                    chkUpdateSignatureStatus(canvasId);
+                }
+                const pos = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            }
+            function move(e) {
+                if (!state.drawing) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+            }
+            function end() { state.drawing = false; }
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end);
+        }
+        function chkUpdateSignatureStatus(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            const placeholder = document.getElementById(canvasId + 'Placeholder');
+            const status = document.getElementById(canvasId + 'Status');
+            const signed = !!(pad && pad.state.hasDrawn);
+            if (placeholder) placeholder.style.display = signed ? 'none' : '';
+            if (status) {
+                status.textContent = signed
+                    ? '✓ Assinado nesta tela'
+                    : 'Sem assinatura — pode gerar o PDF normalmente e assinar depois';
+                status.classList.toggle('signed', signed);
+            }
+        }
+        function chkClearSignature(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            if (!pad) return;
+            pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height);
+            pad.state.hasDrawn = false;
+            chkUpdateSignatureStatus(canvasId);
+        }
+        // Retorna a assinatura em PNG (data URL) ou null se o campo estiver vazio.
+        function chkGetSignatureDataUrl(canvasId) {
+            const pad = chkSignaturePads[canvasId];
+            if (!pad || !pad.state.hasDrawn) return null;
+            return pad.canvas.toDataURL('image/png');
+        }
+        function chkDataUrlToBytes(dataUrl) {
+            const base64 = dataUrl.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+        document.getElementById('btnReset').addEventListener('click', () => {
+            if(confirm('Limpar todos os campos preenchidos?')){
+                document.getElementById('checklistForm').reset();
+                document.querySelectorAll('#checklistElevadorRoot select.status-sel').forEach(s => s.classList.remove('v-OK','v-NC','v-NA'));
+                selSincronizarTodos(document.getElementById('checklistElevadorRoot'));
+                chkClearSignature('sigSupervisor');
+                chkClearSignature('sigCliente');
+                document.getElementById('statusMsg').textContent = '';
+                chkUpdateProgress();
+            }
+        });
+        document.getElementById('btnPdf').addEventListener('click', chkGerarPDF);
+        async function chkGerarPDF(){
+            const btn = document.getElementById('btnPdf');
+            const msg = document.getElementById('statusMsg');
+            btn.disabled = true; msg.textContent = 'Gerando PDF…';
+            try {
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const doc = await PDFDocument.create();
+                const checklistTitle = currentChecklistMode === 'rosca'
+                    ? 'Check-List de Entrega — Rosca Transportadora'
+                    : 'Check-List de Entrega — Elevador de Canecas';
+                // --- CARREGANDO A LOGO DO GITHUB ---
+                const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
+                const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
+                const logoImage = await doc.embedPng(logoImageBytes);
+                const logoHeight = 24;
+                const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
+                // -----------------------------------
+                // --- Assinaturas desenhadas na tela (opcionais) ---
+                // Se a pessoa não assinou, os "Img" ficam null e o PDF é gerado
+                // normalmente, apenas com a linha em branco para assinar depois.
+                const sigSupervisorDataUrl = chkGetSignatureDataUrl('sigSupervisor');
+                const sigClienteDataUrl = chkGetSignatureDataUrl('sigCliente');
+                const sigSupervisorImg = sigSupervisorDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigSupervisorDataUrl)) : null;
+                const sigClienteImg = sigClienteDataUrl ? await doc.embedPng(chkDataUrlToBytes(sigClienteDataUrl)) : null;
+                const font = await doc.embedFont(StandardFonts.Helvetica);
+                const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+                const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+                const pageW = 595.28, pageH = 841.89, mg = 26;
+                const headerH = 58;
+                const green = rgb(0.102, 0.322, 0.251);
+                const greenDark = rgb(0.059, 0.322, 0.161);
+                const ink = rgb(0.10, 0.11, 0.10);
+                const muted = rgb(0.46, 0.47, 0.44);
+                const lineC = rgb(0.84, 0.85, 0.82);
+                const white = rgb(1,1,1);
+                let page = doc.addPage([pageW, pageH]);
+                let y = pageH - mg;
+                let firstPage = true;
+                const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; firstPage = false; };
+                const ensure = h => { if(y - h < mg) newPage(); };
+                const txt = (str, x, yy, opts={}) => {
+                    page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
+                };
+                const hline = (x1, yy, x2, opts={}) => {
+                    page.drawLine({ start:{x:x1,y:yy}, end:{x:x2,y:yy}, thickness: opts.t||0.6, color: opts.color||lineC });
+                };
+                const rect = (x,yy,w,h,opts={}) => {
+                    page.drawRectangle({ x, y:yy, width:w, height:h, borderWidth: opts.bw!==undefined?opts.bw:0.6, borderColor: opts.bc||lineC, color: opts.fill||white });
+                };
+                const wrap = (str, maxW, size, f) => {
+                    const words = (str||'').split(/\s+/).filter(Boolean);
+                    const lines=[]; let cur='';
+                    for(const w of words){
+                        const test = cur ? cur+' '+w : w;
+                        if(f.widthOfTextAtSize(test,size)>maxW && cur){ lines.push(cur); cur=w; } else cur=test;
+                    }
+                    if(cur) lines.push(cur);
+                    return lines.length ? lines : [''];
+                };
+                // ── Header block ──
+                hline(0, pageH-headerH, pageW, {t:2.5, color: greenDark});
+                page.drawImage(logoImage, {
+                    x: mg,
+                    y: pageH - headerH/2 - logoHeight/2 + 4,
+                    width: logoWidth,
+                    height: logoHeight,
+                });
+                txt(checklistTitle, mg+logoWidth+16, pageH-24, {size:11, font:bold, color:greenDark});
+                txt('TAG: '+chkVal('tag')+'   Código: '+chkVal('codigo')+'   Máscara: '+chkVal('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
+                y = pageH - headerH - 14;
+                txt('Pedido: '+chkVal('pedido'), mg, y, {size:9});
+                txt('Cliente: '+chkVal('cliente'), mg+140, y, {size:9});
+                txt('Modelo: '+chkVal('modelo'), mg+330, y, {size:9});
+                y -= 12;
+                txt('Local: '+chkVal('local'), mg, y, {size:9});
+                y -= 18;
+                // ── Section 1 ──
+                txt('CONFERÊNCIA DO PROCESSO DE MONTAGEM', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 11;
+                txt('Marque cada item com OK, NC (não conforme) ou NA (não aplicável)', mg, y, {size:8, font:italic, color:muted});
+                y -= 13;
+                const colTop = y;
+                const colW = (pageW-2*mg-20)/2;
+                const lX = mg, rX = mg+colW+20;
+                const rowH = 13;
+                const drawChecks = (items, x, prefix) => {
+                    let yy = colTop;
+                    let lastG = null;
+                    items.forEach((item,i) => {
+                        if(item.group!==lastG){
+                            yy -= 2;
+                            txt(item.group.toUpperCase(), x, yy, {size:7, font:bold, color:greenDark});
+                            yy -= 10; lastG=item.group;
+                        }
+                        const v = document.getElementById(prefix+'-'+i).value;
+                        const bColor = v==='OK'?rgb(.12,.48,.25):v==='NC'?rgb(.72,.19,.19):v==='NA'?rgb(.48,.49,.47):lineC;
+                        const bFill = v==='OK'?rgb(.89,.97,.91):v==='NC'?rgb(.99,.91,.91):v==='NA'?rgb(.94,.94,.93):white;
+                        rect(x, yy-2.5, 22, 10.5, {fill:bFill, bc:bColor, bw:.7});
+                        txt(v, x+(v.length===2?4:4.5), yy, {size:7.2, font:bold, color:bColor});
+                        const llines = wrap(item.label, colW-30, 7.8, font);
+                        txt(llines[0], x+28, yy, {size:7.8});
+                        yy -= rowH;
+                        for(let k=1;k<llines.length;k++){ txt(llines[k], x+28, yy, {size:7.8}); yy-=rowH; }
+                    });
+                    return yy;
+                };
+                const leftPrefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
+                const rightPrefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
+                const leftEnd = drawChecks(getChecklistItems(currentChecklistMode).left, lX, leftPrefix);
+                const rightEnd = drawChecks(getChecklistItems(currentChecklistMode).right, rX, rightPrefix);
+                y = Math.min(leftEnd, rightEnd) - 10;
+                ensure(90);
+                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 50;
+                if (sigSupervisorImg) {
+                    const sw = 150, sh = Math.min(34, sw * (sigSupervisorImg.height / sigSupervisorImg.width));
+                    page.drawImage(sigSupervisorImg, { x: mg+250, y: y+2, width: sw, height: sh });
+                }
+                txt(chkVal('supervisorNome'), mg, y, {size:9.5});
+                hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
+                hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
+                y -= 32;
+                // ── Section 2 ──
+                ensure(90);
+                txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
+                txt('A capacidade do equipamento está de acordo com o projeto (conferir modelo)?', mg, y, {size:9}); y -= 16;
+                const cap = chkGetRadio('capacidade');
+                rect(mg, y-2.5, 10, 10, {fill:cap==='Sim'?rgb(.89,.97,.91):white, bc:cap==='Sim'?rgb(.12,.48,.25):lineC});
+                if(cap==='Sim') txt('✓', mg+1.5, y, {size:8, font:bold, color:greenDark});
+                txt('Sim', mg+15, y, {size:9});
+                rect(mg+58, y-2.5, 10, 10, {fill:cap==='Não'?rgb(.99,.91,.91):white, bc:cap==='Não'?rgb(.72,.19,.19):lineC});
+                if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
+                txt('Não', mg+73, y, {size:9});
+                y -= 22;
+                ensure(90);
+                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= 50;
+                if (sigClienteImg) {
+                    const sw = 150, sh = Math.min(34, sw * (sigClienteImg.height / sigClienteImg.width));
+                    page.drawImage(sigClienteImg, { x: mg+250, y: y+2, width: sw, height: sh });
+                }
+                txt(chkVal('clienteNome'), mg, y, {size:9.5});
+                hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
+                hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
+                y -= 32;
+                // ── Section 3 ──
+                ensure(60);
+                txt('OBSERVAÇÕES / PARECER TÉCNICO', mg, y, {size:10, font:bold, color:greenDark});
+                y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
+                const obs = chkVal('observacoes');
+                if(obs){
+                    wrap(obs, pageW-2*mg, 9.5, font).forEach(l => { ensure(14); txt(l,mg,y,{size:9.5}); y-=14; });
+                } else {
+                    for(let i=0;i<4;i++){ ensure(16); hline(mg,y,pageW-mg); y-=16; }
+                }
+                y -= 8;
+                // ── Notes ──
+                ensure(70);
+                const notes = [
+                    '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
+                    '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
+                    '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
+                    '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
+                ];
+                hline(mg,y,pageW-mg,{t:.4}); y -= 10;
+                notes.forEach(n => {
+                    wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
+                });
+                y -= 25;
+                // ── Closing ──
+                ensure(45);
+                hline(mg,y,pageW-mg); y -= 20;
+                txt(chkVal('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
+                txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
+                txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('Grupo SR',mg+240,y-13,{size:7,color:muted});
+                txt(chkVal('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
+                const bytes = await doc.save();
+                const blob = new Blob([bytes], {type:'application/pdf'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const tagPart = chkVal('tag').replace(/[^a-zA-Z0-9_-]/g,'');
+                const fileSuffix = currentChecklistMode === 'rosca' ? 'rosca_transportadora.pdf' : 'elevador_canecas.pdf';
+                a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+fileSuffix;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(()=>URL.revokeObjectURL(url), 5000);
+                msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
+            } catch(err){
+                console.error(err);
+                msg.textContent = 'Não foi possível gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido') + '. Tente novamente.';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+
+        <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/Localizador-de-Itens/sw.js')
+          .then(reg => console.log('Service worker registrado:', reg.scope))
+          .catch(err => console.error('Erro ao registrar service worker:', err));
+      });
+    }
+    </script>
+</body>
+</html>
