@@ -4411,8 +4411,12 @@
            aparece na tela.
         ============================================================ */
         let docsPedido = null;
-        let docsPastas = [];
-        let docsPastaAberta = null;
+        // A trilha de onde o supervisor está: [] é a raiz do pedido,
+        // depois a pasta do grupo, depois a do equipamento. A seta de
+        // voltar tira o último degrau. Com uma trilha em vez de uma
+        // variável só, acrescentar níveis no Drive não quebra a tela.
+        let docsTrilha = [];
+        let docsRaizPastas = [];
 
         const DOC_ICONE_PASTA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
         const DOC_ICONE_PDF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
@@ -4447,7 +4451,7 @@
 
         async function onDocsPedidoChange(valor) {
             docsPedido = (valor || '').trim().toUpperCase();
-            docsPastaAberta = null;
+            docsTrilha = [];
             const bloco = document.getElementById('docsBloco');
             if (!docsPedido) { bloco.classList.add('hidden'); return; }
 
@@ -4461,8 +4465,8 @@
                 const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
                 const d = await r.json();
                 if (d && d.error) { docsErro(d.error); return; }
-                docsPastas = d.pastas || [];
-                docsDesenharPastas();
+                docsRaizPastas = d.pastas || [];
+                docsDesenharRaiz();
             } catch (e) {
                 docsErro('Não consegui carregar as pastas. ' + e.message);
             }
@@ -4472,37 +4476,54 @@
             document.getElementById('docsVoltar').classList.toggle('hidden', !mostrar);
         }
 
-        function docsDesenharPastas() {
-            const alvo = document.getElementById('docsLista');
+        /** A raiz do pedido: as pastas de nível 1. */
+        function docsDesenharRaiz() {
+            docsTrilha = [];
             document.getElementById('docsTitulo').textContent = 'Documentos do Pedido ' + docsPedido;
             docsMostrarVoltar(false);
+            const alvo = document.getElementById('docsLista');
 
-            if (!docsPastas.length) {
+            if (!docsRaizPastas.length) {
                 alvo.innerHTML = '<p class="doc-vazio">Este pedido ainda não tem pastas. '
                                + 'Rode "Sincronizar pastas de documentos" no menu da planilha.</p>';
                 return;
             }
+            window.docsPastasNaTela = docsRaizPastas;
+            alvo.innerHTML = docsLinhasDePasta(docsRaizPastas);
+        }
+
+        function docsLinhasDePasta(lista) {
             let h = '';
-            docsPastas.forEach(function (p, i) {
-                const eh3D = p.nome.indexOf('02.') === 0;
-                h += '<button type="button" class="doc-item" onclick="docsAbrirPasta(' + i + ')">'
+            lista.forEach(function (p, i) {
+                const eh3D = docsSemNumero(p.nome).toUpperCase().indexOf('LINKS 3D') === 0;
+                h += '<button type="button" class="doc-item" onclick="docsEntrar(' + i + ')">'
                    + '<span class="doc-icone">' + (eh3D ? DOC_ICONE_3D : DOC_ICONE_PASTA) + '</span>'
                    + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(p.nome) + '</span></span>'
                    + '<span class="doc-seta">' + DOC_SETA + '</span>'
                    + '</button>';
             });
-            alvo.innerHTML = h;
+            return h;
         }
 
+        function docsSemNumero(nome) {
+            return String(nome).replace(/^\s*\d+\s*[.\-]\s*/, '').trim();
+        }
+
+        /** A seta do topo: volta um degrau da trilha. */
         function docsVoltarPastas() {
-            docsPastaAberta = null;
-            docsDesenharPastas();
+            docsTrilha.pop();
+            if (!docsTrilha.length) { docsDesenharRaiz(); return; }
+            docsCarregarPasta(docsTrilha[docsTrilha.length - 1], false);
         }
 
-        async function docsAbrirPasta(i) {
-            const pasta = docsPastas[i];
-            if (!pasta) return;
-            docsPastaAberta = pasta;
+        /** Entra numa pasta da tela atual. */
+        function docsEntrar(i) {
+            const p = (window.docsPastasNaTela || [])[i];
+            if (p) docsCarregarPasta(p, true);
+        }
+
+        async function docsCarregarPasta(pasta, empilhar) {
+            if (empilhar) docsTrilha.push(pasta);
             document.getElementById('docsTitulo').textContent = pasta.nome;
             docsMostrarVoltar(true);
             docsCarregando('Abrindo a pasta...');
@@ -4527,20 +4548,25 @@
 
         function docsDesenharConteudo(d) {
             const alvo = document.getElementById('docsLista');
+            const pastas = d.pastas || [];
             const arquivos = d.arquivos || [];
             const links = d.links || [];
 
-            if (!arquivos.length && !links.length) {
+            if (!pastas.length && !arquivos.length && !links.length) {
                 alvo.innerHTML = '<p class="doc-vazio">Esta pasta ainda está vazia.</p>';
                 return;
             }
 
             // Guardado para o toque saber o que abrir sem precisar do id
             // no HTML — o endereço do link 3D nunca chega à tela.
+            window.docsPastasNaTela = pastas;
             window.docsLinks = links;
             window.docsArquivos = arquivos;
 
             let h = '';
+            if (pastas.length) {
+                h += docsLinhasDePasta(pastas);
+            }
             if (links.length) {
                 h += '<p class="doc-secao">Modelos 3D</p>';
                 links.forEach(function (l, i) {
@@ -4552,7 +4578,9 @@
                 });
             }
             if (arquivos.length) {
-                if (links.length) h += '<p class="doc-secao" style="margin-top:16px">Arquivos</p>';
+                if (links.length || pastas.length) {
+                    h += '<p class="doc-secao" style="margin-top:16px">Arquivos</p>';
+                }
                 arquivos.forEach(function (a, i) {
                     h += '<button type="button" class="doc-item" onclick="docsAbrirArquivo(' + i + ')">'
                        + '<span class="doc-icone">' + DOC_ICONE_PDF + '</span>'
