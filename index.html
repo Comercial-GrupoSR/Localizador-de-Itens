@@ -980,6 +980,22 @@
                 <div id="results" class="flex flex-col items-center justify-center gap-2 p-2">
                     </div>
             </div>
+
+            <!-- Abrir Desenho: só aparece depois que a busca encontra o item,
+                 porque é o código dele que abre o desenho. -->
+            <div id="desenhoBlock" class="mb-4 hidden">
+                <button type="button" id="desenhoBotao" onclick="abrirDesenho()"
+                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2.5" y="4" width="19" height="16" rx="1.5"/>
+                        <path d="M13.5 20v-4h8"/>
+                        <rect x="5.5" y="7.5" width="6.5" height="5"/>
+                        <path d="M5.5 15h6.5"/>
+                    </svg>
+                    Abrir Desenho
+                </button>
+                <p id="desenhoAviso" class="hidden text-xs text-gray-400 mt-2 text-center"></p>
+            </div>
         </div>
         <div id="page-formularios" class="hidden">
             <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
@@ -3762,6 +3778,7 @@
                 return;
             }
             resultsBlock.classList.add('hidden');
+            desenhoMostrar(false);
             searchButton.disabled = true;
             searchButton.innerHTML = `<div class="spinner border-4 border-[#333] border-t-4 h-4 w-4 rounded-full mr-2"></div> Buscando...`;
 
@@ -3804,7 +3821,52 @@
             }
         }
 
+        /* ============================================================
+           ABRIR DESENHO
+           O botão só aparece quando a busca encontrou o item — é o
+           código dele que abre o desenho.
+
+           FALTA APENAS O ENDEREÇO. Quando você souber onde os desenhos
+           ficam, preencha DESENHO_URL abaixo. Use {codigo} e {pedido}
+           nos lugares em que eles entram no endereço. Exemplos:
+
+               'https://drive.google.com/.../{codigo}.pdf'
+               'https://meuservidor/desenhos/{pedido}/{codigo}.pdf'
+
+           Enquanto estiver vazio, o botão avisa em vez de abrir uma
+           página em branco.
+        ============================================================ */
+        const DESENHO_URL = '';
+
+        function desenhoMostrar(mostrar) {
+            const bloco = document.getElementById('desenhoBlock');
+            const aviso = document.getElementById('desenhoAviso');
+            if (!bloco) return;
+            bloco.classList.toggle('hidden', !mostrar);
+            if (aviso) { aviso.textContent = ''; aviso.classList.add('hidden'); }
+        }
+
+        function abrirDesenho() {
+            const aviso = document.getElementById('desenhoAviso');
+            const codigo = (codeInput.value || '').trim().toUpperCase();
+            if (!selectedPedido || !codigo) return;
+
+            if (!DESENHO_URL) {
+                if (aviso) {
+                    aviso.textContent = 'O caminho dos desenhos ainda não foi configurado. '
+                                      + 'Item ' + codigo + ' · Pedido ' + selectedPedido + '.';
+                    aviso.classList.remove('hidden');
+                }
+                return;
+            }
+            const url = DESENHO_URL
+                .replace('{codigo}', encodeURIComponent(codigo))
+                .replace('{pedido}', encodeURIComponent(selectedPedido));
+            window.open(url, '_blank', 'noopener');
+        }
+
         function displayAwaitingSelection(message, isInitial) {
+            desenhoMostrar(false);
             resultsDiv.classList.remove('border-green-600', 'border-red-600', 'border-2', 'bg-transparent');
 
             if (isInitial) {
@@ -3815,6 +3877,7 @@
             resultsDiv.innerHTML = `<p class="text-sm text-gray-500 italic text-center" id="initialMessage">${message}</p>`;
         }
         function displaySuccess(items) {
+            desenhoMostrar(true);
             resultsDiv.classList.remove('flex', 'items-center', 'justify-center', 'border-dashed', 'border-[#444]', 'bg-[#1a1a1a]');
             resultsDiv.classList.add('border-green-600', 'border-2', 'p-3', 'bg-transparent');
 
@@ -3860,6 +3923,7 @@
             }
         }
         function displayError(message, isCritical) {
+            desenhoMostrar(false);
             resultsBlock.classList.remove('hidden');
 
             resultsDiv.classList.remove('flex', 'flex-col', 'items-center', 'justify-center', 'border-dashed', 'border-green-600', 'bg-transparent');
@@ -3925,9 +3989,14 @@
             inicio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
             localizador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
             separador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
-            documentos: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
+            // Prancha de desenho técnico: folha deitada, carimbo no canto
+            // inferior direito e a peça com a linha de cota embaixo.
+            documentos: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="1.5"/><path d="M13.5 20v-4h8"/><rect x="5.5" y="7.5" width="6.5" height="5"/><path d="M5.5 15h6.5"/></svg>',
             formularios: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
-            cronograma: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+            // O mesmo calendário de antes, agora com uma data no corpo:
+            // tres grupos separados por duas barras, no formato dd/mm/aaaa.
+            // Os riscos da data usam traço mais fino para não empastar.
+            cronograma: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><g stroke-width="1.7"><path d="M5.6 16.6h2.4"/><path d="M9.3 18 10.3 15.2"/><path d="M11.4 16.6h2.4"/><path d="M15 18 16 15.2"/><path d="M17.1 16.6h2.3"/></g></svg>'
         };
         const SETA_MENU = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
         // A ORDEM DESTA LISTA é a ordem do menu na tela.
