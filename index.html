@@ -2030,6 +2030,15 @@
             return;
         }
 
+        if (d.tagSemPecas) {
+            alvo.innerHTML = '<div class="sep-obs">Não achei nenhuma peça para a TAG '
+                + sepEsc(sepFantasma) + ' neste pedido. '
+                + 'Ou a TAG não existe no Asana para o pedido, ou o equipamento dela '
+                + 'ainda não embarcou.</div>';
+            return;
+        }
+        
+
         const g = d.geral;
         const pcOk  = g.itens ? (g.separados      / g.itens * 100) : 0;
         const pcBad = g.itens ? (g.naoEncontrados / g.itens * 100) : 0;
