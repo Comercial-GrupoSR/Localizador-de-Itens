@@ -326,6 +326,59 @@
            assim o valor nunca depende da cor para ser lido.
         ============================================================ */
         /* ============================================================
+           DOCUMENTOS DE MONTAGEM
+           Duas telas dentro do mesmo cartão: a lista de pastas do
+           pedido e, ao tocar numa, o que tem dentro dela. A seta de
+           voltar aparece só na segunda.
+        ============================================================ */
+        .doc-cabecalho {
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid #3d3d3d; padding-bottom: 10px; margin-bottom: 14px;
+        }
+        .doc-voltar {
+            flex: 0 0 auto; width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; border: 1px solid #4a4a4a; background: #333;
+            color: #d1d5db; cursor: pointer;
+        }
+        .doc-voltar:hover { background: #414141; color: #fff; }
+        .doc-voltar svg { width: 16px; height: 16px; }
+        .doc-item {
+            display: flex; align-items: center; gap: 11px; width: 100%;
+            text-align: left; cursor: pointer;
+            background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
+            padding: 12px 13px; margin-bottom: 8px; color: #e0e0e0;
+            transition: border-color .18s ease, background .18s ease;
+        }
+        .doc-item:hover { border-color: #4ade80; background: #262626; }
+        .doc-item:active { opacity: .85; }
+        .doc-icone {
+            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            background: #14301f; border: 1px solid #2f6b46; color: #6ee7a8;
+        }
+        .doc-icone svg { width: 17px; height: 17px; }
+        .doc-texto { flex: 1; min-width: 0; }
+        .doc-nome {
+            font-size: 13.5px; font-weight: 600; color: #fff;
+            word-break: break-word; line-height: 1.35;
+        }
+        .doc-detalhe { font-size: 11px; color: #6b7280; margin-top: 2px; }
+        .doc-seta { flex: 0 0 auto; color: #4b5563; }
+        .doc-seta svg { width: 16px; height: 16px; display: block; }
+        .doc-vazio {
+            font-size: 13px; color: #6b7280; font-style: italic;
+            padding: 14px 2px; line-height: 1.5;
+        }
+        .doc-erro { font-size: 13px; color: #f87171; padding: 10px 2px; line-height: 1.5; }
+        /* O grupo dos links 3D, separado dos arquivos. */
+        .doc-secao {
+            font-size: 10px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; color: #6b7280;
+            margin: 4px 0 8px;
+        }
+
+        /* ============================================================
            TELA DE ENTRADA
            Verde igual ao da tela de abertura do Android, para o app
            parecer continuar carregando em vez de mudar de assunto.
@@ -2924,9 +2977,39 @@
 </div>
         
 <div id="page-documentos" class="hidden">
-    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d]">
-        <h2 class="text-base font-semibold mb-2 text-gray-200">Documentos de Montagem</h2>
-        <p class="text-sm text-gray-400">Em breve: desenhos, manuais e procedimentos do pedido, para consulta na obra.</p>
+
+    <!-- 1. Pedido -->
+    <div class="bg-[#2e2e2e] p-6 rounded-xl shadow-lg border border-[#3d3d3d] mb-4">
+        <h2 class="text-base font-semibold mb-2 text-gray-200">1. Selecionar Pedido</h2>
+        <label for="docsClientSelect" class="block text-sm font-medium text-gray-400 mb-1">
+            Pedido (com nome do Cliente)
+        </label>
+        <div class="sel">
+            <button type="button" class="sel-botao" onclick="selAlternar(this)">
+                <span class="sel-rotulo">Carregando Pedidos...</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+            <div class="sel-lista hidden"></div>
+            <select id="docsClientSelect" class="sel-nativo" tabindex="-1" aria-hidden="true"
+                    onchange="onDocsPedidoChange(this.value)">
+                <option value="">Carregando Pedidos...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 2. As pastas do pedido, e o que tem dentro delas -->
+    <div id="docsBloco" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
+        <div class="doc-cabecalho">
+            <button type="button" class="doc-voltar hidden" id="docsVoltar" onclick="docsVoltarPastas()" aria-label="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+            <h2 id="docsTitulo" class="text-base font-semibold text-gray-200">Documentos do Pedido</h2>
+        </div>
+        <div id="docsLista"></div>
     </div>
 </div>
         <div id="page-cronograma" class="hidden">
@@ -4316,6 +4399,203 @@
         document.addEventListener('DOMContentLoaded', initializeApp);
 
         /* ============================================================
+           DOCUMENTOS DE MONTAGEM
+           O supervisor escolhe o pedido, vê as pastas daquela obra e
+           entra numa delas. Quem monta as pastas é o Apps Script, a
+           partir da lista de equipamentos do cronograma; quem põe o
+           conteúdo dentro é a equipe, pelo Drive.
+
+           A pasta "02.Links 3D" é diferente: em vez de arquivos, ela
+           tem um bloco de notas com os endereços dos modelos. O app lê
+           esse bloco e desenha um botão por link — o endereço em si não
+           aparece na tela.
+        ============================================================ */
+        let docsPedido = null;
+        let docsPastas = [];
+        let docsPastaAberta = null;
+
+        const DOC_ICONE_PASTA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+        const DOC_ICONE_PDF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+        const DOC_ICONE_3D = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M12 12 21 7"/><path d="M12 12v10"/><path d="M12 12 3 7"/></svg>';
+        const DOC_SETA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+        function docsAtualizarPedidos() {
+            const select = document.getElementById('docsClientSelect');
+            if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
+            if (select.dataset.carregado === String(allPedidos.length)) return;
+            populateSelectWithPedidos(select, allPedidos);
+            select.dataset.carregado = String(allPedidos.length);
+        }
+
+        function docsEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        function docsCarregando(texto) {
+            document.getElementById('docsLista').innerHTML =
+                '<div class="flex items-center justify-center p-4">'
+              + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>'
+              + '<p class="doc-vazio" style="text-align:center">' + docsEsc(texto || '') + '</p>';
+        }
+
+        function docsErro(texto) {
+            document.getElementById('docsLista').innerHTML =
+                '<p class="doc-erro">' + docsEsc(texto) + '</p>';
+        }
+
+        async function onDocsPedidoChange(valor) {
+            docsPedido = (valor || '').trim().toUpperCase();
+            docsPastaAberta = null;
+            const bloco = document.getElementById('docsBloco');
+            if (!docsPedido) { bloco.classList.add('hidden'); return; }
+
+            bloco.classList.remove('hidden');
+            docsMostrarVoltar(false);
+            document.getElementById('docsTitulo').textContent = 'Documentos do Pedido ' + docsPedido;
+            docsCarregando('Procurando as pastas deste pedido...');
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docsPastas&pedido=${encodeURIComponent(docsPedido)}`;
+                const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const d = await r.json();
+                if (d && d.error) { docsErro(d.error); return; }
+                docsPastas = d.pastas || [];
+                docsDesenharPastas();
+            } catch (e) {
+                docsErro('Não consegui carregar as pastas. ' + e.message);
+            }
+        }
+
+        function docsMostrarVoltar(mostrar) {
+            document.getElementById('docsVoltar').classList.toggle('hidden', !mostrar);
+        }
+
+        function docsDesenharPastas() {
+            const alvo = document.getElementById('docsLista');
+            document.getElementById('docsTitulo').textContent = 'Documentos do Pedido ' + docsPedido;
+            docsMostrarVoltar(false);
+
+            if (!docsPastas.length) {
+                alvo.innerHTML = '<p class="doc-vazio">Este pedido ainda não tem pastas. '
+                               + 'Rode "Sincronizar pastas de documentos" no menu da planilha.</p>';
+                return;
+            }
+            let h = '';
+            docsPastas.forEach(function (p, i) {
+                const eh3D = p.nome.indexOf('02.') === 0;
+                h += '<button type="button" class="doc-item" onclick="docsAbrirPasta(' + i + ')">'
+                   + '<span class="doc-icone">' + (eh3D ? DOC_ICONE_3D : DOC_ICONE_PASTA) + '</span>'
+                   + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(p.nome) + '</span></span>'
+                   + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                   + '</button>';
+            });
+            alvo.innerHTML = h;
+        }
+
+        function docsVoltarPastas() {
+            docsPastaAberta = null;
+            docsDesenharPastas();
+        }
+
+        async function docsAbrirPasta(i) {
+            const pasta = docsPastas[i];
+            if (!pasta) return;
+            docsPastaAberta = pasta;
+            document.getElementById('docsTitulo').textContent = pasta.nome;
+            docsMostrarVoltar(true);
+            docsCarregando('Abrindo a pasta...');
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docsConteudo&pasta=${encodeURIComponent(pasta.id)}`;
+                const r = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const d = await r.json();
+                if (d && d.error) { docsErro(d.error); return; }
+                docsDesenharConteudo(d);
+            } catch (e) {
+                docsErro('Não consegui abrir a pasta. ' + e.message);
+            }
+        }
+
+        function docsTamanho(bytes) {
+            const n = Number(bytes) || 0;
+            if (n >= 1048576) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+            if (n >= 1024) return Math.round(n / 1024) + ' KB';
+            return n + ' B';
+        }
+
+        function docsDesenharConteudo(d) {
+            const alvo = document.getElementById('docsLista');
+            const arquivos = d.arquivos || [];
+            const links = d.links || [];
+
+            if (!arquivos.length && !links.length) {
+                alvo.innerHTML = '<p class="doc-vazio">Esta pasta ainda está vazia.</p>';
+                return;
+            }
+
+            // Guardado para o toque saber o que abrir sem precisar do id
+            // no HTML — o endereço do link 3D nunca chega à tela.
+            window.docsLinks = links;
+            window.docsArquivos = arquivos;
+
+            let h = '';
+            if (links.length) {
+                h += '<p class="doc-secao">Modelos 3D</p>';
+                links.forEach(function (l, i) {
+                    h += '<button type="button" class="doc-item" onclick="docsAbrirLink(' + i + ')">'
+                       + '<span class="doc-icone">' + DOC_ICONE_3D + '</span>'
+                       + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(l.nome) + '</span></span>'
+                       + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                       + '</button>';
+                });
+            }
+            if (arquivos.length) {
+                if (links.length) h += '<p class="doc-secao" style="margin-top:16px">Arquivos</p>';
+                arquivos.forEach(function (a, i) {
+                    h += '<button type="button" class="doc-item" onclick="docsAbrirArquivo(' + i + ')">'
+                       + '<span class="doc-icone">' + DOC_ICONE_PDF + '</span>'
+                       + '<span class="doc-texto"><span class="doc-nome">' + docsEsc(a.nome) + '</span>'
+                       + '<span class="doc-detalhe">' + docsTamanho(a.tamanho) + '</span></span>'
+                       + '<span class="doc-seta">' + DOC_SETA + '</span>'
+                       + '</button>';
+                });
+            }
+            alvo.innerHTML = h;
+        }
+
+        /** O endereço sai daqui direto para o navegador, sem passar pela tela. */
+        function docsAbrirLink(i) {
+            const l = (window.docsLinks || [])[i];
+            if (l && l.url) window.open(l.url, '_blank', 'noopener');
+        }
+
+        /** PDF abre no visualizador do app; o resto, no Drive. */
+        async function docsAbrirArquivo(i) {
+            const a = (window.docsArquivos || [])[i];
+            if (!a) return;
+            const antes = document.getElementById('docsLista').innerHTML;
+            docsCarregando('Abrindo ' + a.nome + '...');
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=docArquivo&id=${encodeURIComponent(a.id)}`;
+                const r = await fetchWithTimeout(url, DESENHO_TIMEOUT_MS);
+                const d = await r.json();
+                document.getElementById('docsLista').innerHTML = antes;
+                if (d && d.base64) {
+                    dsnAbrir(d.nome, d.base64);
+                } else if (d && d.url) {
+                    window.open(d.url, '_blank', 'noopener');
+                } else {
+                    docsErro((d && d.error) || 'Não consegui abrir este arquivo.');
+                }
+            } catch (e) {
+                document.getElementById('docsLista').innerHTML = antes;
+                docsErro('Não consegui abrir este arquivo. ' + e.message);
+            }
+        }
+
+        /* ============================================================
            ENTRADA NO APLICATIVO
 
            A senha NÃO sai do celular. O que viaja é uma impressão
@@ -4770,6 +5050,7 @@
                 if (!menuRecolhido) renderMenu();
                 progAtivar();   // o andamento está sempre na tela inicial
             }
+            if (page === 'documentos') docsAtualizarPedidos();
         }
         // --- Formulários (Inconformidades / Melhorias) ---
         const SUPERVISORES = [
