@@ -1933,6 +1933,7 @@
             'pedido-nao-confere':'A estrutura encontrada é de outro pedido. Confira antes de usar.',
             'sem-estrutura':     'Não achei a estrutura desta peça. O restante dos dados está correto.',
             'sem-aba-corrente':  'A estrutura ainda não foi importada.'
+            'tags-faltando-no-asana':   'Este equipamento tem mais de uma unidade neste pedido, mas o Asana só tem uma TAG cadastrada. Confira a TAG antes de separar.',
         };
         const linhas = partes.map(function (p) { return texto[p.trim()]; }).filter(Boolean);
         return linhas.join('<br>');
@@ -1976,7 +1977,9 @@
         const alvo = document.getElementById('sepResumo');
         alvo.innerHTML = '<div class="flex items-center justify-center p-4"><div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
         try {
-            const url = SEPARADOR_URL + '?mode=resumo&pedido=' + encodeURIComponent(sepPedido || '');
+            const url = SEPARADOR_URL + '?mode=resumo&pedido=' + encodeURIComponent(sepPedido || '')
+                + (sepFantasma && /^[A-Za-z]{1,3}\s*-\s*\d/.test(sepFantasma)
+                ? '&tag=' + encodeURIComponent(sepFantasma) : '');
             const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
             sepResumoDados = await resposta.json();
             if (sepResumoDados.error) throw new Error(sepResumoDados.error);
@@ -2069,15 +2072,14 @@
         sepCarregarLista();
     }
 
-    function sepFiltrarFantasma() {
+        function sepFiltrarFantasma() {
         const campo = document.getElementById('sepFantCampo');
         sepFantasma = campo ? campo.value.trim() : '';
         sepFantasmaDesc = '';
         sepAvisoConjunto = '';
         sepEquipCod = '';
         sepEquipDesc = '';
-        sepDesenharResumo();
-        sepCarregarLista();
+        sepCarregarResumo();
     }
 
     function sepLimparFantasma() {
@@ -2086,8 +2088,7 @@
         sepAvisoConjunto = '';
         sepEquipCod = '';
         sepEquipDesc = '';
-        sepDesenharResumo();
-        sepCarregarLista();
+        sepCarregarResumo();
     }
 
     async function sepCarregarLista() {
