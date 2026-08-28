@@ -325,6 +325,14 @@
            que texto pequeno precisa. Cor na barra, número em branco —
            assim o valor nunca depende da cor para ser lido.
         ============================================================ */
+        /* Aviso embaixo do botão Abrir Desenho. Com CSS próprio, e não
+           classes do Tailwind, porque o Tailwind vem de um CDN: se ele
+           demorar, a mensagem de erro ainda sai vermelha. */
+        .desenho-aviso {
+            font-size: 11.5px; color: #9ca3af; line-height: 1.45;
+            margin-top: 8px; text-align: center;
+        }
+        .desenho-aviso.erro { color: #f87171; }
         .prog-card {
             margin-top: 16px;
             background: #2e2e2e;
@@ -994,7 +1002,7 @@
                     </svg>
                     Abrir Desenho
                 </button>
-                <p id="desenhoAviso" class="hidden text-xs text-gray-400 mt-2 text-center"></p>
+                <p id="desenhoAviso" class="desenho-aviso hidden"></p>
             </div>
         </div>
         <div id="page-formularios" class="hidden">
@@ -3826,43 +3834,81 @@
            O botão só aparece quando a busca encontrou o item — é o
            código dele que abre o desenho.
 
-           FALTA APENAS O ENDEREÇO. Quando você souber onde os desenhos
-           ficam, preencha DESENHO_URL abaixo. Use {codigo} e {pedido}
-           nos lugares em que eles entram no endereço. Exemplos:
+           No Drive o endereço de um arquivo não tem relação com o nome
+           dele: é um código aleatório. Por isso não dá para montar o
+           link aqui. O app pergunta ao Apps Script (?mode=desenho), que
+           procura na pasta o arquivo com aquele código e devolve o
+           endereço.
 
-               'https://drive.google.com/.../{codigo}.pdf'
-               'https://meuservidor/desenhos/{pedido}/{codigo}.pdf'
-
-           Enquanto estiver vazio, o botão avisa em vez de abrir uma
-           página em branco.
+           A ABA É ABERTA NA HORA DO TOQUE, ainda vazia, e só depois
+           recebe o endereço. Se ela fosse aberta quando a resposta
+           chegasse, o celular bloquearia — navegador só deixa abrir
+           aba nova como consequência direta de um toque.
         ============================================================ */
-        const DESENHO_URL = '';
+        let desenhoBuscando = false;
 
         function desenhoMostrar(mostrar) {
             const bloco = document.getElementById('desenhoBlock');
-            const aviso = document.getElementById('desenhoAviso');
             if (!bloco) return;
             bloco.classList.toggle('hidden', !mostrar);
-            if (aviso) { aviso.textContent = ''; aviso.classList.add('hidden'); }
+            desenhoAvisar('');
         }
 
-        function abrirDesenho() {
+        function desenhoAvisar(texto, erro) {
             const aviso = document.getElementById('desenhoAviso');
-            const codigo = (codeInput.value || '').trim().toUpperCase();
-            if (!selectedPedido || !codigo) return;
+            if (!aviso) return;
+            aviso.textContent = texto || '';
+            aviso.classList.toggle('hidden', !texto);
+            aviso.classList.toggle('erro', !!erro);
+        }
 
-            if (!DESENHO_URL) {
-                if (aviso) {
-                    aviso.textContent = 'O caminho dos desenhos ainda não foi configurado. '
-                                      + 'Item ' + codigo + ' · Pedido ' + selectedPedido + '.';
-                    aviso.classList.remove('hidden');
+        async function abrirDesenho() {
+            if (desenhoBuscando) return;
+            const botao = document.getElementById('desenhoBotao');
+            const codigo = (codeInput.value || '').trim().toUpperCase();
+            if (!codigo) return;
+
+            // Abre a aba agora, enquanto o toque ainda "vale".
+            const aba = window.open('', '_blank');
+
+            desenhoBuscando = true;
+            const htmlBotao = botao.innerHTML;
+            botao.disabled = true;
+            botao.innerHTML = '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Procurando o desenho...';
+            desenhoAvisar('');
+
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=desenho&codigo=${encodeURIComponent(codigo)}`;
+                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const dados = await resposta.json();
+
+                if (dados && dados.url) {
+                    if (aba && !aba.closed) {
+                        aba.location.href = dados.url;
+                    } else {
+                        // A aba foi bloqueada: sobra o caminho de sempre.
+                        window.location.href = dados.url;
+                    }
+                    let msg = 'Abrindo ' + dados.nome;
+                    if (dados.total > 1) {
+                        msg += ' — há ' + dados.total + ' arquivos com este código; '
+                             + 'abri o que mais combina.';
+                    }
+                    desenhoAvisar(msg);
+                } else {
+                    if (aba && !aba.closed) aba.close();
+                    desenhoAvisar(dados && dados.error
+                        ? dados.error
+                        : 'Não achei desenho para o item ' + codigo + '.', true);
                 }
-                return;
+            } catch (erro) {
+                if (aba && !aba.closed) aba.close();
+                desenhoAvisar('Não consegui procurar o desenho. ' + erro.message, true);
+            } finally {
+                desenhoBuscando = false;
+                botao.disabled = false;
+                botao.innerHTML = htmlBotao;
             }
-            const url = DESENHO_URL
-                .replace('{codigo}', encodeURIComponent(codigo))
-                .replace('{pedido}', encodeURIComponent(selectedPedido));
-            window.open(url, '_blank', 'noopener');
         }
 
         function displayAwaitingSelection(message, isInitial) {
