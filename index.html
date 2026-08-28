@@ -3421,22 +3421,55 @@
             <div class="p-4">
                 <p class="text-sm text-gray-400 mb-3">Selecione o tipo de equipamento para abrir o checklist correspondente:</p>
                 <div class="flex flex-col gap-3">
-                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('elevador-canecas')">
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('elevador')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="4" y="2" width="4" height="20" rx="1"/>
                             <rect x="16" y="2" width="4" height="20" rx="1"/>
                             <path d="M8 6h8"/>
                             <path d="M8 18h8"/>
                         </svg>
-                        Elevador de Canecas
+                        <span class="flex-1">Elevador de Canecas</span>
                     </button>
-                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('rosca-transportadora')">
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('rosca')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="9"/>
                             <path d="M4.5 9h15"/>
                             <path d="M4.5 15h15"/>
                         </svg>
-                        <span class="flex-1">Roscas Transportadoras</span>
+                        <span class="flex-1">Rosca Transportadora</span>
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('fita')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 15h12"/>
+                            <circle cx="6" cy="15" r="3"/>
+                            <circle cx="18" cy="15" r="3"/>
+                            <path d="M8 9h8"/>
+                        </svg>
+                        <span class="flex-1">Fita Transportadora</span>
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('esteira')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f0997b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 14h16"/>
+                            <circle cx="5.5" cy="14" r="2.5"/>
+                            <circle cx="18.5" cy="14" r="2.5"/>
+                            <path d="M9 14v-4h6v4"/>
+                        </svg>
+                        <span class="flex-1">Esteira Transportadora</span>
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('filtro')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16l-6 7v7l-4 2v-9z"/>
+                            <path d="M9 20h6"/>
+                        </svg>
+                        <span class="flex-1">Filtro de Mangas</span>
+                    </button>
+                    <button type="button" class="form-card" onclick="selectEquipamentoChecklist('silo')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5dcaa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 21V9a6 6 0 0 1 12 0v12"/>
+                            <path d="M6 21h12"/>
+                            <path d="M8 13h8"/>
+                        </svg>
+                        <span class="flex-1">Silo Metálico</span>
                     </button>
                 </div>
             </div>
@@ -3493,6 +3526,10 @@
                                 <select id="modelo" class="chk-plain-sel">
                                     <option value="">Selecione…</option>
                                 </select>
+                                <!-- Usado quando o equipamento ainda não tem lista
+                                     de modelos cadastrada no CHK_TIPOS. -->
+                                <input type="text" id="modeloTexto" class="chk-mono-input hidden"
+                                       placeholder="Digite o modelo">
                             </div>
                         </div>
                         <div class="fields fields-3" style="margin-top:12px;">
@@ -3563,7 +3600,7 @@
                                 <button type="button" class="sig-clear-btn" onclick="chkClearSignature('sigCliente')">Limpar assinatura</button>
                             </div>
                         </div>
-                        <p class="sign-note">O cliente declara que o elevador foi testado e não apresentou problema de desempenho. Assine acima na hora, ou deixe em branco para assinar à mão após a impressão do PDF.</p>
+                        <p class="sign-note" id="chkDeclaracaoCliente"></p>
                     </div>
                     <!-- 4. Observações -->
                     <div class="card">
@@ -5578,78 +5615,67 @@
             modal.classList.remove('flex');
             document.body.style.overflow = '';
         }
-        const chkModelOptions = {
-            elevador: [
-                'EL5P', 'EL6P', 'EL8P', 'EL10P', 'EL11P', 'EL13P', 'EL15P'
-            ],
-            rosca: [
-                'RT150P', 'RT200P', 'RT250P', 'RT300P', 'RT350P', 'RT400P', 'RT500P'
-            ]
-        };
+        /**
+         * O campo Modelo. Quando o equipamento tem lista de modelos, vira
+         * lista de seleção; quando não tem, vira campo de texto — assim o
+         * checklist já serve antes de a lista existir, e passa a lista
+         * sozinho no dia em que ela for preenchida no CHK_TIPOS.
+         */
         function renderChecklistModelOptions(mode) {
             const select = document.getElementById('modelo');
-            if (!select) return;
-            const models = chkModelOptions[mode] || [];
+            const caixaSel = select ? select.closest('.sel') : null;
+            const texto = document.getElementById('modeloTexto');
+            const modelos = (CHK_TIPOS[mode] || {}).modelos || [];
+            if (!select || !texto) return;
+
+            const temLista = modelos.length > 0;
+            if (caixaSel) caixaSel.classList.toggle('hidden', !temLista);
+            texto.classList.toggle('hidden', temLista);
+
             select.innerHTML = '<option value="">Selecione…</option>';
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                select.appendChild(option);
+            modelos.forEach(function (m) {
+                const o = document.createElement('option');
+                o.value = m; o.textContent = m;
+                select.appendChild(o);
             });
+            select.value = '';
+            texto.value = '';
             selPreparar(select);
             selSincronizar(select);
         }
+        /** O modelo, venha da lista ou do campo de texto. */
+        function chkModelo() {
+            const modelos = chkTipo().modelos || [];
+            const id = modelos.length ? 'modelo' : 'modeloTexto';
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        }
+        /** Abre o checklist de qualquer equipamento do CHK_TIPOS. */
+        function abrirChecklist(tipo) {
+            if (!CHK_TIPOS[tipo]) return;
+            currentChecklistMode = tipo;
+            renderChecklistModelOptions(tipo);
+            document.getElementById('checklistTitle').innerHTML =
+                '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" '
+              + 'fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+              + '<rect x="3" y="3" width="18" height="18" rx="2"/>'
+              + '<path d="M8 12.5l2.5 2.5L17 8"/></svg> Checklist de Entrega — ' + chkNomeEquipamento();
+            const modal = document.getElementById('modal-checklist-elevador');
+            populateSupervisorSelect('supervisorNome');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            renderChecklistColumns(tipo);
+            chkAtualizarDeclaracao();
+            document.getElementById('tag').value = '';
+            requestAnimationFrame(function () {
+                chkInitSignaturePad('sigSupervisor');
+                chkInitSignaturePad('sigCliente');
+            });
+        }
         function selectEquipamentoChecklist(tipo) {
             closeChecklistTipo();
-            if (tipo === 'elevador-canecas') {
-                openChecklistElevador();
-            }
-            if (tipo === 'rosca-transportadora') {
-                openChecklistRosca();
-            }
-        }
-        function openChecklistElevador() {
-            currentChecklistMode = 'elevador';
-            renderChecklistModelOptions('elevador');
-            document.getElementById('checklistTitle').innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <path d="M8 12.5l2.5 2.5L17 8"/>
-                </svg>
-                Checklist de Entrega — Elevador de Canecas
-            `;
-            const modal = document.getElementById('modal-checklist-elevador');
-            populateSupervisorSelect('supervisorNome');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.body.style.overflow = 'hidden';
-            renderChecklistColumns('elevador');
-            requestAnimationFrame(() => {
-                chkInitSignaturePad('sigSupervisor');
-                chkInitSignaturePad('sigCliente');
-            });
-        }
-        function openChecklistRosca() {
-            currentChecklistMode = 'rosca';
-            renderChecklistModelOptions('rosca');
-            document.getElementById('checklistTitle').innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <path d="M8 12.5l2.5 2.5L17 8"/>
-                </svg>
-                Checklist de Entrega — Rosca Transportadora
-            `;
-            const modal = document.getElementById('modal-checklist-elevador');
-            populateSupervisorSelect('supervisorNome');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.body.style.overflow = 'hidden';
-            renderChecklistColumns('rosca');
-            requestAnimationFrame(() => {
-                chkInitSignaturePad('sigSupervisor');
-                chkInitSignaturePad('sigCliente');
-            });
+            abrirChecklist(tipo);
         }
         function closeChecklistElevador() {
             const modal = document.getElementById('modal-checklist-elevador');
@@ -5663,80 +5689,284 @@
         }
         // --- Conteúdo do Checklist de Entrega ---
         let currentChecklistMode = 'elevador';
-        const chkElevadorLeftItems = [
-          {group:'Conjunto Pé', label:'União da correia'},
-          {group:'Conjunto Pé', label:'Esticamento da correia'},
-          {group:'Conjunto Pé', label:'Fixação do pé (chumbadores)'},
-          {group:'Conjunto Pé', label:'Montagem das caçambas (fixação/distribuição)'},
-          {group:'Conjunto Pé e Cabeça', label:'Alinhamento dos módulos'},
-          {group:'Conjunto Pé e Cabeça', label:'Lubrificação e fixação dos mancais'},
-          {group:'Conjunto Pé e Cabeça', label:'Pontos de estaiamento'},
-          {group:'Conjunto Pé e Cabeça', label:'Adesivos de segurança'},
-          {group:'Conjunto Pé e Cabeça', label:'Montagem interligações (carga e descarga)'},
-          {group:'Conjunto Pé e Cabeça', label:'Acabamento e pintura'},
-          {group:'Conjunto Pé e Cabeça', label:'Ponto de captação de pó'},
-          {group:'Conjunto Cabeça', label:'Localização e altura conforme projeto'},
-          {group:'Conjunto Cabeça', label:'Prumo do elevador'},
-          {group:'Conjunto Cabeça', label:'Lado acionamento oposto ao alçapão'},
-          {group:'Conjunto Cabeça', label:'Fixação do acionamento (arruelas de pressão)'},
-        ];
-        const chkElevadorRightItems = [
-          {group:'Conjunto Cabeça', label:'Nível de óleo e posição do motoredutor'},
-          {group:'Conjunto Cabeça', label:'Plataformas (alçapão / corrimão)'},
-          {group:'Conjunto Cabeça', label:'Respiro do motoredutor destravado'},
-          {group:'Conjunto Cabeça', label:'Montagem das escadas e guarda corpo'},
-          {group:'Conjunto Cabeça', label:'Tensão dos cabos de aço do estaiamento'},
-          {group:'Conjunto Cabeça', label:'Vedação (infiltração de água)'},
-          {group:'Conjunto Cabeça', label:'Potência (W) / Tensão (V) / Frequência do motor (RPM)'},
-          {group:'Teste a vazio', label:'Centralização da correia no rolo inferior'},
-          {group:'Teste a vazio', label:'Centralização da correia no rolo superior'},
-          {group:'Teste a vazio', label:'Curso do conjunto deslizante'},
-          {group:'Teste a vazio', label:'Caçambas não colidem com a estrutura dos módulos'},
-          {group:'Teste a vazio', label:'Regulagem da chapa de contenção do retorno'},
-          {group:'Teste a vazio', label:'Ajuste do freio contra-recuo (sentido)'},
-        ];
-        const chkRoscaLeftItems = [
-        // Análise Mecânica Geral
-        { group: 'Análise Mecânica Geral', label: 'Localização e comprimento conforme projeto' },
-        { group: 'Análise Mecânica Geral', label: 'Alinhamento dos módulos' },
-        { group: 'Análise Mecânica Geral', label: 'Posicionamento das tampas' },
-        { group: 'Análise Mecânica Geral', label: 'Fechamento e vedação das tampas superiores' },
-        { group: 'Análise Mecânica Geral', label: 'Remoção do excesso de massa de calafetar' },
-        { group: 'Análise Mecânica Geral', label: 'Pontos de carga e descarga conforme projeto' },
-        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de carga' },
-        { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de descarga' },
-        { group: 'Análise Mecânica Geral', label: 'Pontos de captação de pó' },
-        { group: 'Análise Mecânica Geral', label: 'Fixação do equipamento' },
-        { group: 'Análise Mecânica Geral', label: 'Vedação (equipamento externo)' },
-        // Acionamento
-        { group: 'Acionamento', label: 'Posição do acionamento conforme projeto' },
-        { group: 'Acionamento', label: 'Fixação dos acionamentos por arruelas de pressão' },
-        { group: 'Acionamento', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
-        { group: 'Acionamento', label: 'Nível do óleo do motoredutor' },
-        ];
-        const chkRoscaRightItems = [
-        // Acionamento
-        { group: 'Acionamento', label: 'Respiro do redutor destravado' },
-        { group: 'Acionamento', label: 'Montagem e alinhamento do acoplamento' },
-        { group: 'Acionamento', label: 'Lubrificação e fixação dos mancais externos' },
-        // Sem Tampas
-        { group: 'Sem Tampas', label: 'Posição de montagem dos helicóides (início/fim)' },
-        { group: 'Sem Tampas', label: 'Alinhamento dos helicóides' },
-        { group: 'Sem Tampas', label: 'Altura dos helicóides' },
-        { group: 'Sem Tampas', label: 'Montagem correta dos helicóides com reforço' },
-        { group: 'Sem Tampas', label: 'Lubrificação dos mancais intermediários' },
-        // Teste
-        { group: 'Teste', label: 'Sentido de rotação (fluxo)' },
-        { group: 'Teste', label: 'Alinhamento/ruído do helicoide' },
-        // Geral
-        { group: 'Geral', label: 'Funcionamento de acessórios especiais' },
-        { group: 'Geral', label: 'Acabamento e pintura do equipamento' },
-        ];
+        function chkAtualizarDeclaracao() {
+            const el = document.getElementById('chkDeclaracaoCliente');
+            if (!el) return;
+            el.textContent = 'O cliente declara que ' + chkArtigoEquipamento()
+                + ' foi testad' + chkConcordancia()
+                + ' e não apresentou qualquer problema em seu desempenho. '
+                + 'Assine acima na hora, ou deixe em branco para assinar à mão '
+                + 'após a impressão do PDF.';
+        }
+        /* ============================================================
+           OS CHECKLISTS DE ENTREGA
+           Um registro só, com tudo que muda de um equipamento para o
+           outro: o nome, o artigo da frase de declaração, o prefixo da
+           TAG, os modelos e as duas colunas de itens.
+
+           Antes isso estava espalhado — a lista de modelos num objeto, os
+           itens em quatro variáveis, o nome escrito à mão em três lugares
+           e o prefixo da TAG num "if". Foi assim que a frase do cliente
+           acabou dizendo "elevador" no checklist da rosca.
+
+           Para acrescentar um equipamento: uma entrada aqui e um cartão
+           na tela de escolha. Mais nada.
+
+           MODELOS VAZIOS = campo de texto livre. Quando você mandar a
+           lista de um equipamento, é só preenchê-la aqui que o campo
+           vira lista de seleção sozinho.
+        ============================================================ */
+        const CHK_TIPOS = {
+        elevador: {
+            nome: 'Elevador de Canecas',
+            artigo: 'o elevador',
+            concordancia: 'o',
+            tagPrefixo: 'EL-',
+            modelos: ['EL5P', 'EL6P', 'EL8P', 'EL10P', 'EL11P', 'EL13P', 'EL15P'],
+            esquerda: [
+                { group: 'Conjunto Pé', label: 'União da correia' },
+                { group: 'Conjunto Pé', label: 'Esticamento da correia' },
+                { group: 'Conjunto Pé', label: 'Fixação do pé (chumbadores)' },
+                { group: 'Conjunto Pé', label: 'Montagem das caçambas (fixação/distribuição)' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Alinhamento dos módulos' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Lubrificação e fixação dos mancais' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Pontos de estaiamento' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Adesivos de segurança' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Montagem interligações (carga e descarga)' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Acabamento e pintura' },
+                { group: 'Conjunto Pé e Cabeça', label: 'Ponto de captação de pó' },
+                { group: 'Conjunto Cabeça', label: 'Localização e altura conforme projeto' },
+                { group: 'Conjunto Cabeça', label: 'Prumo do elevador' },
+                { group: 'Conjunto Cabeça', label: 'Lado acionamento oposto ao alçapão' },
+                { group: 'Conjunto Cabeça', label: 'Fixação do acionamento (arruelas de pressão)' },
+            ],
+            direita: [
+                { group: 'Conjunto Cabeça', label: 'Nível de óleo e posição do motoredutor' },
+                { group: 'Conjunto Cabeça', label: 'Plataformas (alçapão / corrimão)' },
+                { group: 'Conjunto Cabeça', label: 'Respiro do motoredutor destravado' },
+                { group: 'Conjunto Cabeça', label: 'Montagem das escadas e guarda corpo' },
+                { group: 'Conjunto Cabeça', label: 'Tensão dos cabos de aço do estaiamento' },
+                { group: 'Conjunto Cabeça', label: 'Vedação (infiltração de água)' },
+                { group: 'Conjunto Cabeça', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+                { group: 'Teste a vazio', label: 'Centralização da correia no rolo inferior' },
+                { group: 'Teste a vazio', label: 'Centralização da correia no rolo superior' },
+                { group: 'Teste a vazio', label: 'Curso do conjunto deslizante' },
+                { group: 'Teste a vazio', label: 'Caçambas não colidem com a estrutura dos módulos' },
+                { group: 'Teste a vazio', label: 'Regulagem da chapa de contenção do retorno' },
+                { group: 'Teste a vazio', label: 'Ajuste do freio contra-recuo (sentido)' },
+            ]
+        },
+        rosca: {
+            nome: 'Rosca Transportadora',
+            artigo: 'a rosca transportadora',
+            concordancia: 'a',
+            tagPrefixo: 'RT-',
+            modelos: ['RT150P', 'RT200P', 'RT250P', 'RT300P', 'RT350P', 'RT400P', 'RT500P'],
+            esquerda: [
+                { group: 'Análise Mecânica Geral', label: 'Localização e comprimento conforme projeto' },
+                { group: 'Análise Mecânica Geral', label: 'Alinhamento dos módulos' },
+                { group: 'Análise Mecânica Geral', label: 'Posicionamento das tampas' },
+                { group: 'Análise Mecânica Geral', label: 'Fechamento e vedação das tampas superiores' },
+                { group: 'Análise Mecânica Geral', label: 'Remoção do excesso de massa de calafetar' },
+                { group: 'Análise Mecânica Geral', label: 'Pontos de carga e descarga conforme projeto' },
+                { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de carga' },
+                { group: 'Análise Mecânica Geral', label: 'Montagem das interligações de descarga' },
+                { group: 'Análise Mecânica Geral', label: 'Pontos de captação de pó' },
+                { group: 'Análise Mecânica Geral', label: 'Fixação do equipamento' },
+                { group: 'Análise Mecânica Geral', label: 'Vedação (equipamento externo)' },
+                { group: 'Acionamento', label: 'Posição do acionamento conforme projeto' },
+                { group: 'Acionamento', label: 'Fixação dos acionamentos por arruelas de pressão' },
+                { group: 'Acionamento', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+                { group: 'Acionamento', label: 'Nível do óleo do motoredutor' },
+            ],
+            direita: [
+                { group: 'Acionamento', label: 'Respiro do redutor destravado' },
+                { group: 'Acionamento', label: 'Montagem e alinhamento do acoplamento' },
+                { group: 'Acionamento', label: 'Lubrificação e fixação dos mancais externos' },
+                { group: 'Sem Tampas', label: 'Posição de montagem dos helicóides (início/fim)' },
+                { group: 'Sem Tampas', label: 'Alinhamento dos helicóides' },
+                { group: 'Sem Tampas', label: 'Altura dos helicóides' },
+                { group: 'Sem Tampas', label: 'Montagem correta dos helicóides com reforço' },
+                { group: 'Sem Tampas', label: 'Lubrificação dos mancais intermediários' },
+                { group: 'Teste', label: 'Sentido de rotação (fluxo)' },
+                { group: 'Teste', label: 'Alinhamento/ruído do helicoide' },
+                { group: 'Geral', label: 'Funcionamento de acessórios especiais' },
+                { group: 'Geral', label: 'Acabamento e pintura do equipamento' },
+            ]
+        },
+        fita: {
+            nome: 'Fita Transportadora',
+            artigo: 'a fita',
+            concordancia: 'a',
+            tagPrefixo: 'FT-',
+            modelos: ['FT8"', 'FT12"', 'FT16"', 'FT20"'],
+            esquerda: [
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Localização e comprimento conforme projeto' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Alinhamento da estrutura de base' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Fechamento e vedação das tampas superiores' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Quantidade de cavaletes conforme projeto' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Fixação do equipamento' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Vedação (equipamento externo)' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Captação de pó' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Adesivos de segurança' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Montagem das interligações de carga' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Montagem das interligações de descarga' },
+                { group: 'ACIONAMENTO', label: 'Montagem e nivelamento dos acionamentos' },
+                { group: 'ACIONAMENTO', label: 'Fixação dos acionamentos por arruelas de pressão' },
+                { group: 'ACIONAMENTO', label: 'Lado dos acionamentos conforme projeto' },
+                { group: 'ACIONAMENTO', label: 'Nível do óleo dos acionamentos' },
+                { group: 'ACIONAMENTO', label: 'Respiro dos redutores destravados' },
+            ],
+            direita: [
+                { group: 'ACIONAMENTO', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+                { group: 'ACIONAMENTO', label: 'Montagem e alinhamento dos acoplamentos' },
+                { group: 'ACIONAMENTO', label: 'Lubrificação e fixação dos mancais' },
+                { group: 'SEM TAMPAS', label: 'Montagem e regulagem dos raspadores' },
+                { group: 'SEM TAMPAS', label: 'Montagem e regulagem dos defletores' },
+                { group: 'SEM TAMPAS', label: 'Posicionamento e quantidade de roletes guias' },
+                { group: 'SEM TAMPAS', label: 'Ajuste dos roletes para tambor mestre' },
+                { group: 'SEM TAMPAS', label: 'Curso do conjunto deslizante no pé' },
+                { group: 'TESTE A VAZIO', label: 'União da correia' },
+                { group: 'TESTE A VAZIO', label: 'Esticamento e alinhamento da correia' },
+                { group: 'TESTE A VAZIO', label: 'Alinhamento de correia nos roletes de retorno' },
+                { group: 'TESTE A VAZIO', label: 'Funcionamento dos roletes' },
+                { group: 'GERAL', label: 'Montagem e funcionamento de acessórios especiais' },
+                { group: 'GERAL', label: 'Acabamento e pintura do equipamento' },
+                { group: 'GERAL', label: 'Enchimento do produto sobre a correia (teste com produto)' },
+            ]
+        },
+        esteira: {
+            nome: 'Esteira Transportadora',
+            artigo: 'a esteira',
+            concordancia: 'a',
+            tagPrefixo: 'ET-',
+            modelos: [],
+            esquerda: [
+                { group: 'ESTRUTURA', label: 'Alinhamento da estrutura' },
+                { group: 'ESTRUTURA', label: 'Nivelamentos dos apoios' },
+                { group: 'ESTRUTURA', label: 'Fixação dos apoios (chumbadores)' },
+                { group: 'ESTRUTURA', label: 'Integridade da pintura' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Fixação do conjunto' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Alinhamento do tambor' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Nível de óleo do motoredutor' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Respiro do fundo destravado' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Fixação do acionamento (arruelas de pressão)' },
+                { group: 'TAMBOR ACIONAMENTO', label: 'Sentido de rotação' },
+                { group: 'TAMBOR RETORNO', label: 'Alinhamento do tambor' },
+                { group: 'TAMBOR RETORNO', label: 'Curso do esticador' },
+                { group: 'TAMBOR RETORNO', label: 'Fixação dos mancais' },
+                { group: 'TAMBOR RETORNO', label: 'Lubrificação dos mancais' },
+            ],
+            direita: [
+                { group: 'CORREIA', label: 'Alinhamento da correia' },
+                { group: 'CORREIA', label: 'Tensionamento adequado' },
+                { group: 'CORREIA', label: 'União da correia' },
+                { group: 'CORREIA', label: 'Centralização da correia' },
+                { group: 'CORREIA', label: 'Limpeza da correia' },
+                { group: 'ROLETES', label: 'Livre rotação dos roletes' },
+                { group: 'ROLETES', label: 'Alinhamento dos roletes' },
+                { group: 'ROLETES', label: 'Fixação dos suportes' },
+                { group: 'SEGURANÇA', label: 'Adesivos de segurança' },
+                { group: 'SEGURANÇA', label: 'Proteções mecânicas instaladas' },
+                { group: 'TESTE A VAZIO', label: 'Funcionamento sem ruídos anormais' },
+                { group: 'TESTE A VAZIO', label: 'Correia centralizada' },
+                { group: 'TESTE A VAZIO', label: 'Ausência de vibrações' },
+                { group: 'TESTE A VAZIO', label: 'Funcionamento do esticador' },
+            ]
+        },
+        filtro: {
+            nome: 'Filtro de Mangas',
+            artigo: 'o filtro',
+            concordancia: 'o',
+            tagPrefixo: 'F-',
+            modelos: ['FSR100', 'FSR200', 'FSR350', 'FSR400', 'FSR800', 'FSR1000'],
+            esquerda: [
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Localização e dimensões da base conforme projeto' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Fixação da estrutura e corpo do filtro' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Nível e acabamento da base do filtro' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Mangueiras de controle de pressão (corpo e plenum)' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Instalação das mangueiras do(s) reservatório(s)' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Acessos sem entrada de ar falso' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Isolamento dos demais contatos elétricos' },
+                { group: 'ANÁLISE MECÂNICA GERAL', label: 'Adesivos de segurança, acabamento e pintura' },
+                { group: 'ROSCA INFERIOR', label: 'Arruelas de pressão nos acionamentos' },
+                { group: 'ROSCA INFERIOR', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)' },
+                { group: 'ROSCA INFERIOR', label: 'Montagem correta da rosca inferior para resíduos' },
+                { group: 'ROSCA INFERIOR', label: 'Funcionamento da rosca (sentido correto)' },
+                { group: 'ROSCA INFERIOR', label: 'Funcionamento da válvula rotativa (sentido correto)' },
+                { group: 'PLENUM', label: 'Condições gerais, vedação e limpeza interna' },
+                { group: 'PLENUM', label: 'Fixação e vedação das mangas filtrantes' },
+            ],
+            direita: [
+                { group: 'PLENUM', label: 'Ajuste de gaiolas e venturis' },
+                { group: 'PLENUM', label: 'Montagem correta das flautas (posição correta da furação)' },
+                { group: 'PLENUM', label: 'Aperto das abraçadeiras das mangueiras das válvulas' },
+                { group: 'REDE DE AR INSTALADA', label: 'Qualidade do ar comprimido (limpo e seco)' },
+                { group: 'REDE DE AR INSTALADA', label: 'Ausência de vazamentos (corpo, cone e plenum)' },
+                { group: 'REDE DE AR INSTALADA', label: 'Tubulação e mangueiras sem vazamentos' },
+                { group: 'REDE DE AR INSTALADA', label: 'Limpeza do dreno do reservatório de ar comprimido' },
+                { group: 'REDE DE AR INSTALADA', label: 'Sequência e funcionamento dos solenoides' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Manômetro do reservatório entre 6,5 e 7,0 kgf/cm²' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Posição e montagem correta dos componentes do painel' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Funcionamento das solenoides (diafragmas e flautas)' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Instalação elétrica e isolamento destes contatos' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Programação do sequenciador (permanência e frequência)' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Sentido correto de giro do exaustor' },
+                { group: 'PAINEL E ELÉTRICA GERAL', label: 'Sequência correta de partida e parada do filtro' },
+            ]
+        },
+        silo: {
+            nome: 'Silo Metálico',
+            artigo: 'o silo',
+            concordancia: 'o',
+            tagPrefixo: 'SL-',
+            modelos: [],
+            esquerda: [
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Localização e altura conforme projeto' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Número de módulos e níveis' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Placa logomarca (se externo)' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Adesivos de segurança' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Chumbadores na base' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Fixação da estrutura do silo' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Nivelamento da base (civil)' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Montagem das interligações de descarga' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Acabamento e pintura' },
+                { group: 'ANÁLISE MECÂNICA E GERAL NA BASE', label: 'Adesivos de segurança' },
+                { group: 'CORPO DO SILO', label: 'Montagem e vedação dos montantes do silo' },
+                { group: 'CORPO DO SILO', label: 'Montagem e vedação do corpo do silo' },
+                { group: 'CORPO DO SILO', label: 'Montagem e vedação do cone vibratório*' },
+                { group: 'CORPO DO SILO', label: 'Distância correta entre cone vibratório e corpo do silo*' },
+                { group: 'CORPO DO SILO', label: 'Montagem e acionamento da válvula cremalheira*' },
+            ],
+            direita: [
+                { group: 'CORPO', label: 'Lona de direcionamento da válvula cremalheira*' },
+                { group: 'CORPO', label: 'Cinta de borracha entre o cone e o corpo do silo*' },
+                { group: 'CORPO', label: 'Contraporcas e cupilhas nas barras fixadoras do cone' },
+                { group: 'COBERTURA DO SILO', label: 'Montagem e vedação da cobertura do silo' },
+                { group: 'COBERTURA DO SILO', label: 'Montagem das passarelas (alçapão / corrimão)' },
+                { group: 'COBERTURA DO SILO', label: 'Fechamento superior da estrutura' },
+                { group: 'COBERTURA DO SILO', label: 'Portas de acesso vedadas e fechadas' },
+                { group: 'COBERTURA DO SILO', label: 'Montagem e fixação das escadas e guarda-corpos' },
+                { group: 'COBERTURA DO SILO', label: 'Montagem das interligações de carga' },
+                { group: 'COBERTURA DO SILO', label: 'Posicionamento da carga do silo (centralizado)' },
+                { group: 'MOTOR', label: 'Fixação dos motovibradores (arruelas de pressão)*' },
+                { group: 'MOTOR', label: 'Potência (W) / Tensão (V) / Frequência do motor (RPM)*' },
+                { group: 'MOTOR', label: 'Funcionamento dos motovibradores (teste sem produto)*' },
+                { group: 'TESTES', label: 'Montagem e funcionamento de acessórios especiais' },
+                { group: 'TESTES', label: 'Ausência de vazamento de produto' },
+            ]
+        }
+        };
+
+        function chkTipo() {
+            return CHK_TIPOS[currentChecklistMode] || CHK_TIPOS.elevador;
+        }
+        function chkNomeEquipamento() { return chkTipo().nome; }
+        function chkArtigoEquipamento() { return chkTipo().artigo; }
+        function chkConcordancia() { return chkTipo().concordancia; }
         function getChecklistItems(mode) {
-            if (mode === 'rosca') {
-                return { left: chkRoscaLeftItems, right: chkRoscaRightItems };
-            }
-            return { left: chkElevadorLeftItems, right: chkElevadorRightItems };
+            const t = CHK_TIPOS[mode] || CHK_TIPOS.elevador;
+            return { left: t.esquerda, right: t.direita };
         }
         function chkBuildColumn(container, items, prefix) {
             let lastGroup = null;
@@ -5776,8 +6006,11 @@
             const rightCol = document.getElementById('colRight');
             leftCol.innerHTML = '';
             rightCol.innerHTML = '';
-            chkBuildColumn(leftCol, left, mode === 'rosca' ? 'RL' : 'L');
-            chkBuildColumn(rightCol, right, mode === 'rosca' ? 'RR' : 'R');
+            // Os mesmos identificadores para todos os equipamentos: as
+            // colunas são refeitas a cada abertura, então não há como
+            // sobrar um item do checklist anterior.
+            chkBuildColumn(leftCol, left, 'L');
+            chkBuildColumn(rightCol, right, 'R');
             selPrepararTodos(leftCol);   // OK / NC / NA também trocam de lista
             selPrepararTodos(rightCol);
             chkUpdateProgress();
@@ -5793,13 +6026,11 @@
             const chkTotal = left.length + right.length;
             let filled = 0, ok = 0, nc = 0, na = 0;
             left.forEach((_, i) => {
-                const prefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
-                const v = document.getElementById(prefix + '-' + i)?.value;
+                const v = document.getElementById('L-' + i)?.value;
                 if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
             });
             right.forEach((_, i) => {
-                const prefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
-                const v = document.getElementById(prefix + '-' + i)?.value;
+                const v = document.getElementById('R-' + i)?.value;
                 if(v){ filled++; if(v==='OK') ok++; else if(v==='NC') nc++; else na++; }
             });
             document.getElementById('progressFill').style.width = (filled/chkTotal*100) + '%';
@@ -5816,7 +6047,7 @@
                 const digits = tagInput.value.replace(/\D/g, '');
                 if (!digits) { tagInput.value = ''; return; }
                 const num = parseInt(digits, 10);
-                const prefix = currentChecklistMode === 'rosca' ? 'RT-' : 'EL-';
+                const prefix = chkTipo().tagPrefixo;
                 tagInput.value = prefix + (num < 10 ? '0' + num : String(num));
             });
         })();
@@ -5934,9 +6165,7 @@
             try {
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
-                const checklistTitle = currentChecklistMode === 'rosca'
-                    ? 'Check-List de Entrega — Rosca Transportadora'
-                    : 'Check-List de Entrega — Elevador de Canecas';
+                const checklistTitle = 'Check-List de Entrega — ' + chkNomeEquipamento();
                 // --- CARREGANDO A LOGO DO GITHUB ---
                 const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
                 const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
@@ -5967,6 +6196,17 @@
                 let firstPage = true;
                 const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; firstPage = false; };
                 const ensure = h => { if(y - h < mg) newPage(); };
+                /* Encurta um texto até caber na largura dada, terminando em "…".
+                   O PDF não quebra linha sozinho: sem isto, um nome comprido
+                   simplesmente passa por cima do campo vizinho. */
+                const cortar = (str, larguraMax, tamanho, fnt) => {
+                    let t = String(str || '');
+                    if (fnt.widthOfTextAtSize(t, tamanho) <= larguraMax) return t;
+                    while (t.length > 1 && fnt.widthOfTextAtSize(t + '…', tamanho) > larguraMax) {
+                        t = t.slice(0, -1);
+                    }
+                    return t.trimEnd() + '…';
+                };
                 const txt = (str, x, yy, opts={}) => {
                     page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
                 };
@@ -5998,8 +6238,11 @@
                 txt('TAG: '+chkVal('tag')+'   Código: '+chkVal('codigo')+'   Máscara: '+chkVal('mascara'), mg+logoWidth+16, pageH-37, {size:8.5, font, color:muted});
                 y = pageH - headerH - 14;
                 txt('Pedido: '+chkVal('pedido'), mg, y, {size:9});
-                txt('Cliente: '+chkVal('cliente'), mg+140, y, {size:9});
-                txt('Modelo: '+chkVal('modelo'), mg+330, y, {size:9});
+                // O nome do cliente é encurtado se não couber: sem isto ele
+                // atravessava por cima do campo Modelo ("...ALIMENTICIOSModelo:").
+                // 182 é a distância até o campo Modelo, menos uma folga.
+                txt(cortar('Cliente: ' + chkVal('cliente'), 182, 9, font), mg+140, y, {size:9});
+                txt('Modelo: '+chkModelo(), mg+330, y, {size:9});
                 y -= 12;
                 txt('Local: '+chkVal('local'), mg, y, {size:9});
                 y -= 18;
@@ -6011,35 +6254,95 @@
                 const colTop = y;
                 const colW = (pageW-2*mg-20)/2;
                 const lX = mg, rX = mg+colW+20;
-                const rowH = 13;
-                const drawChecks = (items, x, prefix) => {
+                /* A lista de itens é a única parte que muda de tamanho de um
+                   checklist para outro: o elevador tem 28 itens e o silo tem 30,
+                   alguns com rótulos que ocupam duas linhas. Tudo o que vem
+                   depois dela (declarações, assinaturas, observações, notas e o
+                   rodapé) tem altura previsível.
+
+                   Então o desenho é feito em duas passadas: primeiro mede-se a
+                   lista sem desenhar nada, compara-se com o espaço que sobra na
+                   folha, e só então ela é desenhada — encolhida o suficiente
+                   para o documento fechar em UMA página. Sem isto, o silo e a
+                   fita jogavam a linha de assinatura sozinha para a página 2. */
+                const ROW_H = 13, ITEM_SIZE = 7.8, GRUPO_GAP = 10;
+                let escala = 1;
+                const percorrerChecks = (items, x, prefix, desenhar) => {
+                    const rowH = ROW_H * escala;
+                    const size = Math.max(6.3, ITEM_SIZE * escala);
                     let yy = colTop;
                     let lastG = null;
                     items.forEach((item,i) => {
                         if(item.group!==lastG){
-                            yy -= 2;
-                            txt(item.group.toUpperCase(), x, yy, {size:7, font:bold, color:greenDark});
-                            yy -= 10; lastG=item.group;
+                            yy -= 2 * escala;
+                            if (desenhar) txt(item.group.toUpperCase(), x, yy, {size:Math.max(6, size-0.8), font:bold, color:greenDark});
+                            yy -= GRUPO_GAP * escala; lastG=item.group;
                         }
-                        const v = document.getElementById(prefix+'-'+i).value;
-                        const bColor = v==='OK'?rgb(.12,.48,.25):v==='NC'?rgb(.72,.19,.19):v==='NA'?rgb(.48,.49,.47):lineC;
-                        const bFill = v==='OK'?rgb(.89,.97,.91):v==='NC'?rgb(.99,.91,.91):v==='NA'?rgb(.94,.94,.93):white;
-                        rect(x, yy-2.5, 22, 10.5, {fill:bFill, bc:bColor, bw:.7});
-                        txt(v, x+(v.length===2?4:4.5), yy, {size:7.2, font:bold, color:bColor});
-                        const llines = wrap(item.label, colW-30, 7.8, font);
-                        txt(llines[0], x+28, yy, {size:7.8});
-                        yy -= rowH;
-                        for(let k=1;k<llines.length;k++){ txt(llines[k], x+28, yy, {size:7.8}); yy-=rowH; }
+                        const llines = wrap(item.label, colW-30, size, font);
+                        if (desenhar) {
+                            const v = document.getElementById(prefix+'-'+i).value;
+                            const bColor = v==='OK'?rgb(.12,.48,.25):v==='NC'?rgb(.72,.19,.19):v==='NA'?rgb(.48,.49,.47):lineC;
+                            const bFill = v==='OK'?rgb(.89,.97,.91):v==='NC'?rgb(.99,.91,.91):v==='NA'?rgb(.94,.94,.93):white;
+                            rect(x, yy-2.5, 22, 10.5, {fill:bFill, bc:bColor, bw:.7});
+                            txt(v, x+(v.length===2?4:4.5), yy, {size:Math.max(6, size-0.6), font:bold, color:bColor});
+                            for(let k=0;k<llines.length;k++){ txt(llines[k], x+28, yy - k*rowH, {size}); }
+                        }
+                        yy -= rowH * llines.length;
                     });
                     return yy;
                 };
-                const leftPrefix = currentChecklistMode === 'rosca' ? 'RL' : 'L';
-                const rightPrefix = currentChecklistMode === 'rosca' ? 'RR' : 'R';
-                const leftEnd = drawChecks(getChecklistItems(currentChecklistMode).left, lX, leftPrefix);
-                const rightEnd = drawChecks(getChecklistItems(currentChecklistMode).right, rX, rightPrefix);
+                const leftPrefix = 'L';
+                const rightPrefix = 'R';
+                const itensChk = getChecklistItems(currentChecklistMode);
+                /* Quanto a folha precisa reservar abaixo da lista. Cada parcela
+                   é a mesma soma de "y -= ..." que o código faz mais adiante —
+                   se alguma dessas seções mudar, é aqui que o número muda. */
+                const declSup = 'O supervisor de obra atesta que as demais informações estão corretas '
+                              + 'e que o equipamento foi devidamente testado.';
+                const declCli = 'O cliente declara que ' + chkArtigoEquipamento() + ' foi testad'
+                              + chkConcordancia()
+                              + ' e não apresentou qualquer problema em seu desempenho.';
+                const obsTexto = chkVal('observacoes');
+                const notasRodape = [
+                    '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
+                    '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
+                    '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
+                    '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
+                ];
+                const ESPACO_ASSINATURA = 44;   // altura livre para a assinatura desenhada
+                const ALT_DECL_SUP = wrap(declSup, pageW-2*mg, 8.5, italic).length*11 + 4 + ESPACO_ASSINATURA + 32;
+                const ALT_SEC_DESEMPENHO = 18 + 16 + 22;
+                const ALT_DECL_CLI = wrap(declCli, pageW-2*mg, 8.5, italic).length*11 + 4 + ESPACO_ASSINATURA + 32;
+                const ALT_OBSERVACOES = 18 + (obsTexto ? wrap(obsTexto, pageW-2*mg, 9.5, font).length*14 : 4*16) + 8;
+                const ALT_NOTAS = 10 + notasRodape.reduce((s,n)=>s+wrap(n, pageW-2*mg, 7.2, italic).length, 0)*10 + 14;
+                const ALT_FECHO = 34;
+                /* Estas mesmas parcelas são usadas nos ensure() mais abaixo. É
+                   isso que garante que nenhuma seção "pule" de página por conta
+                   própria depois de a lista já ter sido encolhida para caber. */
+                const alturaAbaixo = 10 + ALT_DECL_SUP + ALT_SEC_DESEMPENHO + ALT_DECL_CLI
+                                   + ALT_OBSERVACOES + ALT_NOTAS + ALT_FECHO;
+                // Os 6 pontos de folga são o arredondamento: sem eles a fita e o
+                // silo fechavam exatamente no limite e a última linha escorregava.
+                const espacoLista = colTop - mg - alturaAbaixo - 6;
+                const alturaLista = colTop - Math.min(
+                    percorrerChecks(itensChk.left,  lX, leftPrefix,  false),
+                    percorrerChecks(itensChk.right, rX, rightPrefix, false)
+                );
+                /* 0.72 é o piso: abaixo disso a letra fica pequena demais para
+                   uma obra, e aí é preferível deixar passar para a página 2. */
+                if (alturaLista > espacoLista) escala = Math.max(0.72, espacoLista / alturaLista);
+                const leftEnd = percorrerChecks(itensChk.left,  lX, leftPrefix,  true);
+                const rightEnd = percorrerChecks(itensChk.right, rX, rightPrefix, true);
                 y = Math.min(leftEnd, rightEnd) - 10;
-                ensure(90);
-                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= 50;
+                ensure(ALT_DECL_SUP);
+                // As duas frases abaixo existem no formulário de papel e não
+                // estavam saindo no PDF. São elas que dão valor de atestado ao
+                // documento — sem elas o PDF é só uma lista de itens marcados.
+                wrap(declSup, pageW-2*mg, 8.5, italic).forEach(function (l) {
+                    txt(l, mg, y, {size:8.5, font:italic, color:muted}); y -= 11;
+                });
+                y -= 4;
+                txt('Teste a vazio: '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
                 if (sigSupervisorImg) {
                     const sw = 150, sh = Math.min(34, sw * (sigSupervisorImg.height / sigSupervisorImg.width));
                     page.drawImage(sigSupervisorImg, { x: mg+250, y: y+2, width: sw, height: sh });
@@ -6049,7 +6352,7 @@
                 hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
                 y -= 32;
                 // ── Section 2 ──
-                ensure(90);
+                ensure(ALT_SEC_DESEMPENHO);
                 txt('CONFERÊNCIA DO DESEMPENHO DO EQUIPAMENTO', mg, y, {size:10, font:bold, color:greenDark});
                 y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
                 txt('A capacidade do equipamento está de acordo com o projeto (conferir modelo)?', mg, y, {size:9}); y -= 16;
@@ -6061,8 +6364,12 @@
                 if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
                 txt('Não', mg+73, y, {size:9});
                 y -= 22;
-                ensure(90);
-                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= 50;
+                ensure(ALT_DECL_CLI);
+                wrap(declCli, pageW-2*mg, 8.5, italic).forEach(function (l) {
+                    txt(l, mg, y, {size:8.5, font:italic, color:muted}); y -= 11;
+                });
+                y -= 4;
+                txt('Teste com produto: '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
                 if (sigClienteImg) {
                     const sw = 150, sh = Math.min(34, sw * (sigClienteImg.height / sigClienteImg.width));
                     page.drawImage(sigClienteImg, { x: mg+250, y: y+2, width: sw, height: sh });
@@ -6072,10 +6379,10 @@
                 hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
                 y -= 32;
                 // ── Section 3 ──
-                ensure(60);
+                ensure(ALT_OBSERVACOES);
                 txt('OBSERVAÇÕES / PARECER TÉCNICO', mg, y, {size:10, font:bold, color:greenDark});
                 y -= 4; hline(mg,y,pageW-mg,{t:.5, color: rgb(.7,.8,.72)}); y -= 14;
-                const obs = chkVal('observacoes');
+                const obs = obsTexto;
                 if(obs){
                     wrap(obs, pageW-2*mg, 9.5, font).forEach(l => { ensure(14); txt(l,mg,y,{size:9.5}); y-=14; });
                 } else {
@@ -6083,20 +6390,14 @@
                 }
                 y -= 8;
                 // ── Notes ──
-                ensure(70);
-                const notes = [
-                    '1 — Caso não seja possível a realização do start-up por falta de produto, elétrica ou outro motivo que não tenha sido ocasionado pela SR, os custos provenientes do novo deslocamento e horas de serviço serão faturados para o cliente.',
-                    '2 — O cliente deverá informar com 07 (sete) dias de antecedência a data em que haverá condições para teste.',
-                    '3 — A infiltração de água no equipamento somente será corrigida no período de garantia.',
-                    '* Após a conclusão da montagem, recomenda-se uma reinspeção nos equipamentos externos quando em período de chuvas.'
-                ];
+                ensure(ALT_NOTAS);
                 hline(mg,y,pageW-mg,{t:.4}); y -= 10;
-                notes.forEach(n => {
+                notasRodape.forEach(n => {
                     wrap(n, pageW-2*mg, 7.2, italic).forEach(l => { ensure(11); txt(l,mg,y,{size:7.2,font:italic,color:muted}); y-=10; });
                 });
-                y -= 25;
+                y -= 14;
                 // ── Closing ──
-                ensure(45);
+                ensure(ALT_FECHO);
                 hline(mg,y,pageW-mg); y -= 20;
                 txt(chkVal('footerLocal'),mg,y,{size:9}); hline(mg,y-4,mg+100); txt('Local',mg,y-13,{size:7,color:muted});
                 txt(chkFmtDate(chkVal('footerData')),mg+120,y,{size:9}); hline(mg+120,y-4,mg+210); txt('Data',mg+120,y-13,{size:7,color:muted});
@@ -6107,7 +6408,14 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 const tagPart = chkVal('tag').replace(/[^a-zA-Z0-9_-]/g,'');
-                const fileSuffix = currentChecklistMode === 'rosca' ? 'rosca_transportadora.pdf' : 'elevador_canecas.pdf';
+                // O nome do arquivo sai do nome do equipamento, sem acento e
+                // sem espaço. Antes era um "if" com dois casos: qualquer
+                // checklist novo saía batizado de elevador_canecas.
+                const fileSuffix = chkNomeEquipamento()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-zA-Z0-9]+/g, '_')
+                    .replace(/^_+|_+$/g, '')
+                    .toLowerCase() + '.pdf';
                 a.href=url; a.download='checklist_'+(tagPart?tagPart+'_':'')+fileSuffix;
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(()=>URL.revokeObjectURL(url), 5000);
