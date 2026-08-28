@@ -1967,7 +1967,10 @@
     let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
     let sepFantasma = '';
     let sepFantasmaDesc = '';
-    let sepAvisoConjunto = '';   /* explica por que caiu no resumo */
+    let sepAvisoConjunto = '';
+    let sepEquipCod = '';
+    let sepEquipDesc = '';
+        /* explica por que caiu no resumo */
 
     async function sepCarregarResumo() {
         const alvo = document.getElementById('sepResumo');
@@ -2031,9 +2034,16 @@
         }
         if (sepFantasma) {
             const ehTag = /^[A-Za-z]{1,3}\s*-\s*\d/.test(sepFantasma);
-            h += '<div class="sep-conj-nome"><span>'
-               + (ehTag ? 'Equipamento ' : 'Conjunto ') + sepEsc(sepFantasma) + '</span>'
-               + sepEsc(sepFantasmaDesc || '') + '</div>';
+            let rot, dsc;
+            if (ehTag) {
+                rot = 'Equipamento ' + sepEsc(sepFantasma)
+                    + (sepEquipCod ? ' · Código ' + sepEsc(sepEquipCod) : '');
+                dsc = sepEquipDesc || '';
+            } else {
+                rot = 'Conjunto ' + sepEsc(sepFantasma);
+                dsc = sepFantasmaDesc || '';
+            }
+            h += '<div class="sep-conj-nome"><span>' + rot + '</span>' + sepEsc(dsc) + '</div>';
         }
 
         h += '<div class="sep-fichas">'
@@ -2064,6 +2074,8 @@
         sepFantasma = campo ? campo.value.trim() : '';
         sepFantasmaDesc = '';
         sepAvisoConjunto = '';
+        sepEquipCod = '';
+        sepEquipDesc = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
@@ -2072,6 +2084,8 @@
         sepFantasma = '';
         sepFantasmaDesc = '';
         sepAvisoConjunto = '';
+        sepEquipCod = '';
+        sepEquipDesc = '';
         sepDesenharResumo();
         sepCarregarLista();
     }
@@ -2093,8 +2107,11 @@
                sabe qual nível da corrente casou com o código.
                Se não vier — Apps Script antigo, por exemplo — tenta
                achar na própria lista, pelo pai imediato. */
-            if ((d.aviso || '') !== sepAvisoConjunto) {
-                sepAvisoConjunto = d.aviso || '';
+            const _av = d.aviso || '', _ec = d.equipCod || '', _ed = d.equipDesc || '';
+            if (_av !== sepAvisoConjunto || _ec !== sepEquipCod || _ed !== sepEquipDesc) {
+                sepAvisoConjunto = _av;
+                sepEquipCod = _ec;
+                sepEquipDesc = _ed;
                 sepDesenharResumo();
             }
             if (sepFantasma) {
