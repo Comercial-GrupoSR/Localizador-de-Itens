@@ -325,6 +325,13 @@
            que texto pequeno precisa. Cor na barra, número em branco —
            assim o valor nunca depende da cor para ser lido.
         ============================================================ */
+        .prog-card {
+            margin-top: 16px;
+            background: #2e2e2e;
+            border: 1px solid #3d3d3d;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
         .prog-topo {
             display: flex; align-items: baseline; justify-content: space-between;
             gap: 10px; margin-bottom: 12px;
@@ -893,10 +900,10 @@
                     </button>
                 </div>
                 <div id="menuLista" class="menu-lista"></div>
-                <!-- Andamento das obras: ocupa o lugar das opções quando
-                     o menu está recolhido. Desenhado por JavaScript. -->
-                <div id="painelProgresso" class="hidden"></div>
             </div>
+            <!-- Andamento das obras: cartão próprio, sempre visível. Quando
+                 o menu abre, ele é empurrado para baixo e a página rola. -->
+            <div id="painelProgresso" class="prog-card"></div>
         </div>
 
         <div id="page-localizador" class="hidden">
@@ -3916,7 +3923,8 @@
                 lista.classList.remove('recolhida');
                 renderMenu();
             }
-            progMostrar(menuRecolhido);   // o andamento entra no lugar das opções
+            // O andamento não some mais: ele fica no cartão de baixo e só
+            // é empurrado quando as opções aparecem.
         }
         /* ============================================================
            ANDAMENTO DAS OBRAS
@@ -3951,12 +3959,13 @@
                     JSON.stringify({ dados: dados, quando: Date.now() }));
             } catch (e) { /* memória cheia: segue sem cache */ }
         }
-        /** Mostra ou esconde o painel. Só busca quando aparece. */
-        function progMostrar(mostrar) {
+        /**
+         * Liga o painel: desenha o que estiver guardado e busca o que falta.
+         * Ele não é mais escondido pelo menu — vive no cartão de baixo.
+         */
+        function progAtivar() {
             const painel = document.getElementById('painelProgresso');
             if (!painel) return;
-            painel.classList.toggle('hidden', !mostrar);
-            if (!mostrar) return;
             const guardado = progLerCache();
             if (guardado && !progDados) progDados = guardado.dados;
             progDesenhar();
@@ -4019,9 +4028,15 @@
                 if (p.semAba) {
                     pe = 'Sem aba de cronograma nesta planilha';
                 } else if (!temDado) {
-                    pe = 'Cronograma ainda sem datas preenchidas';
+                    // Sem data ainda, mas o total de equipamentos já é sabido:
+                    // mostrar é melhor do que só dizer que falta preencher.
+                    pe = '<b>' + p.equipamentos + '</b> equipamento'
+                       + (p.equipamentos === 1 ? '' : 's')
+                       + ' · cronograma ainda sem datas';
                 } else {
-                    pe = '<b>' + p.concluidos + ' de ' + p.equipamentos + '</b> equipamentos concluídos';
+                    pe = '<b>' + p.concluidos + ' de ' + p.equipamentos + '</b> equipamento'
+                       + (p.equipamentos === 1 ? '' : 's') + ' concluído'
+                       + (p.equipamentos === 1 ? '' : 's');   // concorda com "equipamentos"
                     if (p.prazoEntrega) pe += ' · entrega ' + progEsc(p.prazoEntrega);
                 }
                 h += '<div class="prog-pe">' + pe + '</div>';
@@ -4068,7 +4083,7 @@
             window.scrollTo(0, 0);
             if (page === 'inicio') {
                 if (!menuRecolhido) renderMenu();
-                progMostrar(menuRecolhido);   // volta com o painel como estava
+                progAtivar();   // o andamento está sempre na tela inicial
             }
         }
         // --- Formulários (Inconformidades / Melhorias) ---
