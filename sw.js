@@ -24,7 +24,7 @@
  * isso não é necessário — a tela do app já é rede-primeiro.
  */
 
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const CACHE_NAME = "obraflow-" + CACHE_VERSION;
 
 // Arquivos que o app precisa para abrir sem internet.
@@ -41,11 +41,17 @@ const ARQUIVOS_DO_APP = [
   "./icon-512.png"
 ];
 
-// Bibliotecas externas que valem a pena guardar: sem elas a tela
-// fica sem estilo (Tailwind) e o PDF do checklist não gera (pdf-lib).
+// Bibliotecas externas que valem a pena guardar: sem elas a tela fica
+// sem estilo (Tailwind), o PDF do checklist não gera (pdf-lib) e o
+// leitor de código de barras não abre (ZXing, no unpkg).
+//
+// O unpkg entrou depois: a biblioteca do leitor tem ~200 KB e era
+// baixada de novo a cada recarga do app. Com sinal fraco no galpão,
+// era a diferença entre a câmera abrir e não abrir.
 const CDNS_PERMITIDAS = [
   "cdn.tailwindcss.com",
-  "cdnjs.cloudflare.com"
+  "cdnjs.cloudflare.com",
+  "unpkg.com"
 ];
 
 // Endereços que NUNCA entram no cache — são dados, não arquivos.
