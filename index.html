@@ -1424,36 +1424,11 @@
 
 
         /* ============================================================
-           CONFIGURAÇÕES E ADMINISTRAÇÃO
+           ADMINISTRAÇÃO
         ============================================================ */
-        #configRoot .cfg-bloco {
-            background: #262626; border: 1px solid #3d3d3d;
-            border-radius: 10px; padding: 12px 14px;
-        }
-        #configRoot .cfg-rotulo {
-            font-size: 11px; font-weight: 700; letter-spacing: .5px;
-            text-transform: uppercase; color: #7d8a7f; margin: 0 0 6px;
-        }
-        #configRoot .cfg-valor { font-size: 15px; font-weight: 600; color: #e5e7eb; margin: 0; }
-        #configRoot .cfg-detalhe, #adminRoot .cfg-detalhe {
+        #adminRoot .cfg-detalhe {
             font-size: 12px; color: #9ca3af; margin: 4px 0 0;
         }
-        #configRoot .cfg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-        #configRoot .cfg-chip {
-            font-size: 12.5px; font-weight: 600; color: #d1fae5;
-            background: #14532d; border: 1px solid #166534;
-            border-radius: 999px; padding: 3px 10px;
-        }
-        #configRoot .cfg-chip.vazio {
-            color: #fca5a5; background: #3f1d1d; border-color: #7f1d1d;
-        }
-        #configRoot .cfg-sair {
-            width: 100%; padding: 10px; border-radius: 10px;
-            background: #3a2020; border: 1px solid #7f1d1d; color: #fca5a5;
-            font-size: 14px; font-weight: 600; cursor: pointer;
-            transition: background .15s;
-        }
-        #configRoot .cfg-sair:hover { background: #4a2626; }
         #adminRoot .adm-linha {
             width: 100%; text-align: left; display: flex; align-items: center; gap: 10px;
             background: #262626; border: 1px solid #3d3d3d; border-radius: 10px;
@@ -1488,8 +1463,7 @@
         #adminRoot .adm-busca {
             width: 100%; padding: 9px 11px; border-radius: 8px; margin-bottom: 10px;
             background: #1f1f1f; border: 1px solid #444; color: #fff; font-size: 13.5px;
-        }
-</style>
+        }</style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
     <div id="app" class="max-w-3xl mx-auto">
@@ -4281,50 +4255,6 @@
         </div>
     </div>
 
-    <!-- Modal: Configurações -->
-    <div id="modal-config" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
-        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto" id="configRoot">
-            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
-                <h2 class="text-base font-semibold text-gray-200 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
-                    Configurações
-                </h2>
-                <button type="button" onclick="fecharConfig()" class="text-gray-400 hover:text-white transition duration-150">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-            <div class="p-4 flex flex-col gap-4">
-                <div class="cfg-bloco">
-                    <p class="cfg-rotulo">Conectado como</p>
-                    <p class="cfg-valor" id="cfgNome">—</p>
-                    <p class="cfg-detalhe" id="cfgPerfil">—</p>
-                </div>
-                <div class="cfg-bloco">
-                    <p class="cfg-rotulo">Pedidos liberados para você</p>
-                    <div id="cfgPedidos" class="cfg-chips"></div>
-                    <p class="cfg-detalhe" id="cfgPedidosNota"></p>
-                </div>
-                <div class="cfg-bloco">
-                    <p class="cfg-rotulo">Aplicativo</p>
-                    <p class="cfg-detalhe">Versão <span id="cfgVersao">—</span></p>
-                </div>
-                <button type="button" id="cfgBtnAdmin" class="form-card hidden" onclick="abrirAdmin()">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M22 11h-6"/>
-                    </svg>
-                    <span class="flex-1">Administração</span>
-                </button>
-                <button type="button" class="cfg-sair" onclick="fecharConfig(); sair();">Sair do aplicativo</button>
-            </div>
-        </div>
-    </div>
     <!-- Modal: Administração (só para o perfil ADMIN) -->
     <div id="modal-admin" class="fixed inset-0 z-[61] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
         <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" id="adminRoot">
@@ -5570,7 +5500,15 @@
 
         function entMostrarNome() {
             const el = document.getElementById('entConectado');
-            if (el) el.textContent = usuarioAtual ? ('Conectado como ' + usuarioAtual.nome) : '';
+            if (!el) return;
+            if (!usuarioAtual) { el.textContent = ''; return; }
+            // O perfil aparece aqui de propósito: se um supervisor estiver
+            // enxergando obra demais, esta linha diz na hora se o servidor
+            // o devolveu como Administrador. A versão ajuda no suporte —
+            // dá para perguntar "o que aparece embaixo do menu?".
+            el.textContent = 'Conectado como ' + usuarioAtual.nome
+                           + ' · ' + (ehAdmin() ? 'Administrador' : 'Supervisor')
+                           + ' · ' + APP_VERSAO;
         }
 
         /** Passa da tela de entrada para o aplicativo. */
@@ -5649,55 +5587,6 @@
             if (ehAdmin()) return true;
             return pedidosLiberados().indexOf(String(numero || '').trim().toUpperCase()) >= 0;
         }
-        /* ---------------- Tela de Configurações ---------------- */
-        function abrirConfig() {
-            const modal = document.getElementById('modal-config');
-            document.getElementById('cfgNome').textContent =
-                usuarioAtual ? usuarioAtual.nome : '—';
-            document.getElementById('cfgPerfil').textContent =
-                (usuarioAtual ? usuarioAtual.usuario : '—')
-                + ' · ' + (ehAdmin() ? 'Administrador' : 'Supervisor');
-            document.getElementById('cfgVersao').textContent = APP_VERSAO;
-            document.getElementById('cfgBtnAdmin').classList.toggle('hidden', !ehAdmin());
-
-            const caixa = document.getElementById('cfgPedidos');
-            const nota = document.getElementById('cfgPedidosNota');
-            caixa.innerHTML = '';
-            if (ehAdmin()) {
-                const chip = document.createElement('span');
-                chip.className = 'cfg-chip';
-                chip.textContent = 'Todos os pedidos';
-                caixa.appendChild(chip);
-                nota.textContent = 'Como administrador, você enxerga todas as obras.';
-            } else {
-                const meus = pedidosLiberados();
-                if (!meus.length) {
-                    const chip = document.createElement('span');
-                    chip.className = 'cfg-chip vazio';
-                    chip.textContent = 'Nenhum pedido liberado';
-                    caixa.appendChild(chip);
-                    nota.textContent = 'Fale com o Comercial para liberarem as suas obras.';
-                } else {
-                    meus.forEach(function (p) {
-                        const chip = document.createElement('span');
-                        chip.className = 'cfg-chip';
-                        chip.textContent = p;
-                        caixa.appendChild(chip);
-                    });
-                    nota.textContent = 'Quem libera obra é o administrador. '
-                                     + 'A lista se atualiza sozinha ao abrir o app com internet.';
-                }
-            }
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.body.style.overflow = 'hidden';
-        }
-        function fecharConfig() {
-            const modal = document.getElementById('modal-config');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            document.body.style.overflow = '';
-        }
         /* ---------------- Tela de Administração ---------------- */
         let admUsuarios = [];
         let admEditando = null;
@@ -5713,7 +5602,19 @@
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
-            admVoltarLista();
+            admEditando = null;
+            document.getElementById('admTitulo').textContent = 'Administração';
+            document.getElementById('admVoltar').classList.add('hidden');
+            /* Abrir tem de ser instantâneo. A lista que já foi buscada
+               nesta sessão aparece na hora e é atualizada por trás; só
+               na primeira vez é que se espera o Apps Script. */
+            if (admUsuarios.length) {
+                admDesenharLista();
+                admMensagem('');
+                admCarregarUsuarios(true);
+            } else {
+                admCarregarUsuarios(false);
+            }
         }
         function fecharAdmin() {
             const modal = document.getElementById('modal-admin');
@@ -5729,13 +5630,18 @@
             admEditando = null;
             document.getElementById('admTitulo').textContent = 'Administração';
             document.getElementById('admVoltar').classList.add('hidden');
-            admCarregarUsuarios();
-        }
-        async function admCarregarUsuarios() {
-            const alvo = document.getElementById('admConteudo');
-            alvo.innerHTML = '<div class="flex items-center justify-center p-4">'
-                           + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+            // Voltar da tela de um supervisor não precisa ir ao servidor
+            // de novo: a lista está na mão e já foi atualizada ao abrir.
+            admDesenharLista();
             admMensagem('');
+        }
+        async function admCarregarUsuarios(porTras) {
+            const alvo = document.getElementById('admConteudo');
+            if (!porTras) {
+                alvo.innerHTML = '<div class="flex items-center justify-center p-4">'
+                               + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+                admMensagem('');
+            }
             try {
                 const url = `${APPS_SCRIPT_URL}?mode=admUsuarios`
                           + `&token=${encodeURIComponent(usuarioAtual.token)}`;
@@ -5743,31 +5649,35 @@
                 const dados = await lerJson(resposta);
                 if (dados && dados.error) throw new Error(dados.error);
                 admUsuarios = (dados && dados.usuarios) || [];
-                admDesenharLista();
+                // Se o administrador já entrou na tela de alguém enquanto a
+                // atualização vinha, não puxo o tapete: só redesenho a lista.
+                if (!admEditando) admDesenharLista();
             } catch (e) {
+                if (porTras) return;   // atualização silenciosa não vira erro na tela
                 alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar os usuários. '
                                + docsEsc(e.message) + '</p>';
             }
         }
+        /* Só quem tem obra a liberar entra na lista. Administrador
+           enxerga todos os pedidos por definição — não há o que marcar
+           para ele, e o nome só ocuparia espaço. */
+        function admListaVisivel() {
+            return admUsuarios.filter(function (u) { return u.perfil !== 'ADMIN'; });
+        }
         function admDesenharLista() {
             const alvo = document.getElementById('admConteudo');
-            if (!admUsuarios.length) {
-                alvo.innerHTML = '<p class="text-sm text-gray-400">Nenhum usuário cadastrado.</p>';
+            const lista = admListaVisivel();
+            if (!lista.length) {
+                alvo.innerHTML = '<p class="text-sm text-gray-400">Nenhum supervisor cadastrado.</p>';
                 return;
             }
             let h = '<p class="cfg-detalhe" style="margin:0 0 10px">'
                   + 'Toque em uma pessoa para escolher em quais pedidos ela está trabalhando.</p>';
-            admUsuarios.forEach(function (u, i) {
-                const etiqueta = !u.ativo
-                    ? '<span class="adm-etiqueta off">DESATIVADO</span>'
-                    : (u.perfil === 'ADMIN'
-                        ? '<span class="adm-etiqueta admin">ADMIN</span>'
-                        : '<span class="adm-etiqueta sup">SUPERVISOR</span>');
-                const obras = u.perfil === 'ADMIN'
-                    ? 'Enxerga todos os pedidos'
-                    : (u.pedidos && u.pedidos.length
-                        ? 'Pedidos: ' + u.pedidos.join(', ')
-                        : 'Nenhum pedido liberado');
+            lista.forEach(function (u, i) {
+                const etiqueta = u.ativo ? '' : '<span class="adm-etiqueta off">DESATIVADO</span>';
+                const obras = (u.pedidos && u.pedidos.length)
+                    ? 'Pedidos: ' + u.pedidos.join(', ')
+                    : 'Nenhum pedido liberado';
                 const acesso = u.ultimoAcesso ? ' · último acesso ' + docsEsc(u.ultimoAcesso) : '';
                 h += '<button type="button" class="adm-linha" onclick="admAbrirUsuario(' + i + ')">'
                    + '<span style="flex:1">'
@@ -5778,7 +5688,7 @@
             alvo.innerHTML = h;
         }
         function admAbrirUsuario(indice) {
-            const u = admUsuarios[indice];
+            const u = admListaVisivel()[indice];
             if (!u) return;
             admEditando = u;
             document.getElementById('admTitulo').textContent = u.nome || u.usuario;
@@ -5786,13 +5696,6 @@
             admMensagem('');
 
             const alvo = document.getElementById('admConteudo');
-            if (u.perfil === 'ADMIN') {
-                alvo.innerHTML = '<p class="text-sm text-gray-300">Este acesso é de administrador: '
-                               + 'enxerga todos os pedidos, não há o que liberar.</p>'
-                               + '<p class="cfg-detalhe">Para mudar o perfil de alguém, use a coluna '
-                               + 'Perfil da aba Usuarios, na planilha.</p>';
-                return;
-            }
             if (!allPedidos.length) {
                 alvo.innerHTML = '<p class="text-sm text-gray-400">A lista de pedidos ainda não carregou. '
                                + 'Feche e abra de novo com internet.</p>';
@@ -5896,8 +5799,7 @@
         // Ficam sem cor fixa (currentColor) para servirem tanto no
         // cabeçalho quanto dentro do quadrinho verde do menu.
         const ICONES = {
-            abrirConfig: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-            abrirAdmin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>',
+            abrirAdmin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
             inicio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
             localizador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
             separador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
@@ -5920,7 +5822,6 @@
             { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montagem e links 3D' },
             { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
             { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' },
-            { acao: 'abrirConfig',   titulo: 'Configurações',          descricao: 'Seu acesso, seus pedidos e a versão do aplicativo' },
             { acao: 'abrirAdmin',    titulo: 'Administração',          descricao: 'Liberar pedidos para cada supervisor',
               somenteAdmin: true }
         ];
