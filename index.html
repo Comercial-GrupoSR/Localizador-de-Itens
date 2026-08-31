@@ -1422,6 +1422,73 @@
     color: var(--chk-ok);
 }
 
+
+        /* ============================================================
+           CONFIGURAÇÕES E ADMINISTRAÇÃO
+        ============================================================ */
+        #configRoot .cfg-bloco {
+            background: #262626; border: 1px solid #3d3d3d;
+            border-radius: 10px; padding: 12px 14px;
+        }
+        #configRoot .cfg-rotulo {
+            font-size: 11px; font-weight: 700; letter-spacing: .5px;
+            text-transform: uppercase; color: #7d8a7f; margin: 0 0 6px;
+        }
+        #configRoot .cfg-valor { font-size: 15px; font-weight: 600; color: #e5e7eb; margin: 0; }
+        #configRoot .cfg-detalhe, #adminRoot .cfg-detalhe {
+            font-size: 12px; color: #9ca3af; margin: 4px 0 0;
+        }
+        #configRoot .cfg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        #configRoot .cfg-chip {
+            font-size: 12.5px; font-weight: 600; color: #d1fae5;
+            background: #14532d; border: 1px solid #166534;
+            border-radius: 999px; padding: 3px 10px;
+        }
+        #configRoot .cfg-chip.vazio {
+            color: #fca5a5; background: #3f1d1d; border-color: #7f1d1d;
+        }
+        #configRoot .cfg-sair {
+            width: 100%; padding: 10px; border-radius: 10px;
+            background: #3a2020; border: 1px solid #7f1d1d; color: #fca5a5;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background .15s;
+        }
+        #configRoot .cfg-sair:hover { background: #4a2626; }
+        #adminRoot .adm-linha {
+            width: 100%; text-align: left; display: flex; align-items: center; gap: 10px;
+            background: #262626; border: 1px solid #3d3d3d; border-radius: 10px;
+            padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+            transition: border-color .15s, background .15s;
+        }
+        #adminRoot .adm-linha:hover { background: #2f2f2f; border-color: #4ade80; }
+        #adminRoot .adm-nome { font-size: 14px; font-weight: 600; color: #e5e7eb; }
+        #adminRoot .adm-sub { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
+        #adminRoot .adm-etiqueta {
+            font-size: 10px; font-weight: 700; letter-spacing: .4px;
+            border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+        }
+        #adminRoot .adm-etiqueta.admin { color: #fde68a; background: #422006; border: 1px solid #78350f; }
+        #adminRoot .adm-etiqueta.sup   { color: #bfdbfe; background: #1e293b; border: 1px solid #334155; }
+        #adminRoot .adm-etiqueta.off   { color: #fca5a5; background: #3f1d1d; border: 1px solid #7f1d1d; }
+        #adminRoot .adm-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 11px; border-radius: 8px;
+            border: 1px solid #3d3d3d; background: #262626; margin-bottom: 6px;
+            cursor: pointer;
+        }
+        #adminRoot .adm-item.marcado { border-color: #4ade80; background: #16321f; }
+        #adminRoot .adm-item input { width: 17px; height: 17px; accent-color: #4ade80; flex: none; }
+        #adminRoot .adm-item span { font-size: 13px; color: #e5e7eb; }
+        #adminRoot .adm-salvar {
+            width: 100%; padding: 11px; border-radius: 10px; margin-top: 10px;
+            background: #15803d; border: none; color: #fff;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+        }
+        #adminRoot .adm-salvar:disabled { opacity: .6; cursor: default; }
+        #adminRoot .adm-busca {
+            width: 100%; padding: 9px 11px; border-radius: 8px; margin-bottom: 10px;
+            background: #1f1f1f; border: 1px solid #444; color: #fff; font-size: 13.5px;
+        }
 </style>
 </head>
 <body class="min-h-screen p-4 md:p-6">
@@ -2050,9 +2117,10 @@
     function sepAtualizarPedidos() {
         const select = document.getElementById('separadorClientSelect');
         if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
-        if (select.dataset.carregado === String(allPedidos.length)) return;
+        const marca = String(allPedidos.length) + ':' + pedidosVisiveis(allPedidos).length;
+        if (select.dataset.carregado === marca) return;
         populateSelectWithPedidos(select, allPedidos);
-        select.dataset.carregado = String(allPedidos.length);
+        select.dataset.carregado = marca;
     }
 
     function onSeparadorPedidoChange(valor) {
@@ -4213,6 +4281,73 @@
         </div>
     </div>
 
+    <!-- Modal: Configurações -->
+    <div id="modal-config" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto" id="configRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Configurações
+                </h2>
+                <button type="button" onclick="fecharConfig()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4 flex flex-col gap-4">
+                <div class="cfg-bloco">
+                    <p class="cfg-rotulo">Conectado como</p>
+                    <p class="cfg-valor" id="cfgNome">—</p>
+                    <p class="cfg-detalhe" id="cfgPerfil">—</p>
+                </div>
+                <div class="cfg-bloco">
+                    <p class="cfg-rotulo">Pedidos liberados para você</p>
+                    <div id="cfgPedidos" class="cfg-chips"></div>
+                    <p class="cfg-detalhe" id="cfgPedidosNota"></p>
+                </div>
+                <div class="cfg-bloco">
+                    <p class="cfg-rotulo">Aplicativo</p>
+                    <p class="cfg-detalhe">Versão <span id="cfgVersao">—</span></p>
+                </div>
+                <button type="button" id="cfgBtnAdmin" class="form-card hidden" onclick="abrirAdmin()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fac775" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M22 11h-6"/>
+                    </svg>
+                    <span class="flex-1">Administração</span>
+                </button>
+                <button type="button" class="cfg-sair" onclick="fecharConfig(); sair();">Sair do aplicativo</button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Administração (só para o perfil ADMIN) -->
+    <div id="modal-admin" class="fixed inset-0 z-[61] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" id="adminRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200" id="admTitulo">Administração</h2>
+                <div class="flex items-center gap-3">
+                    <button type="button" id="admVoltar" class="text-xs text-gray-400 hover:text-white transition duration-150 hidden" onclick="admVoltarLista()">
+                        Voltar
+                    </button>
+                    <button type="button" onclick="fecharAdmin()" class="text-gray-400 hover:text-white transition duration-150">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4">
+                <div id="admConteudo"></div>
+                <p class="cfg-detalhe mt-3" id="admStatus"></p>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Variáveis globais (inalteradas)
         let allPedidos = [];
@@ -4370,17 +4505,29 @@
             if (!selectEl) return;
             const previousValue = selectEl.value;
             selectEl.innerHTML = '';
+            // É AQUI que o perfil manda: o supervisor só vê as obras
+            // liberadas para ele. Todos os seletores de pedido do app
+            // passam por esta função, então basta filtrar uma vez.
+            const visiveis = pedidosVisiveis(pedidos);
             const defaultOption = document.createElement('option');
             defaultOption.value = "";
-            defaultOption.textContent = "--- Selecione um Pedido ---";
+            defaultOption.textContent = visiveis.length
+                ? "--- Selecione um Pedido ---"
+                : "Nenhum pedido liberado para você";
             selectEl.appendChild(defaultOption);
-            [...pedidos].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
+            [...visiveis].sort((a, b) => a.PEDIDO.localeCompare(b.PEDIDO)).forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.PEDIDO;
                 option.textContent = `${item.PEDIDO} (${item.CLIENTE})`;
                 selectEl.appendChild(option);
             });
-            if (previousValue) selectEl.value = previousValue;
+            if (previousValue) {
+                selectEl.value = previousValue;
+                // Se o pedido escolhido antes saiu da lista (o administrador
+                // tirou a liberação), o campo volta para o vazio em vez de
+                // ficar mostrando uma obra que a pessoa não pode mais abrir.
+                if (selectEl.value !== previousValue) selectEl.value = '';
+            }
             selSincronizar(selectEl); // redesenha a lista visível
         }
         function populateClientSelect(pedidos) {
@@ -5057,9 +5204,10 @@
         function docsAtualizarPedidos() {
             const select = document.getElementById('docsClientSelect');
             if (!select || typeof allPedidos === 'undefined' || !allPedidos.length) return;
-            if (select.dataset.carregado === String(allPedidos.length)) return;
+            const marca = String(allPedidos.length) + ':' + pedidosVisiveis(allPedidos).length;
+            if (select.dataset.carregado === marca) return;
             populateSelectWithPedidos(select, allPedidos);
-            select.dataset.carregado = String(allPedidos.length);
+            select.dataset.carregado = marca;
         }
 
         function docsEsc(t) {
@@ -5356,7 +5504,10 @@
 
                 if (dados && dados.ok) {
                     const lembrar = document.getElementById('entLembrar').checked;
-                    const sessao = { usuario: dados.usuario, nome: dados.nome, token: dados.token };
+                    const sessao = { usuario: dados.usuario, nome: dados.nome, token: dados.token,
+                                     perfil: dados.perfil || 'SUPERVISOR',
+                                     admin: !!dados.admin,
+                                     pedidos: dados.pedidos || [] };
                     if (lembrar) entGravar(sessao); else entApagar();
                     const campoSenha = document.getElementById('entSenha');
                     campoSenha.value = '';
@@ -5396,9 +5547,22 @@
                     // rede não pode expulsar o supervisor no meio da obra.
                     if (d && d.ok === false) sair();
                     else if (d && d.ok && d.nome) {
-                        usuarioAtual = { usuario: d.usuario, nome: d.nome, token: sessao.token };
+                        const antes = JSON.stringify(pedidosLiberados()) + '|' + ehAdmin();
+                        usuarioAtual = { usuario: d.usuario, nome: d.nome, token: sessao.token,
+                                         perfil: d.perfil || 'SUPERVISOR',
+                                         admin: !!d.admin,
+                                         pedidos: d.pedidos || [] };
                         entGravar(usuarioAtual);
                         entMostrarNome();
+                        // O administrador pode ter liberado outra obra desde a
+                        // última vez: se a lista mudou, as telas são refeitas.
+                        if (JSON.stringify(pedidosLiberados()) + '|' + ehAdmin() !== antes) {
+                            if (typeof allPedidos !== 'undefined' && allPedidos.length) {
+                                populateClientSelect(allPedidos);
+                            }
+                            renderMenu();
+                            if (typeof progDesenhar === 'function') progDesenhar();
+                        }
                     }
                 })
                 .catch(function () { /* sem sinal: segue com o cartão guardado */ });
@@ -5445,6 +5609,266 @@
             }
         }
 
+        /* ============================================================
+           PERFIS E PEDIDOS LIBERADOS
+
+           Cada pessoa vê no aplicativo só os pedidos que o
+           administrador liberou para ela. O administrador vê todos.
+
+           A lista chega no login e é reconferida toda vez que o app
+           abre com sinal (mode=sessao) — então liberar uma obra nova
+           na planilha vale no próximo acesso, sem novo login.
+
+           Isto é ORGANIZAÇÃO, não segurança: o endereço do Apps
+           Script está neste arquivo, que é público. Quem o encontrar
+           consulta direto, sem passar pelo app, seja qual for o
+           perfil. Fechar isso de verdade é outra tarefa, anotada.
+        ============================================================ */
+        const APP_VERSAO = 'v9';
+
+        function ehAdmin() {
+            return !!(usuarioAtual && usuarioAtual.admin);
+        }
+        function pedidosLiberados() {
+            if (!usuarioAtual || !Array.isArray(usuarioAtual.pedidos)) return [];
+            return usuarioAtual.pedidos.map(function (p) {
+                return String(p).trim().toUpperCase();
+            }).filter(Boolean);
+        }
+        /** A lista de pedidos que esta pessoa pode ver. */
+        function pedidosVisiveis(lista) {
+            const todos = Array.isArray(lista) ? lista : [];
+            if (ehAdmin()) return todos;
+            const meus = pedidosLiberados();
+            return todos.filter(function (item) {
+                return meus.indexOf(String(item.PEDIDO).trim().toUpperCase()) >= 0;
+            });
+        }
+        /** O mesmo filtro, para quem só tem o número do pedido na mão. */
+        function pedidoLiberado(numero) {
+            if (ehAdmin()) return true;
+            return pedidosLiberados().indexOf(String(numero || '').trim().toUpperCase()) >= 0;
+        }
+        /* ---------------- Tela de Configurações ---------------- */
+        function abrirConfig() {
+            const modal = document.getElementById('modal-config');
+            document.getElementById('cfgNome').textContent =
+                usuarioAtual ? usuarioAtual.nome : '—';
+            document.getElementById('cfgPerfil').textContent =
+                (usuarioAtual ? usuarioAtual.usuario : '—')
+                + ' · ' + (ehAdmin() ? 'Administrador' : 'Supervisor');
+            document.getElementById('cfgVersao').textContent = APP_VERSAO;
+            document.getElementById('cfgBtnAdmin').classList.toggle('hidden', !ehAdmin());
+
+            const caixa = document.getElementById('cfgPedidos');
+            const nota = document.getElementById('cfgPedidosNota');
+            caixa.innerHTML = '';
+            if (ehAdmin()) {
+                const chip = document.createElement('span');
+                chip.className = 'cfg-chip';
+                chip.textContent = 'Todos os pedidos';
+                caixa.appendChild(chip);
+                nota.textContent = 'Como administrador, você enxerga todas as obras.';
+            } else {
+                const meus = pedidosLiberados();
+                if (!meus.length) {
+                    const chip = document.createElement('span');
+                    chip.className = 'cfg-chip vazio';
+                    chip.textContent = 'Nenhum pedido liberado';
+                    caixa.appendChild(chip);
+                    nota.textContent = 'Fale com o Comercial para liberarem as suas obras.';
+                } else {
+                    meus.forEach(function (p) {
+                        const chip = document.createElement('span');
+                        chip.className = 'cfg-chip';
+                        chip.textContent = p;
+                        caixa.appendChild(chip);
+                    });
+                    nota.textContent = 'Quem libera obra é o administrador. '
+                                     + 'A lista se atualiza sozinha ao abrir o app com internet.';
+                }
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function fecharConfig() {
+            const modal = document.getElementById('modal-config');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        /* ---------------- Tela de Administração ---------------- */
+        let admUsuarios = [];
+        let admEditando = null;
+        /* O que está marcado agora, guardado fora da tela. Antes eu
+           lia as caixas visíveis e somava com os pedidos gravados no
+           usuário — o que trazia de volta um pedido desmarcado assim
+           que a busca escondia a caixa dele. */
+        let admSelecao = new Set();
+
+        function abrirAdmin() {
+            if (!ehAdmin()) return;
+            const modal = document.getElementById('modal-admin');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            admVoltarLista();
+        }
+        function fecharAdmin() {
+            const modal = document.getElementById('modal-admin');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+            admEditando = null;
+        }
+        function admMensagem(texto) {
+            document.getElementById('admStatus').textContent = texto || '';
+        }
+        function admVoltarLista() {
+            admEditando = null;
+            document.getElementById('admTitulo').textContent = 'Administração';
+            document.getElementById('admVoltar').classList.add('hidden');
+            admCarregarUsuarios();
+        }
+        async function admCarregarUsuarios() {
+            const alvo = document.getElementById('admConteudo');
+            alvo.innerHTML = '<div class="flex items-center justify-center p-4">'
+                           + '<div class="spinner border-4 border-[#333] border-t-4 h-6 w-6 rounded-full"></div></div>';
+            admMensagem('');
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=admUsuarios`
+                          + `&token=${encodeURIComponent(usuarioAtual.token)}`;
+                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const dados = await lerJson(resposta);
+                if (dados && dados.error) throw new Error(dados.error);
+                admUsuarios = (dados && dados.usuarios) || [];
+                admDesenharLista();
+            } catch (e) {
+                alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar os usuários. '
+                               + docsEsc(e.message) + '</p>';
+            }
+        }
+        function admDesenharLista() {
+            const alvo = document.getElementById('admConteudo');
+            if (!admUsuarios.length) {
+                alvo.innerHTML = '<p class="text-sm text-gray-400">Nenhum usuário cadastrado.</p>';
+                return;
+            }
+            let h = '<p class="cfg-detalhe" style="margin:0 0 10px">'
+                  + 'Toque em uma pessoa para escolher em quais pedidos ela está trabalhando.</p>';
+            admUsuarios.forEach(function (u, i) {
+                const etiqueta = !u.ativo
+                    ? '<span class="adm-etiqueta off">DESATIVADO</span>'
+                    : (u.perfil === 'ADMIN'
+                        ? '<span class="adm-etiqueta admin">ADMIN</span>'
+                        : '<span class="adm-etiqueta sup">SUPERVISOR</span>');
+                const obras = u.perfil === 'ADMIN'
+                    ? 'Enxerga todos os pedidos'
+                    : (u.pedidos && u.pedidos.length
+                        ? 'Pedidos: ' + u.pedidos.join(', ')
+                        : 'Nenhum pedido liberado');
+                const acesso = u.ultimoAcesso ? ' · último acesso ' + docsEsc(u.ultimoAcesso) : '';
+                h += '<button type="button" class="adm-linha" onclick="admAbrirUsuario(' + i + ')">'
+                   + '<span style="flex:1">'
+                   + '<span class="adm-nome">' + docsEsc(u.nome || u.usuario) + '</span>'
+                   + '<span class="adm-sub">' + docsEsc(obras) + acesso + '</span>'
+                   + '</span>' + etiqueta + '</button>';
+            });
+            alvo.innerHTML = h;
+        }
+        function admAbrirUsuario(indice) {
+            const u = admUsuarios[indice];
+            if (!u) return;
+            admEditando = u;
+            document.getElementById('admTitulo').textContent = u.nome || u.usuario;
+            document.getElementById('admVoltar').classList.remove('hidden');
+            admMensagem('');
+
+            const alvo = document.getElementById('admConteudo');
+            if (u.perfil === 'ADMIN') {
+                alvo.innerHTML = '<p class="text-sm text-gray-300">Este acesso é de administrador: '
+                               + 'enxerga todos os pedidos, não há o que liberar.</p>'
+                               + '<p class="cfg-detalhe">Para mudar o perfil de alguém, use a coluna '
+                               + 'Perfil da aba Usuarios, na planilha.</p>';
+                return;
+            }
+            if (!allPedidos.length) {
+                alvo.innerHTML = '<p class="text-sm text-gray-400">A lista de pedidos ainda não carregou. '
+                               + 'Feche e abra de novo com internet.</p>';
+                return;
+            }
+            admSelecao = new Set((u.pedidos || []).map(function (p) { return String(p).toUpperCase(); }));
+            let h = '<input type="text" class="adm-busca" id="admBusca" placeholder="Procurar pedido ou cliente…" '
+                  + 'oninput="admFiltrar(this.value)">'
+                  + '<div id="admListaPedidos">';
+            h += admLinhasDePedido('');
+            h += '</div>'
+               + '<button type="button" class="adm-salvar" id="admBtnSalvar" onclick="admSalvar()">'
+               + 'Salvar pedidos de ' + docsEsc((u.nome || u.usuario).split(' ')[0]) + '</button>';
+            alvo.innerHTML = h;
+        }
+        function admLinhasDePedido(busca) {
+            const termo = String(busca || '').trim().toUpperCase();
+            const lista = [...allPedidos].sort(function (a, b) {
+                return String(a.PEDIDO).localeCompare(String(b.PEDIDO));
+            }).filter(function (p) {
+                if (!termo) return true;
+                return (String(p.PEDIDO) + ' ' + String(p.CLIENTE)).toUpperCase().indexOf(termo) >= 0;
+            });
+            if (!lista.length) return '<p class="cfg-detalhe">Nenhum pedido com esse texto.</p>';
+            return lista.map(function (p) {
+                const num = String(p.PEDIDO).toUpperCase();
+                const on = admSelecao.has(num);
+                return '<label class="adm-item' + (on ? ' marcado' : '') + '">'
+                     + '<input type="checkbox" value="' + docsEsc(num) + '"' + (on ? ' checked' : '')
+                     + ' onchange="admMarcar(this)">'
+                     + '<span>' + docsEsc(p.PEDIDO) + ' — ' + docsEsc(p.CLIENTE) + '</span></label>';
+            }).join('');
+        }
+        function admMarcar(caixa) {
+            if (caixa.checked) admSelecao.add(caixa.value);
+            else admSelecao.delete(caixa.value);
+            caixa.closest('.adm-item').classList.toggle('marcado', caixa.checked);
+        }
+        function admFiltrar(busca) {
+            // A busca só muda o que está à vista: quem está marcado
+            // continua marcado, dentro ou fora do filtro.
+            document.getElementById('admListaPedidos').innerHTML = admLinhasDePedido(busca);
+        }
+        function admMarcadosAgora() {
+            return Array.from(admSelecao);
+        }
+        async function admSalvar() {
+            if (!admEditando) return;
+            const botao = document.getElementById('admBtnSalvar');
+            const escolhidos = admMarcadosAgora();
+            botao.disabled = true;
+            admMensagem('Salvando…');
+            try {
+                const url = `${APPS_SCRIPT_URL}?mode=admPedidos`
+                          + `&token=${encodeURIComponent(usuarioAtual.token)}`
+                          + `&alvo=${encodeURIComponent(admEditando.usuario)}`
+                          + `&pedidos=${encodeURIComponent(escolhidos.join(','))}`;
+                const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
+                const dados = await lerJson(resposta);
+                if (dados && dados.error) throw new Error(dados.error);
+                admEditando.pedidos = (dados && dados.pedidos) || escolhidos;
+                admMensagem(escolhidos.length
+                    ? 'Salvo. ' + escolhidos.length + ' pedido(s) liberados.'
+                    : 'Salvo. Nenhum pedido liberado para esta pessoa.');
+                // Se o administrador mexeu na própria conta, vale já.
+                if (usuarioAtual && admEditando.usuario === usuarioAtual.usuario) {
+                    usuarioAtual.pedidos = admEditando.pedidos;
+                    entGravar(usuarioAtual);
+                    populateClientSelect(allPedidos);
+                }
+            } catch (e) {
+                admMensagem('Não consegui salvar: ' + e.message);
+            } finally {
+                botao.disabled = false;
+            }
+        }
         function copyToClipboard(text) {
             console.log("Cópia de texto não implementada na interface.");
             return false;
@@ -5472,6 +5896,8 @@
         // Ficam sem cor fixa (currentColor) para servirem tanto no
         // cabeçalho quanto dentro do quadrinho verde do menu.
         const ICONES = {
+            abrirConfig: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+            abrirAdmin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>',
             inicio: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
             localizador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>',
             separador: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M12 9v3"/><path d="M12 12H6v3"/><path d="M12 12h6v3"/></svg>',
@@ -5493,7 +5919,10 @@
             { pagina: 'separador',   titulo: 'Separador de Obra',       descricao: 'Identifique o conjunto pelo código do item' },
             { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montagem e links 3D' },
             { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
-            { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' }
+            { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' },
+            { acao: 'abrirConfig',   titulo: 'Configurações',          descricao: 'Seu acesso, seus pedidos e a versão do aplicativo' },
+            { acao: 'abrirAdmin',    titulo: 'Administração',          descricao: 'Liberar pedidos para cada supervisor',
+              somenteAdmin: true }
         ];
         let menuRecolhido = true;   // o app abre com o andamento à vista
         /**
@@ -5505,14 +5934,23 @@
             const lista = document.getElementById('menuLista');
             if (!lista) return;
             lista.innerHTML = '';
-            MENU_ITENS.forEach((item, i) => {
+            /* A opção de Administração só existe para quem é ADMIN.
+               Isso é o que a TELA mostra — quem manda de verdade é o
+               Apps Script, que confere o perfil na planilha a cada
+               chamada e recusa quem não for. */
+            MENU_ITENS.filter(function (item) {
+                return !item.somenteAdmin || ehAdmin();
+            }).forEach((item, i) => {
                 const botao = document.createElement('button');
                 botao.type = 'button';
                 botao.className = 'menu-item';
                 botao.style.animationDelay = (i * 70) + 'ms';
-                botao.addEventListener('click', () => switchPage(item.pagina));
+                botao.addEventListener('click', () => {
+                    if (item.acao) window[item.acao]();
+                    else switchPage(item.pagina);
+                });
                 botao.innerHTML =
-                    '<span class="menu-item-icone">' + (ICONES[item.pagina] || '') + '</span>' +
+                    '<span class="menu-item-icone">' + (ICONES[item.pagina || item.acao] || '') + '</span>' +
                     '<span class="menu-item-texto"><strong>' + item.titulo + '</strong>' +
                     '<span>' + item.descricao + '</span></span>' +
                     '<span class="menu-item-seta">' + SETA_MENU + '</span>';
@@ -5636,7 +6074,20 @@
                 painel.innerHTML = h;
                 return;
             }
-            (progDados.pedidos || []).forEach(function (p) {
+            /* O painel segue o mesmo perfil das outras telas: o
+               supervisor vê o andamento só das obras dele, o
+               administrador vê todas. */
+            const obras = (progDados.pedidos || []).filter(function (p) {
+                return pedidoLiberado(p.pedido);
+            });
+            if (!obras.length) {
+                h += '<p class="prog-erro">' + (ehAdmin()
+                    ? 'Nenhuma obra no cronograma.'
+                    : 'Nenhum pedido liberado para você. Fale com o Comercial.') + '</p>';
+                painel.innerHTML = h;
+                return;
+            }
+            obras.forEach(function (p) {
                 const temDado = typeof p.progresso === 'number';
                 const pct = temDado ? Math.round(p.progresso * 100) : 0;
                 const cor = p.cor || '#4b5563';
