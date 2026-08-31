@@ -1439,8 +1439,14 @@
             transition: border-color .15s, background .15s;
         }
         #adminRoot .adm-linha:hover { background: #2f2f2f; border-color: #4ade80; }
-        #adminRoot .adm-nome { font-size: 14px; font-weight: 600; color: #e5e7eb; }
-        #adminRoot .adm-sub { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
+        #adminRoot .adm-nome {
+            display: block;
+            font-size: 14px; font-weight: 600; color: #e5e7eb; line-height: 1.3;
+        }
+        #adminRoot .adm-sub {
+            display: block;
+            font-size: 11.5px; color: #9ca3af; margin-top: 3px; line-height: 1.4;
+        }
         #adminRoot .adm-etiqueta {
             font-size: 10px; font-weight: 700; letter-spacing: .4px;
             border-radius: 999px; padding: 2px 8px; white-space: nowrap;
@@ -5445,6 +5451,10 @@
 
         function sair() {
             entApagar();
+            // A lista de administração traz nome e último acesso de todos.
+            // Não fica no aparelho depois que a pessoa sai.
+            try { localStorage.removeItem(ADM_CACHE_KEY); } catch (e) {}
+            admUsuarios = [];
             usuarioAtual = null;
             const campo = document.getElementById('entSenha');
             campo.value = '';
@@ -5481,6 +5491,7 @@
                             renderMenu();
                             if (typeof progDesenhar === 'function') progDesenhar();
                         }
+                        admPrecarregar();
                     }
                 })
                 .catch(function () { /* sem sinal: segue com o cartão guardado */ });
@@ -5522,6 +5533,7 @@
             selPrepararTodos();     // troca todas as listas nativas pelas nossas
             switchPage('inicio');   // a tela inicial passa a ser o menu
             fetchAllPedidos();
+            admPrecarregar();       // administrador: a lista já chega pronta
         }
 
         function initializeApp() {
@@ -5584,6 +5596,38 @@
            que a busca escondia a caixa dele. */
         let admSelecao = new Set();
 
+        /* A lista de usuários guardada no aparelho, igual à lista de
+           Pedidos e ao andamento das obras.
+
+           Guardar só em memória não bastava: bastava recarregar o app
+           para a primeira abertura da tela voltar a esperar o Apps
+           Script acordar, e é isso que se sente como demora. Agora ela
+           sobrevive ao fechamento do app, e além disso é buscada por
+           trás assim que um administrador entra — quando ele toca em
+           Administração, o dado já chegou. */
+        const ADM_CACHE_KEY = 'obraflow_admin_usuarios_v1';
+
+        function admLerCache() {
+            try {
+                const cru = localStorage.getItem(ADM_CACHE_KEY);
+                if (!cru) return null;
+                const d = JSON.parse(cru);
+                return (d && Array.isArray(d.usuarios) && d.usuarios.length) ? d.usuarios : null;
+            } catch (e) { return null; }
+        }
+        function admGravarCache(usuarios) {
+            try {
+                localStorage.setItem(ADM_CACHE_KEY,
+                    JSON.stringify({ usuarios: usuarios, quando: Date.now() }));
+            } catch (e) { /* sem espaço: segue sem guardar */ }
+        }
+        /** Busca silenciosa, logo depois de o administrador entrar. */
+        function admPrecarregar() {
+            if (!ehAdmin() || !usuarioAtual || !usuarioAtual.token) return;
+            if (!admUsuarios.length) admUsuarios = admLerCache() || [];
+            admCarregarUsuarios(true);
+        }
+
         function abrirAdmin() {
             if (!ehAdmin()) return;
             const modal = document.getElementById('modal-admin');
@@ -5593,9 +5637,11 @@
             admEditando = null;
             document.getElementById('admTitulo').textContent = 'Administração';
             document.getElementById('admVoltar').classList.add('hidden');
-            /* Abrir tem de ser instantâneo. A lista que já foi buscada
-               nesta sessão aparece na hora e é atualizada por trás; só
-               na primeira vez é que se espera o Apps Script. */
+            /* Abrir tem de ser instantâneo. Vale o que já está em
+               memória e, se não houver, o que ficou guardado no
+               aparelho da última vez. A busca acontece por trás. Só
+               quem nunca abriu a tela neste celular espera o servidor. */
+            if (!admUsuarios.length) admUsuarios = admLerCache() || [];
             if (admUsuarios.length) {
                 admDesenharLista();
                 admMensagem('');
@@ -5637,9 +5683,14 @@
                 const dados = await lerJson(resposta);
                 if (dados && dados.error) throw new Error(dados.error);
                 admUsuarios = (dados && dados.usuarios) || [];
+                admGravarCache(admUsuarios);
                 // Se o administrador já entrou na tela de alguém enquanto a
                 // atualização vinha, não puxo o tapete: só redesenho a lista.
-                if (!admEditando) admDesenharLista();
+                // O modal pode nem estar aberto: esta busca também roda por
+                // trás, logo depois do login.
+                if (!admEditando && document.getElementById('admConteudo')) {
+                    admDesenharLista();
+                }
             } catch (e) {
                 if (porTras) return;   // atualização silenciosa não vira erro na tela
                 alvo.innerHTML = '<p class="text-sm text-red-400">Não consegui carregar os usuários. '
@@ -5652,8 +5703,25 @@
         function admListaVisivel() {
             return admUsuarios.filter(function (u) { return u.perfil !== 'ADMIN'; });
         }
+        /* A data do último acesso, curta.
+           A planilha às vezes devolve a célula como data de verdade, e aí
+           o que chegava na tela era "Mon Aug 31 2026 08:40:00 GMT-0300
+           (Horário Padrão de Brasília)" — uma linha inteira só para dizer
+           31/08 às 08:40. Aqui vale tanto o texto já pronto quanto a data
+           por extenso. */
+        function admDataCurta(valor) {
+            const bruto = String(valor || '').trim();
+            if (!bruto) return '';
+            if (/^\d{2}\/\d{2}\/\d{4}/.test(bruto)) return docsEsc(bruto.slice(0, 16));
+            const d = new Date(bruto);
+            if (isNaN(d.getTime())) return docsEsc(bruto);
+            const dois = n => String(n).padStart(2, '0');
+            return dois(d.getDate()) + '/' + dois(d.getMonth() + 1) + '/' + d.getFullYear()
+                 + ' ' + dois(d.getHours()) + ':' + dois(d.getMinutes());
+        }
         function admDesenharLista() {
             const alvo = document.getElementById('admConteudo');
+            if (!alvo) return;
             const lista = admListaVisivel();
             if (!lista.length) {
                 alvo.innerHTML = '<p class="text-sm text-gray-400">Nenhum supervisor cadastrado.</p>';
@@ -5666,7 +5734,7 @@
                 const obras = (u.pedidos && u.pedidos.length)
                     ? 'Pedidos: ' + u.pedidos.join(', ')
                     : 'Nenhum pedido liberado';
-                const acesso = u.ultimoAcesso ? ' · último acesso ' + docsEsc(u.ultimoAcesso) : '';
+                const acesso = u.ultimoAcesso ? ' · último acesso ' + admDataCurta(u.ultimoAcesso) : '';
                 h += '<button type="button" class="adm-linha" onclick="admAbrirUsuario(' + i + ')">'
                    + '<span style="flex:1">'
                    + '<span class="adm-nome">' + docsEsc(u.nome || u.usuario) + '</span>'
