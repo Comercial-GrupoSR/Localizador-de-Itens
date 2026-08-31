@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="icon" type="image/x-icon" href="/Localizador-de-Itens/favicon.ico">
-    <link rel="shortcut icon" href="/Localizador-de-Itens/favicon.ico">
-    <link rel="apple-touch-icon" href="/Localizador-de-Itens/favicon.ico">
-    <link rel="manifest" href="/Localizador-de-Itens/manifest.json">
+    <!-- Caminhos relativos, como o service worker e o manifest. Antes
+         estes quatro estavam fixos em /Localizador-de-Itens/: funcionava,
+         mas quebrava em silêncio se o repositório mudasse de nome. -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0c4a31">
     <!-- Avisa o sistema que o app é escuro. É isto que faz a lista de
          Pedidos do celular (desenhada pelo Android, não pelo CSS) sair
@@ -1626,27 +1629,12 @@
         </div>
         
 <!-- =====================================================================
-     SEPARADOR DE OBRA — bloco completo
-
-     COMO USAR: no index.html, apague TODO o bloco que começa em
-
-         <div id="page-separador" ...>
-
-     e termina no </div> que o fecha, e cole tudo que está neste
-     arquivo no lugar. Estilo, telas, leitor de código de barras e
-     JavaScript estão todos aqui dentro — nada mais no index.html
-     precisa ser tocado.
-
-     DEPOIS DE COLAR, publique a nova versão do Apps Script:
-     Implantar > Gerenciar implantações > editar > Nova versão.
-
-     O QUE ESTA VERSÃO TRAZ
-       · duas abas depois de escolher o pedido: Buscar e Resumo
-       · contador de peças, com campo para digitar e botão "todas"
-       · botão para declarar o que procurou e não achou
-       · carimbo Separado / Não encontrada / Pendente
-       · resumo em itens, com filtro por conjunto e marcação na lista
-       · exportar em PDF
+     SEPARADOR DE OBRA
+     A página inteira vive aqui: estilo, telas, leitor de código de
+     barras e JavaScript. Nada do resto do index.html depende deste
+     bloco, e ele não depende de nada de fora além das funções
+     compartilhadas (fetchWithTimeout, populateSelectWithPedidos,
+     pedidosVisiveis e o componente de lista sel*).
 
      AINDA NÃO FUNCIONA SEM INTERNET. Cada marcação vai direto à
      planilha. A fila de envio entra numa etapa seguinte.
@@ -5562,7 +5550,7 @@
            consulta direto, sem passar pelo app, seja qual for o
            perfil. Fechar isso de verdade é outra tarefa, anotada.
         ============================================================ */
-        const APP_VERSAO = 'v9';
+        const APP_VERSAO = 'v11';
 
         function ehAdmin() {
             return !!(usuarioAtual && usuarioAtual.admin);
@@ -7183,6 +7171,30 @@
             if (!pad || !pad.state.hasDrawn) return null;
             return pad.canvas.toDataURL('image/png');
         }
+        /* A logo dos PDFs.
+           ANTES ela era buscada em raw.githubusercontent.com — e isso
+           estava DENTRO do try da geração: sem internet, ou com o GitHub
+           fora do ar, o fetch falhava, caía no catch e o PDF simplesmente
+           não saía. Justamente no galpão, que é onde o checklist é
+           preenchido.
+           O mesmo arquivo já está no aplicativo (é a logo do cabeçalho) e
+           o service worker o guarda para uso sem sinal. Agora vem daí. E
+           se nem assim der, o PDF sai sem a logo — um documento sem
+           timbre é muito melhor que documento nenhum. */
+        let chkLogoBytes = null;
+        async function chkLogoDoPDF(doc) {
+            try {
+                if (!chkLogoBytes) {
+                    const r = await fetch('sr-sem-fundo.png');
+                    if (!r.ok) throw new Error('logo ' + r.status);
+                    chkLogoBytes = await r.arrayBuffer();
+                }
+                return await doc.embedPng(chkLogoBytes);
+            } catch (e) {
+                console.warn('PDF sem a logo:', e);
+                return null;
+            }
+        }
         function chkDataUrlToBytes(dataUrl) {
             const base64 = dataUrl.split(',')[1];
             const binary = atob(base64);
@@ -7210,13 +7222,11 @@
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
                 const checklistTitle = 'Check-List de Entrega — ' + chkNomeEquipamento();
-                // --- CARREGANDO A LOGO DO GITHUB ---
-                const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
-                const logoImageBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
-                const logoImage = await doc.embedPng(logoImageBytes);
+                // --- A LOGO ---
+                const logoImage = await chkLogoDoPDF(doc);
                 const logoHeight = 24;
-                const logoWidth = (logoImage.width / logoImage.height) * logoHeight;
-                // -----------------------------------
+                const logoWidth = logoImage
+                    ? (logoImage.width / logoImage.height) * logoHeight : 0;
                 // --- Assinaturas desenhadas na tela (opcionais) ---
                 // Se a pessoa não assinou, os "Img" ficam null e o PDF é gerado
                 // normalmente, apenas com a linha em branco para assinar depois.
@@ -7272,7 +7282,7 @@
                 };
                 // ── Header block ──
                 hline(0, pageH-headerH, pageW, {t:2.5, color: greenDark});
-                page.drawImage(logoImage, {
+                if (logoImage) page.drawImage(logoImage, {
                     x: mg,
                     y: pageH - headerH/2 - logoHeight/2 + 4,
                     width: logoWidth,
@@ -7959,11 +7969,9 @@
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
                 const titulo = 'Check-List de Montagem — ' + mtTipo().nome;
-                const logoUrl = 'https://raw.githubusercontent.com/Comercial-GrupoSR/Localizador-de-Itens/main/sr-sem-fundo.png';
-                const logoBytes = await fetch(logoUrl).then(r => r.arrayBuffer());
-                const logo = await doc.embedPng(logoBytes);
+                const logo = await chkLogoDoPDF(doc);
                 const logoH = 28;
-                const logoW = (logo.width / logo.height) * logoH;
+                const logoW = logo ? (logo.width / logo.height) * logoH : 0;
                 const sigUrl = chkGetSignatureDataUrl('mtSigSupervisor');
                 const sigImg = sigUrl ? await doc.embedPng(chkDataUrlToBytes(sigUrl)) : null;
                 const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -8000,7 +8008,7 @@
                 };
                 // ── Cabeçalho ──
                 hline(0, pageH-headerH, pageW, {t:2.5, color:greenDark});
-                page.drawImage(logo, { x: mg, y: pageH - headerH/2 - logoH/2 + 4, width: logoW, height: logoH });
+                if (logo) page.drawImage(logo, { x: mg, y: pageH - headerH/2 - logoH/2 + 4, width: logoW, height: logoH });
                 txt(titulo, mg+logoW+16, pageH-24, {size:11, font:bold, color:greenDark});
                 txt('TAG: '+mtVal('mt_tag')+'   Código: '+mtVal('mt_codigo')+'   Máscara: '+mtVal('mt_mascara'),
                     mg+logoW+16, pageH-37, {size:8.5, color:muted});
