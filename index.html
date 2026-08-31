@@ -493,16 +493,58 @@
         }
         .dsn-fechar:hover { background: #3a3a3a; color: #fff; }
         .dsn-fechar svg { width: 18px; height: 18px; }
-        /* O quadro rola nos dois sentidos e aceita o gesto de pinça:
-           um desenho técnico na largura do celular é ilegível sem zoom. */
+        .dsn-ferramentas {
+            flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+        }
+        .dsn-bt {
+            width: 32px; height: 32px; border-radius: 8px;
+            border: 1px solid #4a4a4a; background: #2e2e2e; color: #d1d5db;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; padding: 0;
+        }
+        .dsn-bt:hover { background: #3a3a3a; color: #fff; }
+        .dsn-bt:disabled { opacity: .38; cursor: default; }
+        .dsn-bt:disabled:hover { background: #2e2e2e; color: #d1d5db; }
+        .dsn-bt svg { width: 16px; height: 16px; }
+        .dsn-bt-txt {
+            width: auto; min-width: 48px; padding: 0 7px;
+            font-size: 11.5px; font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        /* O quadro rola nos dois sentidos. O gesto de pinça é tratado
+           pelo próprio app (dsnPinca): a pinça do navegador só esticava
+           a imagem já desenhada, e era daí que vinha o borrão. Por isso
+           'pinch-zoom' NÃO entra no touch-action. */
         .dsn-area {
             flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
-            touch-action: pan-x pan-y pinch-zoom;
-            padding: 10px; text-align: center;
+            touch-action: pan-x pan-y;
+            padding: 10px;
+            /* Alinhado à esquerda de propósito: quem centraliza é a
+               margem automática do quadro. Centralizar aqui esconderia
+               a beirada esquerda do desenho quando ele passa da tela. */
+            text-align: left;
         }
-        .dsn-area canvas {
-            display: block; margin: 0 auto 10px; max-width: 100%;
-            height: auto; background: #fff; border-radius: 3px;
+        /* Encolhe até o tamanho do desenho, para a rolagem horizontal
+           existir quando ele fica maior que a tela. */
+        .dsn-palco {
+            display: inline-block; min-width: 100%;
+            transform-origin: 0 0;
+        }
+        /* A moldura tem o tamanho da folha inteira no zoom de agora e é
+           quem segura a rolagem. O quadro desenhado por dentro cobre só
+           o pedaço na tela, e por isso é posicionado. */
+        .dsn-folha {
+            position: relative; margin: 0 auto 10px;
+            background: #fff; border-radius: 3px; overflow: hidden;
+        }
+        .dsn-folha canvas {
+            position: absolute; display: block; max-width: none;
+        }
+        .dsn-trabalhando {
+            position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+            background: rgba(20,20,20,.92); border: 1px solid #3d3d3d;
+            color: #d1d5db; font-size: 11.5px; padding: 6px 12px;
+            border-radius: 999px; pointer-events: none;
         }
         .dsn-estado {
             color: #9ca3af; font-size: 13px; padding: 40px 20px; text-align: center;
@@ -569,6 +611,33 @@
         }
         .prog-linha:hover { border-color: #4ade80; background: #262626; }
         .prog-linha:active { opacity: .85; }
+        /* Obra que este usuário vê mas não abre. Continua legível — a
+           ideia é acompanhar o andamento de todas —, só não é um botão:
+           mais apagada, sem cursor de clique e sem realce ao passar. */
+        .prog-linha.prog-travada {
+            cursor: default; background: #1b1b1b; border-color: #2b2b2b;
+            opacity: .72;
+        }
+        .prog-linha.prog-travada:hover { border-color: #2b2b2b; background: #1b1b1b; }
+        .prog-linha.prog-travada:active { opacity: .72; }
+        .prog-linha.prog-travada .prog-num,
+        .prog-linha.prog-travada .prog-pct { color: #cbd5e1; }
+        .prog-cadeado {
+            flex: 0 0 auto; width: 11px; height: 11px; color: #6b7280;
+            align-self: center;
+        }
+        /* Divisória entre "as minhas" e "as outras". Só aparece para
+           quem tem pedidos liberados — o administrador vê tudo liberado
+           e nunca chega a ver esta linha. */
+        .prog-secao {
+            font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: #6b7280;
+            margin: 14px 0 7px; display: flex; align-items: center; gap: 8px;
+        }
+        .prog-secao::after {
+            content: ''; flex: 1; height: 1px; background: #333;
+        }
+        .prog-secao:first-child { margin-top: 0; }
         .prog-cab { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
         .prog-num { flex: 0 0 auto; font-size: 13.5px; font-weight: 700; color: #fff; }
         .prog-cliente {
@@ -3468,13 +3537,32 @@
     <div id="modal-desenho" class="dsn-fundo hidden">
         <div class="dsn-topo">
             <span class="dsn-nome" id="dsnNome">Desenho</span>
+            <div class="dsn-ferramentas">
+                <button type="button" class="dsn-bt" id="dsnBtGirar" onclick="dsnGirar()"
+                        aria-label="Girar 90 graus" title="Girar 90°">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15.5 4.5A8 8 0 1 1 4.6 10.4"/><polyline points="16.6 8.6 15.2 3.6 10.2 5"/>
+                    </svg>
+                </button>
+                <button type="button" class="dsn-bt" id="dsnBtMenos" onclick="dsnZoomPasso(-1)"
+                        aria-label="Diminuir" title="Diminuir">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button type="button" class="dsn-bt dsn-bt-txt" id="dsnZoomTexto" onclick="dsnAjustar()"
+                        title="Voltar ao tamanho da tela">100%</button>
+                <button type="button" class="dsn-bt" id="dsnBtMais" onclick="dsnZoomPasso(1)"
+                        aria-label="Ampliar" title="Ampliar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+                </button>
+            </div>
             <button type="button" class="dsn-fechar" onclick="dsnFechar()" aria-label="Fechar">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
             </button>
         </div>
-        <div class="dsn-area" id="dsnArea"></div>
+        <div class="dsn-area" id="dsnArea"><div class="dsn-palco" id="dsnPalco"></div></div>
+        <div class="dsn-trabalhando hidden" id="dsnTrabalhando">Redesenhando...</div>
     </div>
 
     <!-- Modal: Formulário de Inconformidades -->
@@ -4940,10 +5028,47 @@
         }
         const DSN_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
         const DSN_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        // Quanto maior, mais nítido no zoom — e mais memória. 2 é o
-        // ponto em que um A1 ainda cabe num celular modesto.
-        const DSN_ESCALA = 2;
+        /* ------------------------------------------------------------
+           ZOOM E GIRO DO DESENHO
+
+           Antes o PDF era desenhado UMA vez, no dobro da largura da
+           tela, e o zoom era o do navegador — que estica a imagem já
+           pronta. Passando de 2x, ela borrava; era a queixa.
+
+           Agora o app redesenha a folha a cada mudança de zoom, direto
+           do PDF. Como o traço é vetor, ele sai nítido em qualquer
+           aumento: o que muda é o tamanho do quadro, não o de uma foto.
+           O giro de 90° existe porque quase todo desenho é deitado e a
+           tela do celular é em pé — deitado, a folha usa a tela inteira
+           e muitas vezes nem precisa de zoom.
+           ------------------------------------------------------------ */
+        const DSN_ZOOM_MIN = 0.6;
+        const DSN_ZOOM_MAX = 20;
+        const DSN_ZOOM_TOQUE = 3;        // o que o toque duplo alcança
+        /* Só o PEDAÇO NA TELA é desenhado, mais uma folga em volta para
+           a rolagem curta não piscar. Desenhar a folha inteira ampliada
+           é o que estourava a memória: um A1 a 6x já pesava 9 milhões
+           de pontos, e mesmo assim o texto de 6pt ficava ilegível. Do
+           jeito de agora o quadro tem sempre o tamanho da tela, então
+           dá para ampliar 20x sem pesar mais do que a 1x. */
+        const DSN_FOLGA = 220;           // pontos de sobra além da tela
+        const DSN_MAX_LADO = 4096;       // teto do quadro em qualquer aparelho
         let dsnPronto = null;
+        let dsnDoc = null;         // o PDF aberto agora
+        let dsnFolhas = [];        // uma entrada por folha na tela
+        let dsnRotacao = 0;        // 0, 90, 180 ou 270
+        let dsnZoom = 1;           // 1 = folha na largura da tela
+        let dsnPintando = false;
+        let dsnRepintar = false;
+        let dsnRelogioRolagem = null;
+        /* Contador de montagens. Montar as folhas é assíncrono, e quem
+           dá dois toques rápidos no zoom dispara duas montagens ao mesmo
+           tempo: as duas limpavam o palco e as duas penduravam as folhas
+           delas, e o desenho aparecia repetido. Cada montagem carimba o
+           número da vez e desiste se, ao voltar do 'await', já não for a
+           mais nova. Achei isto num teste de rajada — 12 folhas na tela
+           onde deviam existir 2. */
+        let dsnGeracao = 0;
 
         function dsnCarregarBiblioteca() {
             if (dsnPronto) return dsnPronto;
@@ -4971,50 +5096,355 @@
             return bytes;
         }
 
+        /** Quantos pixels de verdade cabem em cada ponto da tela. */
+        function dsnDensidade() {
+            return Math.min(window.devicePixelRatio || 1, 3);
+        }
+
+        /**
+         * Monta as molduras das folhas no tamanho do zoom de agora.
+         * Só as molduras: nada é desenhado aqui, então é instantâneo e
+         * a rolagem já fica com o tamanho certo antes da tinta chegar.
+         */
+        async function dsnMontarFolhas() {
+            const area = document.getElementById('dsnArea');
+            const palco = document.getElementById('dsnPalco');
+            if (!dsnDoc || !area || !palco) return;
+            const larguraTela = Math.max(area.clientWidth - 20, 240);
+            const g = ++dsnGeracao;
+            const novas = [];
+            const monte = document.createDocumentFragment();
+            for (let n = 1; n <= dsnDoc.numPages; n++) {
+                const pagina = await dsnDoc.getPage(n);
+                if (g !== dsnGeracao) return;   // já veio outra montagem
+                // O giro do app soma-se ao giro que o próprio PDF já traz.
+                const giro = ((pagina.rotate || 0) + dsnRotacao) % 360;
+                const bruta = pagina.getViewport({ scale: 1, rotation: giro });
+                const larguraCss = Math.round(larguraTela * dsnZoom);
+                const alturaCss = Math.round(larguraCss * bruta.height / bruta.width);
+                const moldura = document.createElement('div');
+                moldura.className = 'dsn-folha';
+                moldura.style.width = larguraCss + 'px';
+                moldura.style.height = alturaCss + 'px';
+                monte.appendChild(moldura);
+                novas.push({
+                    pagina: pagina, giro: giro, moldura: moldura, geracao: g,
+                    baseW: bruta.width, larguraCss: larguraCss, alturaCss: alturaCss,
+                    tela: null, tarefa: null, marca: ''
+                });
+            }
+            if (g !== dsnGeracao) return;
+            // Só agora o palco é trocado: de uma vez, e uma vez só.
+            dsnLimparFolhas();
+            palco.innerHTML = '';
+            palco.appendChild(monte);
+            dsnFolhas = novas;
+        }
+
+        /** Desenha, em cada folha, apenas o pedaço que está na tela. */
+        async function dsnPintarVisivel() {
+            if (!dsnDoc || !dsnFolhas.length) return;
+            if (dsnPintando) { dsnRepintar = true; return; }
+            dsnPintando = true;
+            const aviso = document.getElementById('dsnTrabalhando');
+            const relogio = setTimeout(function () {
+                if (aviso) aviso.classList.remove('hidden');   // só avisa se demorar
+            }, 380);
+            try {
+                const area = document.getElementById('dsnArea');
+                if (!area) return;
+                const areaRet = area.getBoundingClientRect();
+                const dens = dsnDensidade();
+
+                const g = dsnGeracao;
+                for (const f of dsnFolhas) {
+                    // Montou de novo no meio da pintura? Esta passada morreu.
+                    if (g !== dsnGeracao || f.geracao !== dsnGeracao) return;
+                    const ret = f.moldura.getBoundingClientRect();
+                    // Distância entre a folha e a tela, com a folga.
+                    const fora = ret.bottom < areaRet.top - DSN_FOLGA
+                              || ret.top > areaRet.bottom + DSN_FOLGA
+                              || ret.right < areaRet.left - DSN_FOLGA
+                              || ret.left > areaRet.right + DSN_FOLGA;
+                    if (fora) { dsnDescartarTela(f); continue; }
+
+                    // Recorte visível, em pontos, dentro da folha.
+                    const x = Math.max(0, areaRet.left - DSN_FOLGA - ret.left);
+                    const y = Math.max(0, areaRet.top - DSN_FOLGA - ret.top);
+                    const x2 = Math.min(f.larguraCss, areaRet.right + DSN_FOLGA - ret.left);
+                    const y2 = Math.min(f.alturaCss, areaRet.bottom + DSN_FOLGA - ret.top);
+                    const w = Math.round(x2 - x), hh = Math.round(y2 - y);
+                    if (w <= 0 || hh <= 0) { dsnDescartarTela(f); continue; }
+
+                    // Já está pintado exatamente este pedaço? Não repete.
+                    const marca = [f.larguraCss, Math.round(x), Math.round(y), w, hh].join(',');
+                    if (f.marca === marca && f.tela) continue;
+
+                    // Nenhum aparelho aguenta um quadro sem limite.
+                    const densUsada = Math.min(dens, DSN_MAX_LADO / Math.max(w, hh));
+                    const escala = (f.larguraCss / f.baseW) * densUsada;
+                    const vista = f.pagina.getViewport({ scale: escala, rotation: f.giro });
+
+                    const tela = document.createElement('canvas');
+                    tela.width = Math.round(w * densUsada);
+                    tela.height = Math.round(hh * densUsada);
+                    tela.style.width = w + 'px';
+                    tela.style.height = hh + 'px';
+                    tela.style.left = Math.round(x) + 'px';
+                    tela.style.top = Math.round(y) + 'px';
+
+                    if (f.tarefa) { try { f.tarefa.cancel(); } catch (e) { /* já parou */ } }
+                    f.tarefa = f.pagina.render({
+                        canvasContext: tela.getContext('2d'),
+                        viewport: vista,
+                        // Desloca a página para o pedaço certo cair no quadro.
+                        transform: [1, 0, 0, 1, -Math.round(x) * densUsada, -Math.round(y) * densUsada]
+                    });
+                    await f.tarefa.promise;
+                    f.tarefa = null;
+                    if (g !== dsnGeracao || f.geracao !== dsnGeracao) return;
+                    dsnDescartarTela(f);
+                    f.moldura.appendChild(tela);
+                    f.tela = tela;
+                    f.marca = marca;
+                }
+            } catch (e) {
+                // Cancelamento é o caminho normal quando o dedo continua
+                // rolando: não é erro, e a próxima passada redesenha.
+                if (!/cancel/i.test(e && e.message || '')) {
+                    const palco = document.getElementById('dsnPalco');
+                    if (palco) {
+                        palco.innerHTML = '<p class="dsn-estado erro">Não consegui desenhar este PDF. '
+                                        + progEsc(e.message || '') + '</p>';
+                    }
+                }
+            } finally {
+                clearTimeout(relogio);
+                if (aviso) aviso.classList.add('hidden');
+                dsnPintando = false;
+                dsnAtualizarBotoes();
+                if (dsnRepintar) { dsnRepintar = false; dsnPintarVisivel(); }
+            }
+        }
+
+        /* Zera o quadro antes de jogá-lo fora. Sem isso o navegador do
+           celular às vezes segura a memória do desenho anterior. */
+        function dsnDescartarTela(f) {
+            if (!f.tela) return;
+            f.tela.width = 0; f.tela.height = 0;
+            if (f.tela.parentNode) f.tela.parentNode.removeChild(f.tela);
+            f.tela = null; f.marca = '';
+        }
+
+        function dsnLimparFolhas() {
+            dsnFolhas.forEach(function (f) {
+                if (f.tarefa) { try { f.tarefa.cancel(); } catch (e) { /* já parou */ } }
+                dsnDescartarTela(f);
+            });
+            dsnFolhas = [];
+        }
+
+        /** Remonta e repinta: usado a cada mudança de zoom ou de giro. */
+        async function dsnDesenharFolhas() {
+            await dsnMontarFolhas();
+            await dsnPintarVisivel();
+        }
+
+        function dsnAtualizarBotoes() {
+            const txt = document.getElementById('dsnZoomTexto');
+            if (txt) txt.textContent = Math.round(dsnZoom * 100) + '%';
+            const menos = document.getElementById('dsnBtMenos');
+            const mais = document.getElementById('dsnBtMais');
+            if (menos) menos.disabled = dsnZoom <= DSN_ZOOM_MIN + 0.001;
+            if (mais) mais.disabled = dsnZoom >= DSN_ZOOM_MAX - 0.001;
+        }
+
+        /**
+         * Muda o zoom mantendo debaixo do dedo o mesmo ponto do desenho.
+         * @param {number} novo   zoom desejado
+         * @param {object} [alvo] ponto {x, y} na área, em pixels da tela
+         */
+        function dsnAplicarZoom(novo, alvo) {
+            const area = document.getElementById('dsnArea');
+            const palco = document.getElementById('dsnPalco');
+            if (!area || !palco) return;
+            novo = Math.min(DSN_ZOOM_MAX, Math.max(DSN_ZOOM_MIN, novo));
+            const fator = novo / dsnZoom;
+            if (Math.abs(fator - 1) < 0.002) return;
+
+            const ax = alvo ? alvo.x : area.clientWidth / 2;
+            const ay = alvo ? alvo.y : area.clientHeight / 2;
+            // Onde estava, no conteúdo, o ponto que fica parado.
+            const cx = area.scrollLeft + ax;
+            const cy = area.scrollTop + ay;
+
+            dsnZoom = novo;
+            dsnAtualizarBotoes();
+            // A rolagem tem de estar no lugar ANTES da tinta: é ela que
+            // decide qual pedaço da folha vai ser desenhado.
+            dsnMontarFolhas().then(function () {
+                area.scrollLeft = Math.max(0, cx * fator - ax);
+                area.scrollTop = Math.max(0, cy * fator - ay);
+                dsnPintarVisivel();
+            });
+        }
+
+        function dsnZoomPasso(dir) {
+            dsnAplicarZoom(dir > 0 ? dsnZoom * 1.4 : dsnZoom / 1.4);
+        }
+
+        /** Volta a folha ao tamanho da tela. */
+        function dsnAjustar() {
+            dsnZoom = 1;
+            dsnAtualizarBotoes();
+            dsnDoTopo();
+        }
+
+        /** Gira 90° e reencaixa: o desenho deitado usa a tela inteira. */
+        function dsnGirar() {
+            dsnRotacao = (dsnRotacao + 90) % 360;
+            dsnZoom = 1;
+            dsnAtualizarBotoes();
+            dsnDoTopo();
+        }
+
+        function dsnDoTopo() {
+            const area = document.getElementById('dsnArea');
+            dsnMontarFolhas().then(function () {
+                if (area) { area.scrollLeft = 0; area.scrollTop = 0; }
+                dsnPintarVisivel();
+            });
+        }
+
+        /* ---- Pinça e toque duplo ------------------------------------
+           A pinça do navegador só ampliava a imagem pronta. Aqui o gesto
+           é lido pelo app: enquanto os dedos se movem, o palco é
+           esticado só para o olho acompanhar; ao soltar, a folha é
+           redesenhada de verdade no zoom final. -------------------- */
+        let dsnPinca = null;
+        let dsnUltimoToque = 0;
+
+        function dsnDistancia(t) {
+            return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+        }
+
+        function dsnLigarGestos() {
+            const area = document.getElementById('dsnArea');
+            const palco = document.getElementById('dsnPalco');
+            if (!area || area.dataset.gestos === 'sim') return;
+            area.dataset.gestos = 'sim';
+
+            /* Rolou? O pedaço na tela mudou, então tem de ser repintado.
+               Com um respiro de 110 ms para não redesenhar a cada
+               pixel enquanto o dedo arrasta. */
+            area.addEventListener('scroll', function () {
+                if (dsnPinca) return;               // durante a pinça, não
+                clearTimeout(dsnRelogioRolagem);
+                dsnRelogioRolagem = setTimeout(dsnPintarVisivel, 110);
+            }, { passive: true });
+
+            area.addEventListener('touchstart', function (ev) {
+                if (ev.touches.length === 2) {
+                    ev.preventDefault();
+                    const r = area.getBoundingClientRect();
+                    const pr = palco.getBoundingClientRect();
+                    const mx = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
+                    const my = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+                    dsnPinca = {
+                        dist: dsnDistancia(ev.touches) || 1,
+                        zoom: dsnZoom, razao: 1,
+                        ax: mx - r.left, ay: my - r.top,       // ponto na área
+                        ox: mx - pr.left, oy: my - pr.top      // ponto no palco
+                    };
+                    palco.style.transformOrigin = dsnPinca.ox + 'px ' + dsnPinca.oy + 'px';
+                }
+            }, { passive: false });
+
+            area.addEventListener('touchmove', function (ev) {
+                if (dsnPinca && ev.touches.length === 2) {
+                    ev.preventDefault();
+                    const bruta = dsnDistancia(ev.touches) / dsnPinca.dist;
+                    // Não deixa a prévia passar dos limites do zoom.
+                    const alvo = Math.min(DSN_ZOOM_MAX,
+                                 Math.max(DSN_ZOOM_MIN, dsnPinca.zoom * bruta));
+                    dsnPinca.razao = alvo / dsnPinca.zoom;
+                    palco.style.transform = 'scale(' + dsnPinca.razao + ')';
+                }
+            }, { passive: false });
+
+            const soltar = function () {
+                if (!dsnPinca) return;
+                const p = dsnPinca;
+                dsnPinca = null;
+                palco.style.transform = '';
+                palco.style.transformOrigin = '0 0';
+                dsnAplicarZoom(p.zoom * p.razao, { x: p.ax, y: p.ay });
+            };
+            area.addEventListener('touchend', function (ev) {
+                if (dsnPinca && ev.touches.length < 2) soltar();
+            });
+            area.addEventListener('touchcancel', soltar);
+
+            // Toque duplo: aproxima no ponto tocado, e o segundo toque volta.
+            area.addEventListener('touchend', function (ev) {
+                if (dsnPinca || ev.touches.length) return;
+                const agora = Date.now();
+                const t = ev.changedTouches && ev.changedTouches[0];
+                if (!t) return;
+                if (agora - dsnUltimoToque < 320) {
+                    dsnUltimoToque = 0;
+                    const r = area.getBoundingClientRect();
+                    const alvo = { x: t.clientX - r.left, y: t.clientY - r.top };
+                    if (dsnZoom > 1.05) dsnAjustar();
+                    else dsnAplicarZoom(DSN_ZOOM_TOQUE, alvo);
+                } else {
+                    dsnUltimoToque = agora;
+                }
+            });
+
+            // Safari trata a pinça como gesto próprio, fora do touchmove.
+            ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (nome) {
+                area.addEventListener(nome, function (ev) { ev.preventDefault(); });
+            });
+        }
+
         async function dsnAbrir(nome, base64) {
             const modal = document.getElementById('modal-desenho');
-            const area = document.getElementById('dsnArea');
+            const palco = document.getElementById('dsnPalco');
             document.getElementById('dsnNome').textContent = nome || 'Desenho';
-            area.innerHTML = '<p class="dsn-estado">Preparando o desenho...</p>';
+            palco.innerHTML = '<p class="dsn-estado">Preparando o desenho...</p>';
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
+            dsnRotacao = 0;
+            dsnZoom = 1;
+            dsnAtualizarBotoes();
+            dsnLigarGestos();
 
             try {
                 await dsnCarregarBiblioteca();
-                const pdf = await window.pdfjsLib.getDocument({ data: dsnBytes(base64) }).promise;
-                area.innerHTML = '';
-                const largura = Math.max(area.clientWidth - 20, 280);
-
-                for (let n = 1; n <= pdf.numPages; n++) {
-                    const pagina = await pdf.getPage(n);
-                    const bruta = pagina.getViewport({ scale: 1 });
-                    // Encaixa a folha na largura da tela e multiplica pela
-                    // escala, para o zoom não sair borrado.
-                    const escala = (largura / bruta.width) * DSN_ESCALA;
-                    const vista = pagina.getViewport({ scale: escala });
-
-                    const tela = document.createElement('canvas');
-                    tela.width = Math.round(vista.width);
-                    tela.height = Math.round(vista.height);
-                    tela.style.width = Math.round(vista.width / DSN_ESCALA) + 'px';
-                    area.appendChild(tela);
-
-                    await pagina.render({
-                        canvasContext: tela.getContext('2d'),
-                        viewport: vista
-                    }).promise;
-                }
+                dsnDoc = await window.pdfjsLib.getDocument({ data: dsnBytes(base64) }).promise;
+                await dsnDesenharFolhas();
             } catch (e) {
-                area.innerHTML = '<p class="dsn-estado erro">Não consegui desenhar este PDF. '
-                               + progEsc(e.message || '') + '</p>';
+                palco.innerHTML = '<p class="dsn-estado erro">Não consegui desenhar este PDF. '
+                                + progEsc(e.message || '') + '</p>';
             }
         }
 
         function dsnFechar() {
             const modal = document.getElementById('modal-desenho');
             modal.classList.add('hidden');
-            // Solta a memória: um A1 em dobro de resolução não é pouco.
-            document.getElementById('dsnArea').innerHTML = '';
+            // Solta a memória: um A1 ampliado não é pouca coisa.
+            const palco = document.getElementById('dsnPalco');
+            dsnGeracao++;                       // invalida o que estiver no meio
+            dsnLimparFolhas();
+            if (palco) palco.innerHTML = '';
+            clearTimeout(dsnRelogioRolagem);
+            if (dsnDoc) {
+                try { dsnDoc.destroy(); } catch (e) { /* já fechado */ }
+                dsnDoc = null;
+            }
+            dsnRotacao = 0;
+            dsnZoom = 1;
             document.body.style.overflow = '';
         }
 
@@ -5949,6 +6379,13 @@
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
             + 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
             + '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 4 21 10 15 10"/></svg>';
+        // Cadeadinho da obra que aparece só para acompanhar.
+        const PROG_ICONE_CADEADO =
+            '<svg class="prog-cadeado" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+            + 'fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" '
+            + 'stroke-linejoin="round" aria-hidden="true">'
+            + '<rect x="4" y="11" width="16" height="10" rx="2"/>'
+            + '<path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
         let progDados = null;
         let progBuscando = false;
         let progErro = '';
@@ -6031,27 +6468,38 @@
                 painel.innerHTML = h;
                 return;
             }
-            /* O painel segue o mesmo perfil das outras telas: o
-               supervisor vê o andamento só das obras dele, o
-               administrador vê todas. */
-            const obras = (progDados.pedidos || []).filter(function (p) {
-                return pedidoLiberado(p.pedido);
-            });
+            /* Aqui o painel é diferente das outras telas: TODA obra do
+               cronograma aparece para todo mundo, porque acompanhar o
+               andamento da fábrica inteira ajuda a todos. O que o
+               perfil decide é só quem PODE ABRIR: a obra liberada vira
+               botão e cai no cronograma; a outra fica na tela apenas
+               para leitura. As telas que mostram peça, documento e
+               separação continuam restritas ao pedido liberado. */
+            const obras = progDados.pedidos || [];
             if (!obras.length) {
-                h += '<p class="prog-erro">' + (ehAdmin()
-                    ? 'Nenhuma obra no cronograma.'
-                    : 'Nenhum pedido liberado para você. Fale com o Comercial.') + '</p>';
+                h += '<p class="prog-erro">Nenhuma obra no cronograma.</p>';
                 painel.innerHTML = h;
                 return;
             }
-            obras.forEach(function (p) {
+            const minhas = obras.filter(function (p) { return pedidoLiberado(p.pedido); });
+            const outras = obras.filter(function (p) { return !pedidoLiberado(p.pedido); });
+            // Sem nenhuma liberada, a divisória não diz nada: é tudo "outra".
+            const comSecoes = minhas.length > 0 && outras.length > 0;
+
+            const desenharObra = function (p, liberada) {
                 const temDado = typeof p.progresso === 'number';
                 const pct = temDado ? Math.round(p.progresso * 100) : 0;
                 const cor = p.cor || '#4b5563';
-                h += '<button type="button" class="prog-linha" '
-                   + 'onclick="progAbrirCronograma(\'' + progEsc(p.pedido) + '\')">';
+                if (liberada) {
+                    h += '<button type="button" class="prog-linha" '
+                       + 'onclick="progAbrirCronograma(\'' + progEsc(p.pedido) + '\')">';
+                } else {
+                    h += '<div class="prog-linha prog-travada" '
+                       + 'title="Somente visualização — este pedido não está liberado para você.">';
+                }
                 h += '<div class="prog-cab">'
                    + '<span class="prog-num">' + progEsc(p.pedido) + '</span>'
+                   + (liberada ? '' : PROG_ICONE_CADEADO)
                    + '<span class="prog-cliente">' + progEsc(p.cliente || '') + '</span>'
                    + '<span class="prog-pct">' + (temDado ? pct + '%' : '—') + '</span>'
                    + '</div>';
@@ -6073,14 +6521,32 @@
                     if (p.prazoEntrega) pe += ' · entrega ' + progEsc(p.prazoEntrega);
                 }
                 h += '<div class="prog-pe">' + pe + '</div>';
-                h += '</button>';
-            });
+                h += liberada ? '</button>' : '</div>';
+            };
+
+            if (comSecoes) h += '<div class="prog-secao">Suas obras</div>';
+            minhas.forEach(function (p) { desenharObra(p, true); });
+            if (comSecoes) h += '<div class="prog-secao">Outras obras</div>';
+            outras.forEach(function (p) { desenharObra(p, false); });
+
             if (progErro) {
                 h += '<p class="prog-erro">Não atualizou agora: ' + progEsc(progErro) + '</p>';
             } else if (!progBuscando) {
                 // Enquanto busca, quem avisa é o próprio botão.
+                let dica;
+                if (ehAdmin() || !outras.length) {
+                    dica = 'Toque num pedido para abrir o cronograma.';
+                } else if (!minhas.length) {
+                    // Ninguém liberou nada para esta pessoa ainda: aqui ela
+                    // acompanha, mas não entra em obra nenhuma.
+                    dica = 'Nenhum pedido liberado para você ainda — fale com o Comercial. '
+                         + 'Por enquanto, esta tela é só para acompanhar.';
+                } else {
+                    dica = 'Você abre o cronograma dos pedidos liberados para você; '
+                         + 'os demais são só para acompanhar.';
+                }
                 h += '<p class="prog-aviso">Média ponderada pela duração de cada equipamento. '
-                   + 'Toque num pedido para abrir o cronograma.</p>';
+                   + dica + '</p>';
             }
             painel.innerHTML = h;
         }
