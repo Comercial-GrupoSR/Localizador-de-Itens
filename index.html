@@ -1158,6 +1158,9 @@
             font-size: 12.5px !important;
             background: var(--ret-input-bg);
         }
+        /* Enquanto nada foi escolhido, o traço fica apagado como um
+           texto de exemplo — não como uma resposta. */
+        #retornoObraRoot .ret-items-table select:has(option[value=""]:checked) { color: #8a8a8a; }
         #retornoObraRoot .ret-items-table select {
             width: 100%;
             color: #e0e0e0;
@@ -7451,7 +7454,9 @@
            Para acrescentar outra, é só pôr aqui — a tabela, o PDF e o
            e-mail leem daqui. O primeiro item é o "ainda não escolhi". */
         const RET_UNIDADES = [
-            { v: '',   t: 'Un.' },
+            /* O vazio é um traço, e não "Un.": escrito, ele parecia
+               unidade já escolhida e a pessoa passava batido. */
+            { v: '',   t: '—' },
             { v: 'UN', t: 'UN' },
             { v: 'MT', t: 'MT' },
             { v: 'KG', t: 'KG' }
@@ -11061,7 +11066,35 @@
                 /* Sem endereço configurado no script, o app NÃO pode dizer
                    "enviado". O supervisor precisa saber que ninguém
                    recebeu — e que o PDF continua com ele. */
-                const erro = (r && r.erro) || 'o servidor recusou o envio.';
+                if (r && r.erro) {
+                    await fchGuardarResultado(ficha, { erro: r.erro });
+                    return { ok: false, erro: r.erro };
+                }
+
+                /* Chegou JSON, mas não é a resposta do retorno: sem "ok" e
+                   sem "erro". É o que sai quando o POST se perde no
+                   redirecionamento do Apps Script e a chamada acaba caindo
+                   no doGet — que responde com "error", falando de outra
+                   coisa. Nesse caso o e-mail PODE ter saído, então a
+                   pergunta é a mesma de sempre: foi registrado? */
+                const confirmado = await retConferirEnvio(carimbo);
+                if (confirmado && confirmado.enviado) {
+                    const g = await fchGuardarResultado(ficha, {
+                        estado: 'enviado', enviadoEm: confirmado.enviadoEm || '',
+                        para: confirmado.para || '', arquivoNome: confirmado.nome || '', erro: ''
+                    });
+                    return {
+                        ok: true, substituiu: false,
+                        pasta: confirmado.para || '', nome: confirmado.nome || '',
+                        versao: 1, repetido: true, aindaPendente: g.mudouNoMeio
+                    };
+                }
+                /* Não saiu. A mensagem leva um pedaço do que veio: é o que
+                   permite descobrir o motivo sem adivinhação. */
+                const pista = String((r && (r.error || r.message)) || texto || '')
+                                .replace(/\s+/g, ' ').slice(0, 90);
+                const erro = 'o servidor respondeu fora do padrão'
+                           + (pista ? ' (' + pista + ')' : '') + '.';
                 await fchGuardarResultado(ficha, { erro: erro });
                 return { ok: false, erro: erro };
             } catch (e) {
