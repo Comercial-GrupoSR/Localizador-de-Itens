@@ -1181,27 +1181,27 @@
         #retornoObraRoot .ret-remove-row:hover { background: rgba(248,113,113,.12); }
         #retornoObraRoot .ret-add-row-wrap { padding: 8px 0 0; }
         /* Aviso da busca automática do código (descrição e máscara). */
-        #retornoObraRoot .ret-busca-aviso {
+        .ret-busca-aviso {
             font-size: 11.5px;
             line-height: 1.35;
             color: #9ca3af;
             margin: 6px 2px 0;
             min-height: 1px;
         }
-        #retornoObraRoot .ret-busca-aviso.ret-busca-erro { color: #fca5a5; }
+        .ret-busca-aviso.ret-busca-erro { color: #fca5a5; }
         /* A escolha da máscara, aberta embaixo da linha do item. */
-        #retornoObraRoot tr.ret-escolha > td {
+        tr.ret-escolha > td {
             background: #24331f;
             border: 1px solid #3f6b3a;
             padding: 8px;
         }
-        #retornoObraRoot .ret-escolha-titulo {
+        .ret-escolha-titulo {
             font-size: 11.5px;
             color: #cbd5c0;
             margin-bottom: 7px;
             line-height: 1.35;
         }
-        #retornoObraRoot .ret-escolha-bt {
+        .ret-escolha-bt {
             display: block;
             width: 100%;
             text-align: left;
@@ -1214,11 +1214,24 @@
             cursor: pointer;
             line-height: 1.3;
         }
-        #retornoObraRoot .ret-escolha-bt:last-child { margin-bottom: 0; }
-        #retornoObraRoot .ret-escolha-bt strong { display: block; font-size: 12.5px; color: #86efac; }
-        #retornoObraRoot .ret-escolha-bt span { display: block; font-size: 11.5px; color: #d1d5db; margin-top: 2px; }
-        #retornoObraRoot .ret-escolha-bt em { display: block; font-size: 10.5px; color: #9ca3af; font-style: normal; margin-top: 2px; }
-        #retornoObraRoot .ret-escolha-bt.ret-escolha-nada {
+        .ret-escolha-bt:last-child { margin-bottom: 0; }
+        /* A mesma escolha, quando não há tabela onde encaixar uma linha. */
+        .ret-escolha-bloco {
+            background: #24331f;
+            border: 1px solid #3f6b3a;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 6px;
+        }
+        input.ret-buscando {
+            background-image: linear-gradient(90deg, transparent 0%, rgba(74,222,128,.18) 50%, transparent 100%);
+            background-size: 200% 100%;
+            animation: retBusca 1s linear infinite;
+        }
+        .ret-escolha-bt strong { display: block; font-size: 12.5px; color: #86efac; }
+        .ret-escolha-bt span { display: block; font-size: 11.5px; color: #d1d5db; margin-top: 2px; }
+        .ret-escolha-bt em { display: block; font-size: 10.5px; color: #9ca3af; font-style: normal; margin-top: 2px; }
+        .ret-escolha-bt.ret-escolha-nada {
             border-color: #555;
             color: #9ca3af;
             font-size: 11.5px;
@@ -1226,8 +1239,8 @@
         }
         /* A linha pisca quando o app acabou de preencher sozinho, para o
            supervisor ver que aquilo não foi ele que digitou. */
-        #retornoObraRoot tr.ret-preenchida input { border-color: #4ade80; }
-        #retornoObraRoot .ret-codigo.ret-buscando {
+        tr.ret-preenchida input { border-color: #4ade80; }
+        .ret-codigo.ret-buscando {
             background-image: linear-gradient(90deg, transparent 0%, rgba(74,222,128,.18) 50%, transparent 100%);
             background-size: 200% 100%;
             animation: retBusca 1s linear infinite;
@@ -3918,8 +3931,10 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
-                        <input type="text" id="inc_pedido" required placeholder="Digite um número"
-                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                        <select id="inc_pedido" required onchange="incAoTrocarPedido()"
+                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                            <option value="">Selecione o pedido</option>
+                        </select>
                     </div>
                     <div>
                         <label for="inc_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
@@ -3930,8 +3945,9 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="inc_item" class="block text-sm font-medium text-gray-400 mb-0.5">Código Item <span class="text-red-500">*</span></label>
-                        <input type="text" id="inc_item" required placeholder="Digite um número"
+                        <input type="text" id="inc_item" required placeholder="Digite um número" onchange="incAoDigitarItem()"
                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                        <p id="inc_buscaAviso" class="ret-busca-aviso"></p>
                     </div>
                     <div>
                         <label for="inc_mascara" class="block text-sm font-medium text-gray-400 mb-0.5">Máscara <span class="text-red-500">*</span></label>
@@ -4034,8 +4050,9 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="ret_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
-                        <input type="text" id="ret_pedido" required placeholder="Digite um número"
-                               onchange="retDadosDoPedido()">
+                        <select id="ret_pedido" required onchange="retDadosDoPedido()">
+                            <option value="">Selecione o pedido</option>
+                        </select>
                     </div>
                     <div>
                         <label for="ret_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
@@ -4142,8 +4159,10 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="mel_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
-                        <input type="text" id="mel_pedido" required placeholder="Digite um número"
-                               class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                        <select id="mel_pedido" required onchange="melAoTrocarPedido()"
+                                class="w-full compact-input modal-input border border-[#444] rounded-lg text-base focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-[#1f1f1f] text-white">
+                            <option value="">Selecione o pedido</option>
+                        </select>
                     </div>
                     <div>
                         <label for="mel_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
@@ -4406,7 +4425,10 @@
                             </div>
                         </div>
                         <div class="fields fields-3" style="margin-top:12px;">
-                            <div class="field"><span class="field-label">Pedido</span><input type="text" id="pedido"></div>
+                            <div class="field"><span class="field-label">Pedido</span>
+                                <select id="pedido" class="chk-plain-sel" onchange="chkAoTrocarPedido()">
+                                    <option value="">Selecione o pedido</option>
+                                </select></div>
                             <div class="field"><span class="field-label">Cliente</span><input type="text" id="cliente"></div>
                             <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="local"></div>
                         </div>
@@ -4682,7 +4704,10 @@
                             </div>
                         </div>
                         <div class="fields fields-3" style="margin-top:12px;">
-                            <div class="field"><span class="field-label">Pedido</span><input type="text" id="mt_pedido"></div>
+                            <div class="field"><span class="field-label">Pedido</span>
+                                <select id="mt_pedido" class="chk-plain-sel" onchange="mtAoTrocarPedido()">
+                                    <option value="">Selecione o pedido</option>
+                                </select></div>
                             <div class="field"><span class="field-label">Cliente</span><input type="text" id="mt_cliente"></div>
                             <div class="field"><span class="field-label">Local / Planta</span><input type="text" id="mt_local"></div>
                         </div>
@@ -7371,13 +7396,19 @@
             if (tipo === 'inconformidades') {
                 populateSupervisorSelect('inc_supervisor');
                 setupDropzone('inc_dropzone', 'inc_anexos', 'inc_fileNames');
+                formPorPedidos('inc_pedido');
+                formPorSupervisor('inc_supervisor');
+                incAviso('');
             }
             if (tipo === 'melhorias') {
                 populateSupervisorSelect('mel_supervisor');
                 setupDropzone('mel_dropzone', 'mel_anexos', 'mel_fileNames');
+                formPorPedidos('mel_pedido');
+                formPorSupervisor('mel_supervisor');
             }
             if (tipo === 'retorno') {
                 populateSupervisorSelect('ret_responsavel');
+                formPorPedidos('ret_pedido');
                 retPorResponsavel();
                 /* Cada retorno é um documento novo — o mesmo pedido pode ter
                    vários. O carimbo do momento em que a tela abriu é o que
@@ -7525,7 +7556,8 @@
         function retCatPor(pedido, codigo, achado) {
             const c = retCatAbrir();
             if (!c[pedido]) c[pedido] = {};
-            c[pedido][codigo] = { d: achado.d || '', m: achado.m || '', ops: achado.ops || [] };
+            c[pedido][codigo] = { d: achado.d || '', m: achado.m || '',
+                                  c: achado.carregamento || '', ops: achado.ops || [] };
             retCatGravar();
         }
 
@@ -7548,11 +7580,16 @@
                 if (!d || d.ok !== true) return { falhou: true };
                 if (!d.achou) return { outroPedido: (d.outrosPedidos || []).join(', ') };
                 const ops = (d.opcoes || []).map(function (o) {
-                    return { m: String(o.mascara || '').trim(), d: String(o.descricao || '').trim() };
+                    return {
+                        m: String(o.mascara || '').trim(),
+                        d: String(o.descricao || '').trim(),
+                        cs: Array.isArray(o.carregamentos) ? o.carregamentos.map(String) : []
+                    };
                 }).filter(function (o) { return o.m; });
                 return {
                     d: String(d.descricao || '').trim(),
                     m: String(d.mascara || '').trim(),
+                    carregamento: String(d.carregamento || '').trim(),
                     ops: ops
                 };
             } catch (e) {
@@ -7563,14 +7600,16 @@
         async function retBuscarItem(pedido, codigo) {
             const guardado = retCatLer(pedido, codigo);
             if (guardado) {
-                return { d: guardado.d, m: guardado.m, ops: guardado.ops || [], deCache: true };
+                return { d: guardado.d, m: guardado.m, carregamento: guardado.c || '',
+                         ops: guardado.ops || [], deCache: true };
             }
             if (navigator.onLine === false) return { semInternet: true };
 
             const r = await retNosItens(pedido, codigo);
             if (r.falhou) return { falhou: true };
             if (r.outroPedido) return { outroPedido: r.outroPedido };
-            const achado = { d: r.d || '', m: r.m || '', ops: r.ops || [] };
+            const achado = { d: r.d || '', m: r.m || '',
+                             carregamento: r.carregamento || '', ops: r.ops || [] };
             if (achado.d || achado.m || achado.ops.length) {
                 retCatPor(pedido, codigo, achado);
                 return achado;
@@ -7682,18 +7721,20 @@
          * ver de qual LINHA se está falando — com dez itens na tela, uma
          * janela solta não diz a qual peça ela pertence.
          */
-        function retAbrirEscolha(linha, codigo, ops) {
-            retFecharEscolha(linha);
-            const tr = document.createElement('tr');
-            tr.className = 'ret-escolha';
-            const td = document.createElement('td');
-            td.colSpan = 6;
-
+        /**
+         * O miolo da escolha: título e um botão por máscara. Devolve os
+         * nós prontos para quem chamou pendurar onde couber — numa linha
+         * de tabela (Retorno) ou logo abaixo do campo (Inconformidades).
+         *
+         * `aoEscolher(op)` recebe a opção; `aoDesistir()` é o "vou digitar".
+         */
+        function escolhaDeMascara(codigo, ops, aoEscolher, aoDesistir) {
+            const caixa = document.createDocumentFragment();
             const titulo = document.createElement('div');
             titulo.className = 'ret-escolha-titulo';
             titulo.textContent = codigo + ' aparece com ' + ops.length
                                + ' máscaras neste pedido. Qual é a desta peça?';
-            td.appendChild(titulo);
+            caixa.appendChild(titulo);
 
             ops.forEach(function (o) {
                 const bt = document.createElement('button');
@@ -7707,36 +7748,47 @@
                     e.textContent = o.e || o.d;
                     bt.appendChild(e);
                 }
-                if (o.tag) {
+                const extra = o.tag ? ('TAG ' + o.tag)
+                            : ((o.cs && o.cs.length) ? ('Carregamento ' + o.cs.join(', ')) : '');
+                if (extra) {
                     const t = document.createElement('em');
-                    t.textContent = 'TAG ' + o.tag;
+                    t.textContent = extra;
                     bt.appendChild(t);
                 }
-                bt.onclick = function () {
-                    const cMasc = linha.querySelector('.ret-mascara');
-                    if (cMasc) cMasc.value = o.m;
-                    retFecharEscolha(linha);
-                    retPiscar(linha);
-                    if (o.d && !linha.querySelector('.ret-descricao').value.trim()) {
-                        linha.querySelector('.ret-descricao').value = o.d;
-                    }
-                    retAviso('Máscara ' + o.m + (o.e ? ' — ' + o.e : '') + '. Confira e ajuste se precisar.', false);
-                };
-                td.appendChild(bt);
+                bt.onclick = function () { aoEscolher(o); };
+                caixa.appendChild(bt);
             });
 
             const nada = document.createElement('button');
             nada.type = 'button';
             nada.className = 'ret-escolha-bt ret-escolha-nada';
             nada.textContent = 'Nenhuma dessas — vou digitar';
-            nada.onclick = function () {
+            nada.onclick = function () { aoDesistir(); };
+            caixa.appendChild(nada);
+            return caixa;
+        }
+
+        function retAbrirEscolha(linha, codigo, ops) {
+            retFecharEscolha(linha);
+            const tr = document.createElement('tr');
+            tr.className = 'ret-escolha';
+            const td = document.createElement('td');
+            td.colSpan = 6;
+            td.appendChild(escolhaDeMascara(codigo, ops, function (o) {
+                const cMasc = linha.querySelector('.ret-mascara');
+                if (cMasc) cMasc.value = o.m;
+                retFecharEscolha(linha);
+                retPiscar(linha);
+                if (o.d && !linha.querySelector('.ret-descricao').value.trim()) {
+                    linha.querySelector('.ret-descricao').value = o.d;
+                }
+                retAviso('Máscara ' + o.m + (o.e ? ' — ' + o.e : '') + '. Confira e ajuste se precisar.', false);
+            }, function () {
                 retFecharEscolha(linha);
                 const cMasc = linha.querySelector('.ret-mascara');
                 if (cMasc) cMasc.focus();
                 retAviso('');
-            };
-            td.appendChild(nada);
-
+            }));
             tr.appendChild(td);
             linha.parentNode.insertBefore(tr, linha.nextSibling);
         }
@@ -7843,6 +7895,8 @@
               + '<path d="M8 12.5l2.5 2.5L17 8"/></svg> Checklist de Entrega — ' + chkNomeEquipamento();
             const modal = document.getElementById('modal-checklist-elevador');
             populateSupervisorSelect('supervisorNome');
+            formPorPedidos('pedido');
+            formPorSupervisor('supervisorNome');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -9252,6 +9306,8 @@
               + 'Checklist de Montagem — ' + mtTipo().nome;
             const modal = document.getElementById('modal-montagem');
             populateSupervisorSelect('mt_supervisorNome');
+            formPorPedidos('mt_pedido');
+            formPorSupervisor('mt_supervisorNome');
             modal.classList.remove('hidden'); modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
             document.getElementById('mt_tag').value = '';
@@ -10057,8 +10113,17 @@
             Object.keys(ficha.campos || {}).forEach(function (idCampo) {
                 const el = document.getElementById(idCampo);
                 if (!el) return;
-                el.value = ficha.campos[idCampo];
-                if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change', { bubbles: true }));
+                /* Num <select> não basta atribuir: se a opção não existir
+                   mais — pedido que saiu da lista da pessoa, unidade antiga —
+                   o valor cai fora calado e a ficha volta furada. */
+                if (el.tagName === 'SELECT') {
+                    formPorOpcao(el, ficha.campos[idCampo]);
+                    el.dataset.auto = '';   /* foi gravado assim: não é preenchimento do app */
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    el.value = ficha.campos[idCampo];
+                    if (String(ficha.campos[idCampo] || '').trim()) el.dataset.auto = '';
+                }
             });
             Object.keys(ficha.escolhas || {}).forEach(function (nome) {
                 const valor = ficha.escolhas[nome];
@@ -10475,6 +10540,296 @@
          * lista tratarem os dois do mesmo jeito.
          */
         /* =============================================================
+           OS FORMULÁRIOS SE PREENCHEM SOZINHOS
+
+           Quatro formulários pedem as mesmas coisas — pedido, cliente,
+           local, supervisor, código, máscara, carregamento — e todas elas
+           já existem em planilha. Então o supervisor escolhe o pedido numa
+           lista e o resto vem atrás.
+
+           Duas regras atravessam tudo o que está aqui embaixo:
+
+             1. Só se preenche campo VAZIO ou campo que o próprio app
+                preencheu antes (marcado com data-auto). O que a pessoa
+                digitou nunca se perde.
+             2. Nada disto trava o formulário. Servidor fora do ar, sem
+                internet, pedido que não está na planilha — os campos
+                continuam abertos para digitar.
+        ============================================================= */
+
+        /** A lista de pedidos que ESTA pessoa pode escolher, só o número. */
+        function formPorPedidos(idSelect) {
+            const campo = document.getElementById(idSelect);
+            if (!campo || campo.tagName !== 'SELECT') return;
+            const lista = (typeof allPedidos !== 'undefined' && Array.isArray(allPedidos)) ? allPedidos : [];
+            const visiveis = pedidosVisiveis(lista);
+            /* Marca para não redesenhar à toa e perder a escolha da pessoa. */
+            const marca = String(lista.length) + ':' + visiveis.length;
+            if (campo.dataset.carregado === marca) return;
+
+            const antes = campo.value;
+            campo.innerHTML = '';
+            const vazio = document.createElement('option');
+            vazio.value = '';
+            vazio.textContent = visiveis.length ? 'Selecione o pedido' : 'Nenhum pedido liberado para você';
+            campo.appendChild(vazio);
+            /* Nos formulários vai SÓ o número: é ele que entra no
+               documento, e o cliente aparece no campo do lado. */
+            visiveis.map(function (p) { return String(p.PEDIDO).trim(); })
+                    .sort(function (a, b) { return a.localeCompare(b); })
+                    .forEach(function (num) {
+                        const o = document.createElement('option');
+                        o.value = num; o.textContent = num;
+                        campo.appendChild(o);
+                    });
+            campo.dataset.carregado = marca;
+            if (antes) formPorOpcao(campo, antes);
+            if (typeof selSincronizar === 'function') selSincronizar(campo);
+        }
+
+        /** Põe um valor num <select>, criando a opção se ela não existir.
+            Serve para ficha antiga com pedido que saiu da lista. */
+        function formPorOpcao(campo, valor) {
+            const v = String(valor || '').trim();
+            if (!campo || campo.tagName !== 'SELECT') { if (campo) campo.value = v; return; }
+            if (v && !Array.prototype.some.call(campo.options, function (o) { return o.value === v; })) {
+                const extra = document.createElement('option');
+                extra.value = v; extra.textContent = v;
+                campo.appendChild(extra);
+            }
+            campo.value = v;
+            if (typeof selSincronizar === 'function') selSincronizar(campo);
+        }
+
+        /**
+         * Supervisor = quem está com o aplicativo na mão.
+         *
+         * Menos para os administradores: o nome deles não é para aparecer
+         * como supervisor de montagem, então o campo fica como sempre foi,
+         * com os quatro supervisores para escolher.
+         */
+        function formPorSupervisor(idSelect) {
+            const campo = document.getElementById(idSelect);
+            const nome = String((usuarioAtual && usuarioAtual.nome) || '').trim();
+            if (!campo || !nome) return;
+            if (SUPERVISORES.indexOf(nome) < 0) return;      /* administrador: fica como está */
+            if (campo.value && campo.dataset.auto !== '1') return;   /* escolha da pessoa manda */
+            campo.value = nome;
+            campo.dataset.auto = '1';
+            if (typeof selSincronizar === 'function') selSincronizar(campo);
+        }
+
+        /** Preenche campo vazio (ou preenchido pelo próprio app). */
+        function formPorSeVazio(campo, valor) {
+            if (!campo || !valor) return false;
+            const atual = String(campo.value || '').trim();
+            if (atual && campo.dataset.auto !== '1') return false;
+            if (atual === valor) { campo.dataset.auto = '1'; return false; }
+            campo.value = valor;
+            campo.dataset.auto = '1';
+            return true;
+        }
+
+        /** O cliente que já veio na lista de pedidos — serve sem internet. */
+        function formClienteDaLista(pedido) {
+            const lista = (typeof allPedidos !== 'undefined' && Array.isArray(allPedidos)) ? allPedidos : [];
+            const achado = lista.filter(function (p) {
+                return String(p.PEDIDO).trim().toUpperCase() === String(pedido).trim().toUpperCase();
+            })[0];
+            return achado ? String(achado.CLIENTE || '').trim() : '';
+        }
+
+        /**
+         * Escolheu o pedido: preenche cliente e, quando o formulário tiver,
+         * o local da planta. `aviso` é opcional — onde não há linha de
+         * recado, o preenchimento acontece calado.
+         */
+        async function formDadosDoPedido(idPedido, idCliente, idLocal, aviso) {
+            const campo = document.getElementById(idPedido);
+            if (!campo) return;
+            const pedido = String(campo.value || '').trim().toUpperCase();
+            if (!pedido) return;
+            const cCliente = idCliente ? document.getElementById(idCliente) : null;
+            const cLocal = idLocal ? document.getElementById(idLocal) : null;
+            const falar = function (t, erro) { if (aviso) aviso(t, erro); };
+
+            const guardado = retPedCache()[pedido];
+            if (guardado) {
+                const a = formPorSeVazio(cCliente, guardado.cliente);
+                const b = formPorSeVazio(cLocal, guardado.localidade);
+                if (a || b) falar('Cliente e local do pedido ' + pedido
+                                + ' (guardados neste aparelho). Confira e ajuste se precisar.', false);
+                return;
+            }
+            if (navigator.onLine === false) {
+                /* Sem rede ainda dá para adiantar o cliente: ele já veio na
+                   lista de pedidos que o app guarda. */
+                if (formPorSeVazio(cCliente, formClienteDaLista(pedido))) {
+                    falar('Cliente do pedido ' + pedido + ' (da lista guardada no aparelho).', false);
+                }
+                return;
+            }
+            try {
+                const url = APPS_SCRIPT_URL + '?mode=dadosPedido&pedido=' + encodeURIComponent(pedido);
+                const resp = await fetchWithTimeout(url, RET_BUSCA_MS);
+                const d = await resp.json();
+                if (String(campo.value || '').trim().toUpperCase() !== pedido) return;   /* já mudou */
+                if (!d || d.ok !== true) throw new Error('resposta inesperada');
+                if (!d.achou) {
+                    if (formPorSeVazio(cCliente, formClienteDaLista(pedido))) return;
+                    falar('O pedido ' + pedido + ' não está na planilha do Comercial. '
+                        + 'Preencha cliente e local à mão.', false);
+                    return;
+                }
+                retPedGuardar(pedido, { cliente: d.cliente || '', localidade: d.localidade || '' });
+                const a = formPorSeVazio(cCliente, d.cliente);
+                const b = formPorSeVazio(cLocal, d.localidade);
+                if (a || b) falar('Cliente e local vieram do pedido ' + pedido
+                                + '. Confira e ajuste se precisar.', false);
+            } catch (e) {
+                formPorSeVazio(cCliente, formClienteDaLista(pedido));
+            }
+        }
+
+        /* ---- Inconformidades ---------------------------------------- */
+        function incAviso(texto, erro) {
+            const el = document.getElementById('inc_buscaAviso');
+            if (!el) return;
+            el.textContent = texto || '';
+            el.classList.toggle('ret-busca-erro', !!erro);
+        }
+        function incAoTrocarPedido() {
+            formDadosDoPedido('inc_pedido', 'inc_cliente', null, incAviso);
+            /* Trocou de obra: máscara e carregamento da obra anterior não
+               valem mais — mas só apago o que fui eu que escrevi. */
+            incLimparAuto();
+        }
+        function incLimparAuto() {
+            ['inc_mascara', 'inc_carregamento'].forEach(function (id) {
+                const c = document.getElementById(id);
+                if (c && c.dataset.auto === '1') { c.value = ''; c.dataset.auto = ''; }
+            });
+            formFecharEscolha('inc_item');
+        }
+        async function incAoDigitarItem() {
+            await formItemDoPedido({
+                idPedido: 'inc_pedido', idCodigo: 'inc_item',
+                idMascara: 'inc_mascara', idCarregamento: 'inc_carregamento',
+                aviso: incAviso
+            });
+        }
+
+        /* ---- Melhorias ---------------------------------------------- */
+        function melAoTrocarPedido() {
+            formDadosDoPedido('mel_pedido', 'mel_cliente', null, null);
+        }
+
+        /* ---- Checklists de Entrega e de Montagem --------------------- */
+        function chkAoTrocarPedido() {
+            formDadosDoPedido('pedido', 'cliente', 'local', null);
+        }
+        function mtAoTrocarPedido() {
+            formDadosDoPedido('mt_pedido', 'mt_cliente', 'mt_local', null);
+        }
+
+        /* ---- Código → máscara e carregamento, fora da tabela ---------- */
+
+        /** A escolha de máscara aberta embaixo de um campo comum. */
+        function formFecharEscolha(idCodigo) {
+            const antiga = document.getElementById('escolha_' + idCodigo);
+            if (antiga) antiga.remove();
+        }
+        function formAbrirEscolha(idCodigo, codigo, ops, aplicar, avisar) {
+            formFecharEscolha(idCodigo);
+            const campo = document.getElementById(idCodigo);
+            if (!campo) return;
+            const caixa = document.createElement('div');
+            caixa.id = 'escolha_' + idCodigo;
+            caixa.className = 'ret-escolha-bloco';
+            caixa.appendChild(escolhaDeMascara(codigo, ops, function (o) {
+                aplicar(o);
+                formFecharEscolha(idCodigo);
+                if (avisar) avisar('Máscara ' + o.m + '. Confira e ajuste se precisar.', false);
+            }, function () {
+                formFecharEscolha(idCodigo);
+                if (avisar) avisar('');
+            }));
+            /* Embaixo do campo, dentro do mesmo bloco — assim a pergunta
+               fica colada na pergunta que a originou. */
+            const dono = campo.closest('div');
+            (dono || campo.parentNode).appendChild(caixa);
+        }
+
+        /**
+         * Digitou o código: preenche máscara e carregamento a partir da
+         * aba Itens, dentro do pedido escolhido. Mesmo motor do Retorno,
+         * inclusive a escolha quando há mais de uma máscara.
+         */
+        async function formItemDoPedido(cfg) {
+            const cCod = document.getElementById(cfg.idCodigo);
+            if (!cCod) return;
+            const codigo = String(cCod.value || '').trim().toUpperCase();
+            if (cCod.value !== codigo) cCod.value = codigo;
+            formFecharEscolha(cfg.idCodigo);
+
+            const cMasc = cfg.idMascara ? document.getElementById(cfg.idMascara) : null;
+            const cCarr = cfg.idCarregamento ? document.getElementById(cfg.idCarregamento) : null;
+            const cDesc = cfg.idDescricao ? document.getElementById(cfg.idDescricao) : null;
+            const falar = cfg.aviso || function () {};
+
+            /* Trocou o código: a máscara e o carregamento do código anterior
+               não valem mais. Some com o que FUI EU que escrevi — o que a
+               pessoa digitou continua onde está. Sem isto, o segundo código
+               herdava a máscara do primeiro calado. */
+            [cMasc, cCarr, cDesc].forEach(function (c) {
+                if (c && c.dataset.auto === '1') { c.value = ''; c.dataset.auto = ''; }
+            });
+            if (!codigo) { falar(''); return; }
+
+            const cPed = document.getElementById(cfg.idPedido);
+            const pedido = String((cPed && cPed.value) || '').trim().toUpperCase();
+            if (!pedido) { falar('Escolha o pedido para o app buscar a máscara sozinho.', false); return; }
+
+            cCod.classList.add('ret-buscando');
+            falar('Procurando ' + codigo + ' no pedido ' + pedido + '…', false);
+            let r = {};
+            try { r = (await retBuscarItem(pedido, codigo)) || {}; }
+            finally { cCod.classList.remove('ret-buscando'); }
+            if (String(cCod.value || '').trim().toUpperCase() !== codigo) { falar(''); return; }
+
+            if (r.semInternet) { falar('Sem internet agora — preencha a máscara à mão.', false); return; }
+            if (r.falhou) { falar('Não consegui consultar agora. Preencha a máscara à mão.', true); return; }
+            if (r.outroPedido) {
+                falar(codigo + ' não está no pedido ' + pedido + ' (está no ' + r.outroPedido + ').', true);
+                return;
+            }
+
+            const ops = Array.isArray(r.ops) ? r.ops : [];
+            const aplicar = function (o) {
+                formPorSeVazio(cMasc, o.m);
+                formPorSeVazio(cDesc, o.d);
+                if (o.cs && o.cs.length === 1) formPorSeVazio(cCarr, o.cs[0]);
+            };
+            if (ops.length > 1 && !(cMasc && cMasc.value.trim())) {
+                formAbrirEscolha(cfg.idCodigo, codigo, ops, aplicar, falar);
+                falar(codigo + ' tem ' + ops.length + ' máscaras no pedido ' + pedido
+                    + '. Escolha logo abaixo.', false);
+                return;
+            }
+            if (!r.d && !r.m && !ops.length) {
+                falar('Não achei ' + codigo + ' no pedido ' + pedido + '. Preencha à mão.', true);
+                return;
+            }
+            let mudou = formPorSeVazio(cMasc, r.m);
+            if (formPorSeVazio(cDesc, r.d)) mudou = true;
+            if (formPorSeVazio(cCarr, r.carregamento)) mudou = true;
+            if (!mudou) { falar(''); return; }
+            falar(r.deCache
+                ? 'Preenchido do que já estava neste aparelho. Confira e ajuste se precisar.'
+                : 'Máscara e carregamento vieram do pedido ' + pedido + '. Confira e ajuste se precisar.', false);
+        }
+
+        /* =============================================================
            O pedido preenche cliente, localidade e responsável
 
            Cliente e localidade vêm da planilha de controle do Comercial
@@ -10501,33 +10856,9 @@
             } catch (e) { /* sem espaço: segue sem guardar */ }
         }
 
-        /** Responsável pelo envio = o nome de quem entrou no app. */
+        /** Responsável pelo envio: mesma regra dos outros formulários. */
         function retPorResponsavel() {
-            const campo = document.getElementById('ret_responsavel');
-            const nome = String((usuarioAtual && usuarioAtual.nome) || '').trim();
-            if (!campo || !nome) return;
-            if (campo.value && campo.dataset.auto !== '1') return;   /* escolha da pessoa manda */
-            /* Quem entra no app e não está na lista de supervisores (o
-               Fernando, o Marcos) mesmo assim assina o que enviou. */
-            const tem = Array.prototype.some.call(campo.options, function (o) { return o.value === nome; });
-            if (!tem) {
-                const extra = document.createElement('option');
-                extra.value = nome; extra.textContent = nome;
-                campo.appendChild(extra);
-            }
-            campo.value = nome;
-            campo.dataset.auto = '1';
-            if (typeof selSincronizar === 'function') selSincronizar(campo);
-        }
-
-        function retPorSeVazio(campo, valor) {
-            if (!campo || !valor) return false;
-            const atual = String(campo.value || '').trim();
-            if (atual && campo.dataset.auto !== '1') return false;   /* digitado à mão: não mexe */
-            if (atual === valor) { campo.dataset.auto = '1'; return false; }
-            campo.value = valor;
-            campo.dataset.auto = '1';
-            return true;
+            formPorSupervisor('ret_responsavel');
         }
 
         /** Chamado quando a pessoa sai do campo Número Pedido. */
@@ -10539,38 +10870,7 @@
             retPorResponsavel();
             if (!pedido) return;
 
-            const cCliente = document.getElementById('ret_cliente');
-            const cLocal = document.getElementById('ret_localidade');
-            const guardado = retPedCache()[pedido];
-            if (guardado) {
-                const a = retPorSeVazio(cCliente, guardado.cliente);
-                const b = retPorSeVazio(cLocal, guardado.localidade);
-                if (a || b) retAviso('Cliente e localidade do pedido ' + pedido
-                                   + ' (guardados neste aparelho). Confira e ajuste se precisar.', false);
-                return;
-            }
-            if (navigator.onLine === false) return;
-
-            try {
-                const url = APPS_SCRIPT_URL + '?mode=dadosPedido&pedido=' + encodeURIComponent(pedido);
-                const resp = await fetchWithTimeout(url, RET_BUSCA_MS);
-                const d = await resp.json();
-                if (String(campo.value || '').trim().toUpperCase() !== pedido) return;  /* já mudou */
-                if (!d || d.ok !== true) return;
-                if (!d.achou) {
-                    retAviso('O pedido ' + pedido + ' não está na planilha do Comercial. '
-                           + 'Preencha cliente e localidade à mão.', false);
-                    return;
-                }
-                retPedGuardar(pedido, { cliente: d.cliente || '', localidade: d.localidade || '' });
-                const a = retPorSeVazio(cCliente, d.cliente);
-                const b = retPorSeVazio(cLocal, d.localidade);
-                if (a || b) retAviso('Cliente e localidade vieram do pedido ' + pedido
-                                   + '. Confira e ajuste se precisar.', false);
-            } catch (e) {
-                /* Sem rede ou servidor fora: os campos ficam livres, e o
-                   supervisor nem precisa saber que houve uma tentativa. */
-            }
+            await formDadosDoPedido('ret_pedido', 'ret_cliente', 'ret_localidade', retAviso);
         }
 
         /**
