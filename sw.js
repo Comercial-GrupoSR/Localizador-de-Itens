@@ -54,6 +54,33 @@ const CDNS_PERMITIDAS = [
   "unpkg.com"
 ];
 
+/**
+ * As que são BAIXADAS JÁ NA INSTALAÇÃO.
+ *
+ * Antes elas só entravam no cache depois de o navegador buscá-las uma
+ * vez com sucesso. Na prática dava certo quase sempre — mas "quase"
+ * não serve para o checklist: se a instalação pegasse um sinal ruim e
+ * o pdf-lib não descesse, o supervisor só ia descobrir no galpão, sem
+ * internet, na hora de gerar o PDF.
+ *
+ * Agora a instalação busca as três. Se alguma falhar, o resto segue —
+ * e ela ainda pode ser guardada depois, pelo caminho normal.
+ */
+const BIBLIOTECAS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js",
+  "https://cdn.tailwindcss.com",
+  "https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js",
+  // O visualizador de desenho. São 1,4 MB (320 KB + 1,1 MB do
+  // "worker"), e eles eram baixados na PRIMEIRA vez que alguém tocava
+  // em "Abrir Desenho" — no meio do galpão, com sinal fraco, isso
+  // sozinho eram uns 7 segundos de espera antes de o desenho começar
+  // a aparecer. E offline, num aparelho que nunca tinha aberto um
+  // desenho, o visualizador simplesmente não subia.
+  // Agora descem na instalação, junto com o resto.
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+];
+
 // Endereços que NUNCA entram no cache — são dados, não arquivos.
 const SEM_CACHE = [
   "script.google.com",
@@ -69,12 +96,27 @@ self.addEventListener("install", (event) => {
       // Um a um, e não addAll: se um arquivo faltar no repositório
       // (um ícone que ainda não foi enviado, por exemplo), o resto
       // continua sendo guardado em vez de a instalação inteira falhar.
-      return Promise.all(
-        ARQUIVOS_DO_APP.map((caminho) =>
-          cache.add(new Request(caminho, { cache: "reload" }))
-            .catch((err) => console.warn("[sw] não guardei", caminho, err))
-        )
+      const doApp = ARQUIVOS_DO_APP.map((caminho) =>
+        cache.add(new Request(caminho, { cache: "reload" }))
+          .catch((err) => console.warn("[sw] não guardei", caminho, err))
       );
+      /* As bibliotecas vêm de outro endereço. Tento primeiro do jeito
+         normal, que permite conferir a resposta; se a CDN não autorizar,
+         caio no modo "no-cors", em que a resposta é opaca — o navegador
+         não me deixa ler, mas serve para devolver o arquivo depois. */
+      const deFora = BIBLIOTECAS.map((url) =>
+        fetch(new Request(url, { cache: "reload" }))
+          .then((r) => {
+            if (!r || !r.ok) throw new Error("status " + (r && r.status));
+            return cache.put(url, r.clone());
+          })
+          .catch(() =>
+            fetch(new Request(url, { mode: "no-cors", cache: "reload" }))
+              .then((r) => cache.put(url, r.clone()))
+          )
+          .catch((err) => console.warn("[sw] não guardei a biblioteca", url, err))
+      );
+      return Promise.all(doApp.concat(deFora));
     })
   );
   self.skipWaiting();
