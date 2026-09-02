@@ -7853,6 +7853,78 @@
            o service worker o guarda para uso sem sinal. Agora vem daí. E
            se nem assim der, o PDF sai sem a logo — um documento sem
            timbre é muito melhor que documento nenhum. */
+        /* ============================================================
+           TEXTO QUE O PDF CONSEGUE ESCREVER
+
+           As fontes padrão do PDF (Helvetica e companhia) só escrevem
+           os caracteres do WinAnsi — o mesmo repertório do Windows-1252.
+           Acento, cedilha e til estão lá; "✓", "→", "≥" e emoji não.
+           Pedir para desenhar um deles não sai errado na página: a
+           biblioteca ERRA e o PDF inteiro deixa de existir.
+
+           Isso aconteceu de verdade: o checklist de Entrega desenhava um
+           "✓" dentro da caixinha Sim/Não do desempenho. Quem respondia
+           essa pergunta não conseguia gerar o PDF de jeito nenhum, nem
+           pelo botão de baixar. Aquele caso virou um traço desenhado à
+           mão, com linhas; este filtro aqui é para o resto — o supervisor
+           digita observação livre e pode colar qualquer coisa.
+
+           O que dá para trocar por algo com o mesmo sentido é trocado;
+           o que não dá vira "?", que ao menos mostra que faltou alguma
+           coisa ali, em vez de sumir em silêncio.
+        ============================================================ */
+        const CHK_TROCAS_PDF = {
+            '\u2713': 'OK', '\u2714': 'OK', '\u2611': 'OK',
+            '\u2717': 'X', '\u2718': 'X', '\u2612': 'X', '\u274C': 'X',
+            '\u2192': '->', '\u2190': '<-', '\u21D2': '=>',
+            '\u2264': '<=', '\u2265': '>=', '\u2260': '!=', '\u2248': '~',
+            '\u00A0': ' ', '\u202F': ' ', '\u200B': '', '\uFEFF': '',
+            '\u2032': "'", '\u2033': '"', '\u25CF': '-', '\u25A0': '-',
+            '\u2705': 'OK', '\u26A0': '!', '\u2B50': '*'
+        };
+        /* Os caracteres que o WinAnsi tem além do Latin-1 puro, e que
+           portanto podem passar direto (aspas curvas, travessão, etc). */
+        const CHK_WINANSI_EXTRA = '\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039'
+                                + '\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC'
+                                + '\u2122\u0161\u203A\u0153\u017E\u0178';
+
+        function chkTextoPDF(valor) {
+            const bruto = String(valor == null ? '' : valor);
+            let saida = '';
+            for (const c of bruto) {
+                if (Object.prototype.hasOwnProperty.call(CHK_TROCAS_PDF, c)) { saida += CHK_TROCAS_PDF[c]; continue; }
+                const cod = c.codePointAt(0);
+                // Latin-1 escrevível: espaço até ~, e Á-ÿ. Fora daí, só a
+                // lista extra do WinAnsi passa.
+                if ((cod >= 0x20 && cod <= 0x7E) || (cod >= 0xA0 && cod <= 0xFF)) { saida += c; continue; }
+                if (CHK_WINANSI_EXTRA.indexOf(c) >= 0) { saida += c; continue; }
+                if (c === '\n' || c === '\r' || c === '\t') { saida += ' '; continue; }
+                saida += '?';
+            }
+            return saida;
+        }
+
+        /**
+         * Desenha a assinatura logo acima da linha dela, encaixada na
+         * largura disponível e SEM distorcer.
+         *
+         * Antes a largura era fixa em 150 e só a altura era limitada:
+         * uma assinatura alta saía espremida na horizontal. Agora as duas
+         * medidas caem juntas, na mesma proporção.
+         *
+         * @param {object} img   imagem já embutida no PDF
+         * @param {number} x1    início da linha da assinatura
+         * @param {number} x2    fim da linha da assinatura
+         * @param {number} y     a mesma altura do texto do rótulo; a linha
+         *                       fica em y-4 e a assinatura senta sobre ela
+         */
+        function chkDesenharAssinatura(pagina, img, x1, x2, y) {
+            const caixaW = x2 - x1, caixaH = 34;
+            const escala = Math.min(caixaW / img.width, caixaH / img.height);
+            const w = img.width * escala, h = img.height * escala;
+            pagina.drawImage(img, { x: x1 + (caixaW - w) / 2, y: y + 2, width: w, height: h });
+        }
+
         let chkLogoBytes = null;
         async function chkLogoDoPDF(doc) {
             try {
@@ -7944,7 +8016,14 @@
                     return t.trimEnd() + '…';
                 };
                 const txt = (str, x, yy, opts={}) => {
-                    page.drawText(String(str||''), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
+                    page.drawText(chkTextoPDF(str), { x, y:yy, size: opts.size||9, font: opts.font||font, color: opts.color||ink, maxWidth: opts.maxWidth });
+                };
+                /* O tique da caixinha Sim/Não, desenhado com duas linhas.
+                   Antes era a letra "✓", que a fonte do PDF não escreve —
+                   e derrubava o arquivo inteiro. */
+                const tique = (x, yy, cor) => {
+                    page.drawLine({ start:{x:x+2.1, y:yy+2.4}, end:{x:x+4, y:yy+0.5}, thickness:1.3, color:cor });
+                    page.drawLine({ start:{x:x+4, y:yy+0.5}, end:{x:x+7.9, y:yy+5.4}, thickness:1.3, color:cor });
                 };
                 const hline = (x1, yy, x2, opts={}) => {
                     page.drawLine({ start:{x:x1,y:yy}, end:{x:x2,y:yy}, thickness: opts.t||0.6, color: opts.color||lineC });
@@ -7953,7 +8032,7 @@
                     page.drawRectangle({ x, y:yy, width:w, height:h, borderWidth: opts.bw!==undefined?opts.bw:0.6, borderColor: opts.bc||lineC, color: opts.fill||white });
                 };
                 const wrap = (str, maxW, size, f) => {
-                    const words = (str||'').split(/\s+/).filter(Boolean);
+                    const words = chkTextoPDF(str).split(/\s+/).filter(Boolean);
                     const lines=[]; let cur='';
                     for(const w of words){
                         const test = cur ? cur+' '+w : w;
@@ -8071,10 +8150,7 @@
                 });
                 y -= 4;
                 txt(chkTexto('rotuloTeste1')+': '+chkFmtDate(chkVal('vazioData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
-                if (sigSupervisorImg) {
-                    const sw = 150, sh = Math.min(34, sw * (sigSupervisorImg.height / sigSupervisorImg.width));
-                    page.drawImage(sigSupervisorImg, { x: mg+250, y: y+2, width: sw, height: sh });
-                }
+                if (sigSupervisorImg) chkDesenharAssinatura(page, sigSupervisorImg, mg+250, mg+460, y);
                 txt(chkVal('supervisorNome'), mg, y, {size:9.5});
                 hline(mg, y-4, mg+200); txt('Nome do supervisor', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do supervisor', mg+250, y-13, {size:7, color:muted});
@@ -8086,10 +8162,10 @@
                 txt(chkTexto('perguntaDesempenho'), mg, y, {size:9}); y -= 16;
                 const cap = chkGetRadio('capacidade');
                 rect(mg, y-2.5, 10, 10, {fill:cap==='Sim'?rgb(.89,.97,.91):white, bc:cap==='Sim'?rgb(.12,.48,.25):lineC});
-                if(cap==='Sim') txt('✓', mg+1.5, y, {size:8, font:bold, color:greenDark});
+                if(cap==='Sim') tique(mg, y-2.5, greenDark);
                 txt('Sim', mg+15, y, {size:9});
                 rect(mg+58, y-2.5, 10, 10, {fill:cap==='Não'?rgb(.99,.91,.91):white, bc:cap==='Não'?rgb(.72,.19,.19):lineC});
-                if(cap==='Não') txt('✓', mg+59.5, y, {size:8, font:bold, color:rgb(.72,.19,.19)});
+                if(cap==='Não') tique(mg+58, y-2.5, rgb(.72,.19,.19));
                 txt('Não', mg+73, y, {size:9});
                 y -= 22;
                 ensure(ALT_DECL_CLI);
@@ -8098,10 +8174,7 @@
                 });
                 y -= 4;
                 txt(chkTexto('rotuloTeste2')+': '+chkFmtDate(chkVal('produtoData')), mg, y, {size:9.5}); y -= ESPACO_ASSINATURA;
-                if (sigClienteImg) {
-                    const sw = 150, sh = Math.min(34, sw * (sigClienteImg.height / sigClienteImg.width));
-                    page.drawImage(sigClienteImg, { x: mg+250, y: y+2, width: sw, height: sh });
-                }
+                if (sigClienteImg) chkDesenharAssinatura(page, sigClienteImg, mg+250, mg+460, y);
                 txt(chkVal('clienteNome'), mg, y, {size:9.5});
                 hline(mg, y-4, mg+200); txt('Nome do cliente', mg, y-13, {size:7, color:muted});
                 hline(mg+250, y-4, mg+460); txt('Assinatura do cliente', mg+250, y-13, {size:7, color:muted});
@@ -8682,11 +8755,11 @@
                 let y = pageH - mg;
                 const newPage = () => { page = doc.addPage([pageW, pageH]); y = pageH - mg; };
                 const ensure = h => { if (y - h < mg) newPage(); };
-                const txt = (str, x, yy, o={}) => page.drawText(String(str||''), { x, y:yy, size:o.size||9, font:o.font||font, color:o.color||ink });
+                const txt = (str, x, yy, o={}) => page.drawText(chkTextoPDF(str), { x, y:yy, size:o.size||9, font:o.font||font, color:o.color||ink });
                 const hline = (x1, yy, x2, o={}) => page.drawLine({ start:{x:x1,y:yy}, end:{x:x2,y:yy}, thickness:o.t||0.6, color:o.color||lineC });
                 const rect = (x,yy,w,h,o={}) => page.drawRectangle({ x, y:yy, width:w, height:h, borderWidth:o.bw!==undefined?o.bw:0.6, borderColor:o.bc||lineC, color:o.fill||white });
                 const wrap = (str, maxW, size, f) => {
-                    const words = (str||'').split(/\s+/).filter(Boolean);
+                    const words = chkTextoPDF(str).split(/\s+/).filter(Boolean);
                     const linhas=[]; let cur='';
                     for (const w of words) {
                         const t = cur ? cur+' '+w : w;
@@ -8696,7 +8769,7 @@
                     return linhas.length ? linhas : [''];
                 };
                 const cortar = (str, larguraMax, tamanho, fnt) => {
-                    let t = String(str||'');
+                    let t = chkTextoPDF(str);
                     if (fnt.widthOfTextAtSize(t,tamanho) <= larguraMax) return t;
                     while (t.length > 1 && fnt.widthOfTextAtSize(t+'…',tamanho) > larguraMax) t = t.slice(0,-1);
                     return t.trimEnd() + '…';
@@ -8794,12 +8867,15 @@
                 y -= 10;
                 // ── Encerramento ──
                 ensure(ALT_RODAPE);
-                if (sigImg) {
-                    const sw = 140, sh = Math.min(34, sw * (sigImg.height / sigImg.width));
-                    page.drawImage(sigImg, { x: mg+400, y: y-40, width: sw, height: sh });
-                }
-                y -= 44;
-                hline(mg,y,pageW-mg); y -= 20;
+                /* A assinatura ia acima da LINHA DE CIMA — a que fecha as
+                   observações —, e não acima da linha dela. Agora o espaço
+                   livre foi movido para depois dessa linha, do mesmo jeito
+                   que o checklist de Entrega já fazia: 24 pontos antes,
+                   41 depois. A soma continua sendo ALT_RODAPE, então o
+                   documento não cresce e o PDF segue em uma página. */
+                y -= 24;
+                hline(mg,y,pageW-mg); y -= 41;
+                if (sigImg) chkDesenharAssinatura(page, sigImg, mg+400, pageW-mg, y);
                 txt(mtVal('mt_footerLocal'), mg, y, {size:9});
                 hline(mg, y-4, mg+100); txt('Local', mg, y-13, {size:7, color:muted});
                 txt(chkFmtDate(mtVal('mt_footerData')), mg+120, y, {size:9});
@@ -8971,12 +9047,20 @@
         function fchCamposDaTela(f) {
             const raiz = document.getElementById(f.raiz);
             if (!raiz) return { campos: {}, respostas: {} };
-            const campos = {}, respostas = {};
+            const campos = {}, respostas = {}, escolhas = {};
             raiz.querySelectorAll('input[id], select[id], textarea[id]').forEach(function (el) {
+                if (el.type === 'radio' || el.type === 'checkbox') return;   // tratados abaixo
                 if (f.itens.test(el.id)) respostas[el.id] = el.value;
                 else campos[el.id] = el.value;
             });
-            return { campos: campos, respostas: respostas };
+            /* Os botões de Sim/Não não têm id — são um grupo com o mesmo
+               "name". Sem esta parte, a resposta do desempenho não era
+               guardada e sumia ao reabrir o checklist. */
+            raiz.querySelectorAll('input[type="radio"][name]').forEach(function (el) {
+                if (!(el.name in escolhas)) escolhas[el.name] = '';
+                if (el.checked) escolhas[el.name] = el.value;
+            });
+            return { campos: campos, respostas: respostas, escolhas: escolhas };
         }
 
         /** O resumo que aparece na lista e vai para a planilha. */
@@ -9011,6 +9095,7 @@
                 modelo: f.modeloAtual(),
                 supervisor: String(dados.campos[f.campoSupervisor] || '').trim(),
                 campos: dados.campos, respostas: dados.respostas,
+                escolhas: dados.escolhas,
                 assinaturas: assinaturas,
                 resumo: fchResumo(dados.respostas),
                 usuario: (usuarioAtual && usuarioAtual.usuario) || '',
@@ -9038,6 +9123,12 @@
                 if (!el) return;
                 el.value = ficha.campos[idCampo];
                 if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            Object.keys(ficha.escolhas || {}).forEach(function (nome) {
+                const valor = ficha.escolhas[nome];
+                document.getElementsByName(nome).forEach(function (el) {
+                    el.checked = (el.value === valor);
+                });
             });
             selSincronizarTodos(document.getElementById(f.raiz));
 
