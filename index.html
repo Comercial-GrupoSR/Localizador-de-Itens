@@ -577,6 +577,22 @@
         .sep-dsn-bt:disabled { opacity: .65; cursor: wait; }
         .sep-dsn-bt svg { width: 13px; height: 13px; flex: 0 0 auto; }
         .sep-dsn-bt .spinner { margin: 0; }
+        /* A versão só-ícone, nas linhas do caminho. A linha já está cheia
+           com código e descrição; um rótulo empurraria a descrição para
+           baixo. */
+        .sep-dsn-mini {
+            flex: 0 0 auto; align-self: center;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 22px;
+            background: #1a5c33; color: #fff;
+            border: 1px solid #2b7d4a; border-radius: 6px;
+            padding: 0; cursor: pointer;
+        }
+        .sep-dsn-mini:hover { background: #22713f; }
+        .sep-dsn-mini:disabled { opacity: .65; cursor: wait; }
+        .sep-dsn-mini svg { width: 13px; height: 13px; }
+        .sep-dsn-mini .spinner { margin: 0; width: 11px; height: 11px; }
+        .sep-dsn-recado { margin: 0 0 4px 12px; }
         .prog-card {
             margin-top: 16px;
             background: #2e2e2e;
@@ -2291,6 +2307,26 @@
             '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-3 w-3 rounded-full"></div>');
     }
 
+    /* Numera os botões de desenho das linhas do caminho. Um contador
+       que só cresce é o jeito simples de garantir que cada botão tenha
+       um id só dele — os caminhos são redesenhados quando o supervisor
+       troca de caminho, e ids repetidos fariam o recado de erro sair na
+       linha errada. */
+    let sepPassoSeq = 0;
+
+    /* Conjuntos que existem só para agrupar e nunca têm desenho.
+       Mostrar o botão neles seria prometer o que não há: o supervisor
+       toca, espera, e recebe "não achei". Melhor não oferecer.
+       Para incluir outro caso, é só acrescentar na lista. */
+    const SEP_SEM_DESENHO = ['ACESSORIOS GERAIS'];
+
+    function sepTemDesenho(desc) {
+        const limpo = String(desc || '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase().trim();
+        return !SEP_SEM_DESENHO.some(function (t) { return limpo.indexOf(t) === 0; });
+    }
+
     let sepPedido = null;
     let sepAba = 'bipar';
     let sepUltimos = [];        /* cartões da aba Buscar */
@@ -2719,11 +2755,32 @@
         if (!caminho || !Array.isArray(caminho.passos)) return '';
         let h = '<div class="sep-caminho-cx">';
         caminho.passos.forEach(function (p) {
-            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + sepEsc(p.cod) + '\',\''
+            /* Cada conjunto do caminho tem o desenho dele, e é comum o
+               supervisor querer ver o do conjunto, não o da peça solta.
+               O botão é só o ícone: a linha já está cheia com o código e
+               a descrição, e um rótulo empurraria a descrição para baixo.
+
+               O stopPropagation é obrigatório: a linha inteira já é
+               clicável (abre o conjunto no resumo). Sem ele, tocar no
+               desenho abriria o desenho E trocaria de tela junto. */
+            const chave = 'p' + (++sepPassoSeq);
+            const cod = sepEsc(p.cod);
+            const temDesenho = sepTemDesenho(p.desc);
+            h += '<div class="sep-passo clicavel" onclick="sepAbrirConjunto(\'' + cod + '\',\''
                + sepEsc(String(p.desc || '').replace(/'/g, '')) + '\',\'\')">'
-               + '<span class="sep-passo-cod">' + sepEsc(p.cod) + '</span>'
-               + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>'
-               + '</div>';
+               + '<span class="sep-passo-cod">' + cod + '</span>'
+               + '<span class="sep-passo-desc">' + sepEsc(p.desc) + '</span>';
+            if (temDesenho) {
+                h += '<button type="button" class="sep-dsn-mini" id="sepDsnBt-' + chave + '"'
+                   + ' onclick="event.stopPropagation(); sepAbrirDesenho(\'' + cod + '\', \'' + chave + '\')"'
+                   + ' aria-label="Abrir o desenho do código ' + cod + '"'
+                   + ' title="Abrir o desenho de ' + cod + '">'
+                   + SEP_ICONE_DESENHO + '</button>';
+            }
+            h += '</div>';
+            if (temDesenho) {
+                h += '<p class="desenho-aviso hidden sep-dsn-recado" id="sepDsnAviso-' + chave + '"></p>';
+            }
         });
         if (caminho.qtde) {
             h += '<div class="sep-passo sep-passo-qt">'
