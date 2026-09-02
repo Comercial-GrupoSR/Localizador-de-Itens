@@ -7521,7 +7521,11 @@
              3. Não achar não trava nada: o campo continua livre para
                 digitar, e o app diz por que não achou.
         ============================================================= */
-        const RET_CAT_CHAVE = 'obraflow_retorno_itens';
+        /* A versão entra na chave: quando o que se guarda muda de forma
+           — como quando entrou o carregamento — o que estava no aparelho
+           é descartado sozinho, em vez de devolver campo vazio para
+           sempre. */
+        const RET_CAT_CHAVE = 'obraflow_retorno_itens_v2';
         const RET_CAT_MAX = 600;          /* códigos guardados, no total */
         const RET_BUSCA_MS = 12000;
         let retCatalogo = null;           /* { pedido: { codigo: {d, m} } } */
@@ -7675,9 +7679,14 @@
                 return;
             }
 
+            /* Uma máscara só, mesmo que o servidor não a tenha cravado no
+               campo "mascara": é ela, não há o que perguntar. */
+            const ops0 = Array.isArray(r.ops) ? r.ops : [];
+            const mascara = r.m || (ops0.length === 1 ? ops0[0].m : '');
+
             let mudou = false;
             if (r.d && !cDesc.value.trim()) { cDesc.value = r.d; mudou = true; }
-            if (r.m && !cMasc.value.trim()) { cMasc.value = r.m; mudou = true; }
+            if (mascara && !cMasc.value.trim()) { cMasc.value = mascara; mudou = true; }
             if (mudou) retPiscar(linha);
 
             /* Mais de uma máscara no mesmo pedido: quem escolhe é o
@@ -7728,34 +7737,31 @@
          *
          * `aoEscolher(op)` recebe a opção; `aoDesistir()` é o "vou digitar".
          */
-        function escolhaDeMascara(codigo, ops, aoEscolher, aoDesistir) {
+        function blocoDeEscolha(titulo, botoes, aoDesistir) {
             const caixa = document.createDocumentFragment();
-            const titulo = document.createElement('div');
-            titulo.className = 'ret-escolha-titulo';
-            titulo.textContent = codigo + ' aparece com ' + ops.length
-                               + ' máscaras neste pedido. Qual é a desta peça?';
-            caixa.appendChild(titulo);
+            const cab = document.createElement('div');
+            cab.className = 'ret-escolha-titulo';
+            cab.textContent = titulo;
+            caixa.appendChild(cab);
 
-            ops.forEach(function (o) {
+            botoes.forEach(function (b) {
                 const bt = document.createElement('button');
                 bt.type = 'button';
                 bt.className = 'ret-escolha-bt';
-                const m = document.createElement('strong');
-                m.textContent = 'Máscara ' + o.m;
-                bt.appendChild(m);
-                if (o.e || o.d) {
-                    const e = document.createElement('span');
-                    e.textContent = o.e || o.d;
-                    bt.appendChild(e);
+                const forte = document.createElement('strong');
+                forte.textContent = b.forte;
+                bt.appendChild(forte);
+                if (b.meio) {
+                    const m = document.createElement('span');
+                    m.textContent = b.meio;
+                    bt.appendChild(m);
                 }
-                const extra = o.tag ? ('TAG ' + o.tag)
-                            : ((o.cs && o.cs.length) ? ('Carregamento ' + o.cs.join(', ')) : '');
-                if (extra) {
-                    const t = document.createElement('em');
-                    t.textContent = extra;
-                    bt.appendChild(t);
+                if (b.fraco) {
+                    const f = document.createElement('em');
+                    f.textContent = b.fraco;
+                    bt.appendChild(f);
                 }
-                bt.onclick = function () { aoEscolher(o); };
+                bt.onclick = b.aoClicar;
                 caixa.appendChild(bt);
             });
 
@@ -7766,6 +7772,20 @@
             nada.onclick = function () { aoDesistir(); };
             caixa.appendChild(nada);
             return caixa;
+        }
+
+        function escolhaDeMascara(codigo, ops, aoEscolher, aoDesistir) {
+            return blocoDeEscolha(
+                codigo + ' aparece com ' + ops.length + ' máscaras neste pedido. Qual é a desta peça?',
+                ops.map(function (o) {
+                    return {
+                        forte: 'Máscara ' + o.m,
+                        meio: o.e || o.d || '',
+                        fraco: o.tag ? ('TAG ' + o.tag)
+                             : ((o.cs && o.cs.length) ? ('Carregamento ' + o.cs.join(', ')) : ''),
+                        aoClicar: function () { aoEscolher(o); }
+                    };
+                }), aoDesistir);
         }
 
         function retAbrirEscolha(linha, codigo, ops) {
@@ -10784,6 +10804,7 @@
             [cMasc, cCarr, cDesc].forEach(function (c) {
                 if (c && c.dataset.auto === '1') { c.value = ''; c.dataset.auto = ''; }
             });
+            if (cfg.idCarregamento) formFecharEscolha(cfg.idCarregamento);
             if (!codigo) { falar(''); return; }
 
             const cPed = document.getElementById(cfg.idPedido);
@@ -10805,10 +10826,37 @@
             }
 
             const ops = Array.isArray(r.ops) ? r.ops : [];
+            if (!r.d && !r.m && !ops.length) {
+                falar('Não achei ' + codigo + ' no pedido ' + pedido + '. Preencha à mão.', true);
+                return;
+            }
+
+            /* A peça pode ter ido em mais de um carregamento. Aí o app
+               também não escolhe: pergunta, do mesmo jeito que faz com a
+               máscara. Um carregamento só, preenche direto. */
+            const porCarregamento = function (op) {
+                if (!cCarr) return false;
+                const cs = (op && op.cs) || [];
+                if (cs.length === 1) return formPorSeVazio(cCarr, cs[0]);
+                if (cs.length > 1 && !cCarr.value.trim()) {
+                    formAbrirEscolha2(cfg.idCarregamento,
+                        codigo + ' foi em ' + cs.length + ' carregamentos. Qual é o desta peça?',
+                        cs.map(function (c) {
+                            return { forte: 'Carregamento ' + c, valor: c };
+                        }),
+                        function (c) { formPorSeVazio(cCarr, c); },
+                        falar);
+                    falar(codigo + ' foi em ' + cs.length + ' carregamentos no pedido ' + pedido
+                        + '. Escolha logo abaixo.', false);
+                    return true;
+                }
+                return false;
+            };
+
             const aplicar = function (o) {
                 formPorSeVazio(cMasc, o.m);
                 formPorSeVazio(cDesc, o.d);
-                if (o.cs && o.cs.length === 1) formPorSeVazio(cCarr, o.cs[0]);
+                porCarregamento(o);
             };
             if (ops.length > 1 && !(cMasc && cMasc.value.trim())) {
                 formAbrirEscolha(cfg.idCodigo, codigo, ops, aplicar, falar);
@@ -10816,17 +10864,43 @@
                     + '. Escolha logo abaixo.', false);
                 return;
             }
-            if (!r.d && !r.m && !ops.length) {
-                falar('Não achei ' + codigo + ' no pedido ' + pedido + '. Preencha à mão.', true);
-                return;
-            }
-            let mudou = formPorSeVazio(cMasc, r.m);
+
+            let mudou = formPorSeVazio(cMasc, r.m || (ops.length === 1 ? ops[0].m : ''));
             if (formPorSeVazio(cDesc, r.d)) mudou = true;
+            /* Com uma máscara só, o carregamento sai da própria opção — é
+               ela que sabe em quantas cargas a peça foi. */
+            if (porCarregamento(ops[0])) return;
             if (formPorSeVazio(cCarr, r.carregamento)) mudou = true;
             if (!mudou) { falar(''); return; }
             falar(r.deCache
                 ? 'Preenchido do que já estava neste aparelho. Confira e ajuste se precisar.'
                 : 'Máscara e carregamento vieram do pedido ' + pedido + '. Confira e ajuste se precisar.', false);
+        }
+
+        /** A mesma caixa de escolha, para uma lista simples de valores. */
+        function formAbrirEscolha2(idCampo, titulo, itens, aplicar, avisar) {
+            formFecharEscolha(idCampo);
+            const campo = document.getElementById(idCampo);
+            if (!campo) return;
+            const caixa = document.createElement('div');
+            caixa.id = 'escolha_' + idCampo;
+            caixa.className = 'ret-escolha-bloco';
+            caixa.appendChild(blocoDeEscolha(titulo, itens.map(function (i) {
+                return {
+                    forte: i.forte, meio: i.meio || '', fraco: i.fraco || '',
+                    aoClicar: function () {
+                        aplicar(i.valor);
+                        formFecharEscolha(idCampo);
+                        if (avisar) avisar(i.forte + '. Confira e ajuste se precisar.', false);
+                    }
+                };
+            }), function () {
+                formFecharEscolha(idCampo);
+                campo.focus();
+                if (avisar) avisar('');
+            }));
+            const dono = campo.closest('div');
+            (dono || campo.parentNode).appendChild(caixa);
         }
 
         /* =============================================================
