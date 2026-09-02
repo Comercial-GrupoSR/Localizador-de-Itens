@@ -9127,170 +9127,162 @@
         async function retGerarPDF(op) {
             const baixar = !op || op.baixar !== false;
             const msg = document.getElementById('ret_formStatus');
+            const dizer = function (texto, ruim) {
+                if (!msg) return;
+                msg.textContent = texto;
+                msg.className = 'text-sm text-center mb-1 leading-tight '
+                              + (ruim ? 'text-red-400' : 'text-green-400');
+            };
             try {
-                chkConferirBiblioteca();
-                const { PDFDocument, StandardFonts, rgb } = PDFLib;
-                const doc = await PDFDocument.create();
-                const font = await doc.embedFont(StandardFonts.Helvetica);
-                const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-                const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
-                const logo = await chkLogoDoPDF(doc);
-                const sigUrl = chkGetSignatureDataUrl('sigRetorno');
-                const sigImg = sigUrl ? await doc.embedPng(chkDataUrlToBytes(sigUrl)) : null;
+                // O mesmo par jspdf + autotable do relatório do separador.
+                await sepCarregarPDF();
 
-                const pageW = 595.28, pageH = 841.89, mg = 34, headerH = 58;
-                const verde = rgb(0.047, 0.290, 0.192);
-                const tinta = rgb(0.10, 0.11, 0.10);
-                const cinza = rgb(0.46, 0.47, 0.44);
-                const linha = rgb(0.84, 0.85, 0.82);
-                const branco = rgb(1, 1, 1);
-                const zebra = rgb(0.96, 0.97, 0.96);
+                const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+                const larg = doc.internal.pageSize.getWidth();
+                const alt = doc.internal.pageSize.getHeight();
+                const mg = 15;
+                const util = larg - 2 * mg;
+                const verde = [21, 84, 60];
 
-                let page, y;
-                const txt = (s, x, yy, o = {}) => page.drawText(chkTextoPDF(s), {
-                    x, y: yy, size: o.size || 9.5, font: o.font || font, color: o.color || tinta
-                });
-                const hline = (x1, yy, x2, o = {}) => page.drawLine({
-                    start: { x: x1, y: yy }, end: { x: x2, y: yy },
-                    thickness: o.t || 0.6, color: o.color || linha
-                });
-                const rect = (x, yy, w, h, o = {}) => page.drawRectangle({
-                    x, y: yy, width: w, height: h,
-                    borderWidth: o.bw !== undefined ? o.bw : 0, borderColor: o.bc || linha,
-                    color: o.fill || branco
-                });
-                const cortar = (s, larg, tam, f) => {
-                    let t = chkTextoPDF(s);
-                    if (f.widthOfTextAtSize(t, tam) <= larg) return t;
-                    while (t.length > 1 && f.widthOfTextAtSize(t + '…', tam) > larg) t = t.slice(0, -1);
-                    return t.trimEnd() + '…';
-                };
-
+                const tipo = (retVal('ret_tipoItem') || '').toUpperCase();
+                const titulo = 'RETORNO DE OBRA' + (tipo ? ' – ' + tipo : '');
                 const itens = retCollectItems();
-                const titulo = 'Lista de Retorno de Obra';
+                const assinatura = chkGetSignatureDataUrl('sigRetorno');
 
-                // ── A folha, com cabeçalho. Vira quantas forem precisas. ──
-                const novaPagina = function () {
-                    page = doc.addPage([pageW, pageH]);
-                    hline(0, pageH - headerH, pageW, { t: 2.5, color: verde });
-                    const logoH = 26;
-                    const logoW = logo ? (logo.width / logo.height) * logoH : 0;
-                    if (logo) page.drawImage(logo, { x: mg, y: pageH - headerH / 2 - logoH / 2 + 4, width: logoW, height: logoH });
-                    txt(titulo, mg + logoW + 16, pageH - 26, { size: 13, font: bold, color: verde });
-                    txt('Pedido ' + (retVal('ret_pedido') || '—') + '   ·   ' + (retVal('ret_cliente') || '—'),
-                        mg + logoW + 16, pageH - 40, { size: 8.5, color: cinza });
-                    y = pageH - headerH - 24;
+                /* O timbre em toda folha. O de cima já entra aqui na
+                   primeira; da segunda em diante quem repõe é o
+                   didDrawPage da tabela. */
+                const timbrar = function () {
+                    doc.addImage(SEP_TIMBRE_TOPO, 'PNG', 0, 0, larg, SEP_TIMBRE_TOPO_H);
+                    doc.addImage(SEP_TIMBRE_RODAPE, 'PNG', 0, alt - SEP_TIMBRE_ROD_H, larg, SEP_TIMBRE_ROD_H);
                 };
-                novaPagina();
+                timbrar();
 
-                // ── Identificação ──
-                const campo = function (rotulo, valor, x, larg) {
-                    txt(rotulo.toUpperCase(), x, y, { size: 6.8, color: cinza });
-                    txt(cortar(valor || '—', larg, 10, font), x, y - 12, { size: 10 });
-                    hline(x, y - 17, x + larg);
-                };
-                const col = (pageW - 2 * mg - 24) / 2;
-                campo('Número do pedido', retVal('ret_pedido'), mg, col);
-                campo('Nome do cliente', retVal('ret_cliente'), mg + col + 24, col);
-                y -= 34;
-                campo('Localidade', retVal('ret_localidade'), mg, col);
-                campo('Tipo de item de retorno', retVal('ret_tipoItem'), mg + col + 24, col);
-                y -= 34;
-                campo('Responsável pelo envio', retVal('ret_responsavel'), mg, col);
-                campo('Data', new Date().toLocaleDateString('pt-BR'), mg + col + 24, col);
-                y -= 34;
+                let y = SEP_TIMBRE_TOPO_H + 8;
 
-                // ── Tabela de itens ──
-                txt('ITENS DE RETORNO', mg, y, { size: 10, font: bold, color: verde });
-                y -= 5; hline(mg, y, pageW - mg, { t: 0.5, color: rgb(.7, .8, .72) }); y -= 16;
+                // ── Faixa do título, como na folha de papel ──
+                doc.setDrawColor(120); doc.setLineWidth(0.25);
+                doc.rect(mg, y, util, 8);
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5);
+                doc.setTextColor(verde[0], verde[1], verde[2]);
+                doc.text(titulo, larg / 2, y + 5.6, { align: 'center' });
+                y += 8;
 
-                const larguras = [66, 66, 46, 40, pageW - 2 * mg - 218];
-                const cabecalhos = ['CÓDIGO', 'MÁSCARA', 'QTDE', 'UN.', 'DESCRIÇÃO'];
-                const alturaCab = 16;
-
-                const desenharCabecalho = function () {
-                    rect(mg, y - 4, pageW - 2 * mg, alturaCab, { fill: verde });
-                    let x = mg + 5;
-                    cabecalhos.forEach(function (c, i) {
-                        page.drawText(c, { x: x, y: y, size: 7.5, font: bold, color: branco });
-                        x += larguras[i];
-                    });
-                    y -= alturaCab + 4;
-                };
-                desenharCabecalho();
-
-                if (!itens.length) {
-                    txt('Nenhum item informado.', mg + 5, y, { size: 9, font: italic, color: cinza });
-                    y -= 18;
-                } else {
-                    itens.forEach(function (it, n) {
-                        // Cabe mais uma linha nesta folha? A reserva de 150
-                        // pontos é o espaço da assinatura e do rodapé.
-                        if (y < mg + 150) {
-                            novaPagina();
-                            txt('ITENS DE RETORNO (continuação)', mg, y, { size: 10, font: bold, color: verde });
-                            y -= 5; hline(mg, y, pageW - mg, { t: 0.5, color: rgb(.7, .8, .72) }); y -= 16;
-                            desenharCabecalho();
-                        }
-                        if (n % 2 === 1) rect(mg, y - 4, pageW - 2 * mg, 15, { fill: zebra });
-                        const valores = [it.codigo, it.mascara, it.quantidade, it.unidade, it.descricao];
-                        let x = mg + 5;
-                        valores.forEach(function (v, i) {
-                            txt(cortar(v || '—', larguras[i] - 8, 8.5, font), x, y, { size: 8.5 });
-                            x += larguras[i];
-                        });
-                        y -= 15;
-                        hline(mg, y + 4, pageW - mg, { t: 0.3 });
-                    });
-                }
-                y -= 6;
-                txt(itens.length + (itens.length === 1 ? ' item na lista' : ' itens na lista'),
-                    mg, y, { size: 8.5, font: bold, color: cinza });
-                y -= 30;
-
-                // ── Declaração e assinatura ──
-                const declaracao = 'O responsável declara que os itens acima estão sendo devolvidos '
-                                 + 'da obra e confere com o material efetivamente enviado.';
-                const wrap = function (s, maxW, size, f) {
-                    const palavras = chkTextoPDF(s).split(/\s+/).filter(Boolean);
-                    const linhas = []; let cur = '';
-                    for (const p of palavras) {
-                        const t = cur ? cur + ' ' + p : p;
-                        if (f.widthOfTextAtSize(t, size) > maxW && cur) { linhas.push(cur); cur = p; } else cur = t;
+                /* ── Identificação ──
+                   Reproduz o quadro do formulário de papel: rótulo à
+                   direita na célula estreita, valor na larga. Uma
+                   correção de português no caminho — o papel traz
+                   "Resonsável", sem o p. */
+                const linhaAlt = 7.5;
+                const celula = function (x, w, rotulo, valor, alinhaRotulo) {
+                    doc.setDrawColor(120); doc.setLineWidth(0.25);
+                    doc.rect(x, y, w, linhaAlt);
+                    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+                    doc.setTextColor(90);
+                    if (rotulo) {
+                        doc.text(rotulo, alinhaRotulo === 'dir' ? x + w - 1.5 : x + 1.5, y + 5,
+                                 { align: alinhaRotulo === 'dir' ? 'right' : 'left' });
                     }
-                    if (cur) linhas.push(cur);
-                    return linhas;
+                    if (valor !== undefined) {
+                        doc.setFontSize(9.5); doc.setTextColor(30);
+                        doc.text(doc.splitTextToSize(String(valor || ''), w - 3)[0] || '', x + 2, y + 5.2);
+                    }
                 };
-                if (y < mg + 120) novaPagina();
-                wrap(declaracao, pageW - 2 * mg, 8.5, italic).forEach(function (l) {
-                    txt(l, mg, y, { size: 8.5, font: italic, color: cinza }); y -= 11;
-                });
-                y -= 46;
-                if (sigImg) chkDesenharAssinatura(page, sigImg, mg + 250, pageW - mg, y);
-                txt(cortar(retVal('ret_responsavel'), 190, 10, font), mg, y, { size: 10 });
-                hline(mg, y - 4, mg + 200); txt('Responsável pelo envio', mg, y - 13, { size: 7, color: cinza });
-                hline(mg + 250, y - 4, pageW - mg); txt('Assinatura', mg + 250, y - 13, { size: 7, color: cinza });
+                const lb = 30, lb2 = 40;
+                celula(mg, lb, 'Cliente:', undefined, 'dir');
+                celula(mg + lb, util - lb, '', retVal('ret_cliente'));
+                y += linhaAlt;
+                celula(mg, lb, 'Cidade:', undefined, 'dir');
+                celula(mg + lb, util / 2 - lb, '', retVal('ret_localidade'));
+                celula(mg + util / 2, lb2, 'Responsável pelo Envio:', undefined, 'dir');
+                celula(mg + util / 2 + lb2, util / 2 - lb2, '', retVal('ret_responsavel'));
+                y += linhaAlt;
+                celula(mg, lb, 'Número Pedido:', undefined, 'dir');
+                celula(mg + lb, util / 2 - lb, '', retVal('ret_pedido'));
+                celula(mg + util / 2, lb2, 'Data:', undefined, 'dir');
+                celula(mg + util / 2 + lb2, util / 2 - lb2, '', new Date().toLocaleDateString('pt-BR'));
+                y += linhaAlt + 4;
 
-                const bytes = await doc.save();
-                if (!baixar) return bytes;
-                const blob = new Blob([bytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = retNomeArquivo();
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-                if (msg) {
-                    msg.textContent = 'PDF gerado e baixado. Abra o arquivo para conferir ou imprimir.';
-                    msg.className = 'text-sm text-center mb-1 leading-tight text-green-400';
+                // ── Tabela de itens, no estilo do relatório do separador ──
+                doc.autoTable({
+                    head: [['Código', 'Máscara (ID)', 'Quantidade', 'Unidade', 'Nome/Descrição']],
+                    body: itens.length
+                        ? itens.map(function (i) {
+                            return [i.codigo || '', i.mascara || '', i.quantidade || '',
+                                    i.unidade || '', i.descricao || ''];
+                          })
+                        : [['', '', '', '', '']],
+                    startY: y,
+                    margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 26, left: mg, right: mg },
+                    styles: { fontSize: 8, cellPadding: 1.8, textColor: 40, lineColor: 190, lineWidth: 0.1 },
+                    headStyles: { fillColor: verde, textColor: 255, fontStyle: 'bold', halign: 'center' },
+                    alternateRowStyles: { fillColor: [246, 248, 245] },
+                    /* Um item não pode ficar partido entre duas folhas —
+                       o código numa e o fim da descrição na outra. Não
+                       cabendo inteiro, a linha desce para a folha seguinte. */
+                    rowPageBreak: 'avoid',
+                    columnStyles: {
+                        0: { cellWidth: 24 },
+                        1: { cellWidth: 26 },
+                        2: { cellWidth: 22, halign: 'right' },
+                        3: { cellWidth: 18, halign: 'center' },
+                        4: { cellWidth: 'auto' }
+                    },
+                    didDrawPage: function () {
+                        if (doc.internal.getNumberOfPages() > 1) timbrar();
+                        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+                        doc.setTextColor(140);
+                        const rod = alt - SEP_TIMBRE_ROD_H - 3;
+                        doc.text('Página ' + doc.internal.getNumberOfPages(), larg - mg, rod, { align: 'right' });
+                        doc.text('Retorno de obra · Pedido ' + (retVal('ret_pedido') || '—'), mg, rod);
+                    }
+                });
+
+                // ── Assinatura ──
+                let fy = doc.lastAutoTable.finalY + 14;
+                const precisa = 24;                         // risco + linha + rótulo
+                if (fy + precisa > alt - SEP_TIMBRE_ROD_H - 8) {
+                    doc.addPage(); timbrar();
+                    fy = SEP_TIMBRE_TOPO_H + 20;
                 }
+                const meio = larg / 2;
+                if (assinatura) {
+                    /* A assinatura desenhada na tela entra ACIMA da linha,
+                       centralizada nela e sem distorcer. O quadro de
+                       assinatura é largo e baixo; a proporção é mantida
+                       pela menor das duas escalas. */
+                    const caixaL = 60, caixaA = 14;
+                    /* A proporção vem do próprio quadro de assinatura, que
+                       já está na tela — um new Image() aqui ainda não teria
+                       largura nem altura, porque o carregamento é assíncrono
+                       e a conta sairia com o palpite de reserva. */
+                    const pad = chkSignaturePads['sigRetorno'];
+                    const propor = (pad && pad.canvas.height)
+                        ? (pad.canvas.width / pad.canvas.height) : (300 / 110);
+                    let w = caixaL, h = w / propor;
+                    if (h > caixaA) { h = caixaA; w = h * propor; }
+                    doc.addImage(assinatura, 'PNG', meio - w / 2, fy - h, w, h);
+                }
+                doc.setDrawColor(60); doc.setLineWidth(0.3);
+                doc.line(meio - 35, fy + 1, meio + 35, fy + 1);
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+                doc.setTextColor(60);
+                doc.text('Assinatura Responsável', meio, fy + 5.5, { align: 'center' });
+                /* O nome NÃO vai aqui. Ele já está no quadro de cima, em
+                   "Responsável pelo Envio", e escrito também neste ponto
+                   ficava por baixo do risco da assinatura — foi o que
+                   aconteceu no primeiro teste. O papel também não tem
+                   nome aqui: só a linha e o rótulo. */
+
+                const bytes = new Uint8Array(doc.output('arraybuffer'));
+                if (!baixar) return bytes;
+                doc.save(retNomeArquivo());
+                dizer('PDF gerado e baixado. Abra o arquivo para conferir ou imprimir.');
                 return bytes;
             } catch (err) {
                 console.error(err);
                 if (!baixar) throw err;
-                if (msg) {
-                    msg.textContent = 'Não consegui gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido');
-                    msg.className = 'text-sm text-center mb-1 leading-tight text-red-400';
-                }
+                dizer('Não consegui gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido'), true);
                 return null;
             }
         }
