@@ -7529,77 +7529,35 @@
             retCatGravar();
         }
 
-        /** Separador de Obra: dá a máscara (o equipamento em que a peça entra). */
-        async function retNoSeparador(pedido, codigo) {
+        /**
+         * A peça dentro do pedido: descrição e máscara, numa consulta só.
+         *
+         * Vem da aba "Itens" da planilha do Localizador (A = pedido,
+         * E = código, F = máscara, G = descrição), lida pelo Apps Script.
+         * Antes a máscara vinha do script do Separador de Obra: era outro
+         * servidor no caminho e, quando ele engasgava, a máscara sumia sem
+         * explicação. Agora é uma fonte só, e ela responde ou não responde.
+         */
+        async function retNosItens(pedido, codigo) {
             try {
-                const url = SEPARADOR_URL + '?mode=separador'
+                const url = APPS_SCRIPT_URL + '?mode=itemPedido'
                           + '&pedido=' + encodeURIComponent(pedido)
                           + '&codigo=' + encodeURIComponent(codigo);
-                const r = await fetchWithTimeout(url, RET_BUSCA_MS);
-                const dados = await r.json();
-                if (!dados || dados.error) return null;
-                if (Array.isArray(dados.itens) && dados.itens.length) {
-                    /* O MESMO código pode entrar em mais de um equipamento do
-                       mesmo pedido — máscaras diferentes. Aqui não se escolhe
-                       por conta própria: junta todas e quem decide é o
-                       supervisor, que tem a peça na mão. */
-                    const ops = [];
-                    const juntar = function (mascara, equip, tag) {
-                        const m = String(mascara || '').trim();
-                        if (!m) return;
-                        const igual = ops.filter(function (o) { return o.m === m; })[0];
-                        if (igual) {
-                            if (!igual.e && equip) igual.e = String(equip).trim();
-                            if (!igual.tag && tag) igual.tag = String(tag).trim();
-                            return;
-                        }
-                        ops.push({ m: m, e: String(equip || '').trim(), tag: String(tag || '').trim() });
-                    };
-                    let desc = '';
-                    dados.itens.forEach(function (it) {
-                        if (!it) return;
-                        if (!desc && it.DESC_PECA) desc = String(it.DESC_PECA).trim();
-                        juntar(it.MASCARA, it.DESC_TOPO || it.TOPO, it.TAG);
-                        /* A mesma peça pode aparecer por caminhos diferentes. */
-                        (Array.isArray(it.CAMINHOS) ? it.CAMINHOS : []).forEach(function (c) {
-                            if (c) juntar(c.MASCARA, c.DESC_TOPO || c.TOPO, c.TAG);
-                        });
-                    });
-                    return { d: desc, m: ops.length === 1 ? ops[0].m : '', ops: ops };
-                }
-                if (dados.tipoBusca === 'conjunto') {
-                    return { d: String(dados.descConjunto || '').trim(), m: '' };
-                }
-                return null;
-            } catch (e) { return { falhou: true }; }
-        }
-
-        /** Planilha do Localizador: dá a descrição do que foi carregado no pedido. */
-        async function retNoLocalizador(pedido, codigo) {
-            try {
-                const r = await fetchWithTimeout(APPS_SCRIPT_URL + '?query=' + encodeURIComponent(codigo),
-                                                 RET_BUSCA_MS);
-                const dados = await r.json();
-                if (!Array.isArray(dados)) return null;
-                const alvo = String(pedido).trim().toUpperCase();
-                const doPedido = dados.filter(function (x) {
-                    return String((x && x.PEDIDO) || '').trim().toUpperCase() === alvo;
-                });
-                if (doPedido.length) {
-                    return { d: String(doPedido[0]['DESC TECNICA'] || '').trim(), m: '' };
-                }
-                /* Existe, mas em outro pedido. Não preenche — foi o que
-                   você pediu — mas diz onde está, que é a informação útil. */
-                if (dados.length) {
-                    const outros = [];
-                    dados.forEach(function (x) {
-                        const p = String((x && x.PEDIDO) || '').trim();
-                        if (p && outros.indexOf(p) < 0) outros.push(p);
-                    });
-                    return { outroPedido: outros.slice(0, 3).join(', ') };
-                }
-                return null;
-            } catch (e) { return { falhou: true }; }
+                const resp = await fetchWithTimeout(url, RET_BUSCA_MS);
+                const d = await resp.json();
+                if (!d || d.ok !== true) return { falhou: true };
+                if (!d.achou) return { outroPedido: (d.outrosPedidos || []).join(', ') };
+                const ops = (d.opcoes || []).map(function (o) {
+                    return { m: String(o.mascara || '').trim(), d: String(o.descricao || '').trim() };
+                }).filter(function (o) { return o.m; });
+                return {
+                    d: String(d.descricao || '').trim(),
+                    m: String(d.mascara || '').trim(),
+                    ops: ops
+                };
+            } catch (e) {
+                return { falhou: true };
+            }
         }
 
         async function retBuscarItem(pedido, codigo) {
@@ -7609,24 +7567,14 @@
             }
             if (navigator.onLine === false) return { semInternet: true };
 
-            const [sep, loc] = await Promise.all([
-                retNoSeparador(pedido, codigo),
-                retNoLocalizador(pedido, codigo)
-            ]);
-            const achado = {
-                d: (loc && loc.d) || (sep && sep.d) || '',
-                m: (sep && sep.m) || '',
-                ops: (sep && sep.ops) || []
-            };
+            const r = await retNosItens(pedido, codigo);
+            if (r.falhou) return { falhou: true };
+            if (r.outroPedido) return { outroPedido: r.outroPedido };
+            const achado = { d: r.d || '', m: r.m || '', ops: r.ops || [] };
             if (achado.d || achado.m || achado.ops.length) {
                 retCatPor(pedido, codigo, achado);
                 return achado;
             }
-            if (loc && loc.outroPedido) return { outroPedido: loc.outroPedido };
-            /* Nenhuma das duas respondeu: é falha de rede, não "não existe".
-               Dizer "não achei" aqui mandaria o supervisor conferir um código
-               que está certo. */
-            if ((!sep || sep.falhou) && (!loc || loc.falhou)) return { falhou: true };
             return {};
         }
 
@@ -7698,15 +7646,22 @@
             const ops = Array.isArray(r.ops) ? r.ops : [];
             if (ops.length > 1 && !cMasc.value.trim()) {
                 retAbrirEscolha(linha, codigo, ops);
-                retAviso(codigo + ' entra em ' + ops.length + ' equipamentos do pedido '
-                       + pedido + '. Escolha a máscara na linha abaixo.', false);
+                retAviso(codigo + ' tem ' + ops.length + ' máscaras no pedido '
+                       + pedido + '. Escolha na linha abaixo.', false);
                 return;
             }
 
-            retAviso(mudou
-                ? (r.deCache ? 'Preenchido do que já estava neste aparelho. Confira e ajuste se precisar.'
-                             : 'Descrição e máscara vieram do pedido ' + pedido + '. Confira e ajuste se precisar.')
-                : '', false);
+            if (!mudou) { retAviso(''); return; }
+            if (r.deCache) {
+                retAviso('Preenchido do que já estava neste aparelho. Confira e ajuste se precisar.', false);
+                return;
+            }
+            if (!cMasc.value.trim()) {
+                retAviso('Peguei a descrição, mas o ' + codigo + ' está sem máscara na planilha '
+                       + '(pedido ' + pedido + '). Digite a máscara à mão.', true);
+                return;
+            }
+            retAviso('Descrição e máscara vieram do pedido ' + pedido + '. Confira e ajuste se precisar.', false);
         }
 
         function retPiscar(linha) {
@@ -7736,8 +7691,8 @@
 
             const titulo = document.createElement('div');
             titulo.className = 'ret-escolha-titulo';
-            titulo.textContent = codigo + ' entra em ' + ops.length
-                               + ' equipamentos deste pedido. Em qual esta peça estava?';
+            titulo.textContent = codigo + ' aparece com ' + ops.length
+                               + ' máscaras neste pedido. Qual é a desta peça?';
             td.appendChild(titulo);
 
             ops.forEach(function (o) {
@@ -7747,9 +7702,9 @@
                 const m = document.createElement('strong');
                 m.textContent = 'Máscara ' + o.m;
                 bt.appendChild(m);
-                if (o.e) {
+                if (o.e || o.d) {
                     const e = document.createElement('span');
-                    e.textContent = o.e;
+                    e.textContent = o.e || o.d;
                     bt.appendChild(e);
                 }
                 if (o.tag) {
@@ -7762,6 +7717,9 @@
                     if (cMasc) cMasc.value = o.m;
                     retFecharEscolha(linha);
                     retPiscar(linha);
+                    if (o.d && !linha.querySelector('.ret-descricao').value.trim()) {
+                        linha.querySelector('.ret-descricao').value = o.d;
+                    }
                     retAviso('Máscara ' + o.m + (o.e ? ' — ' + o.e : '') + '. Confira e ajuste se precisar.', false);
                 };
                 td.appendChild(bt);
