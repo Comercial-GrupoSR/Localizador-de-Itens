@@ -559,6 +559,24 @@
             margin-top: 8px; text-align: center;
         }
         .desenho-aviso.erro { color: #f87171; }
+        /* Botão pequeno de desenho, no cartão do Separador. Mesma cor e
+           mesmo ícone do botão do Localizador, na versão compacta: ele
+           divide a linha com o código da peça. */
+        .sep-cod-linha {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px;
+        }
+        .sep-dsn-bt {
+            flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+            background: #1a5c33; color: #fff;
+            border: 1px solid #2b7d4a; border-radius: 7px;
+            padding: 4px 9px; font-size: 11px; font-weight: 700;
+            cursor: pointer; line-height: 1.2;
+        }
+        .sep-dsn-bt:hover { background: #22713f; }
+        .sep-dsn-bt:disabled { opacity: .65; cursor: wait; }
+        .sep-dsn-bt svg { width: 13px; height: 13px; flex: 0 0 auto; }
+        .sep-dsn-bt .spinner { margin: 0; }
         .prog-card {
             margin-top: 16px;
             background: #2e2e2e;
@@ -2170,7 +2188,7 @@
         </div>
 
         <div id="sepResultsBlock" class="bg-[#242424] p-6 rounded-xl shadow-xl border border-[#333] mb-4 hidden">
-            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Onde esta peça entra</h2>
+            <h2 class="text-base font-semibold mb-4 text-gray-200 border-b border-[#3d3d3d] pb-2">Conjunto ao qual pertence o item</h2>
             <div id="sepResults"></div>
         </div>
 
@@ -2244,6 +2262,34 @@
         ['QTDE_CARGA',    'QTDE'],
         ['CARREGAMENTO',  'NÚMERO DO CARREGAMENTO']
     ];
+
+    /* O mesmo desenho de prancha do botão do Localizador, em 14px. */
+    const SEP_ICONE_DESENHO =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<rect x="2.5" y="4" width="19" height="16" rx="1.5"/>'
+        + '<path d="M13.5 20v-4h8"/>'
+        + '<rect x="5.5" y="7.5" width="6.5" height="5"/>'
+        + '<path d="M5.5 15h6.5"/></svg>';
+
+    /**
+     * Abre o desenho do código do cartão. Usa exatamente o mesmo caminho
+     * do botão do Localizador — mesma pasta do Drive, mesmo índice, e o
+     * mesmo desenho já guardado no aparelho se ele tiver sido aberto
+     * antes. Só o botão é menor.
+     */
+    function sepAbrirDesenho(codigo, n) {
+        const botao = document.getElementById('sepDsnBt-' + n);
+        const aviso = document.getElementById('sepDsnAviso-' + n);
+        const avisar = function (texto, erro) {
+            if (!aviso) return;
+            aviso.textContent = texto || '';
+            aviso.classList.toggle('hidden', !texto);
+            aviso.classList.toggle('erro', !!erro);
+        };
+        desenhoAbrir(codigo, botao, avisar,
+            '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-3 w-3 rounded-full"></div>');
+    }
 
     let sepPedido = null;
     let sepAba = 'bipar';
@@ -2631,8 +2677,25 @@
                 const vazio = (valor === '' || valor === null || valor === undefined);
                 if (vazio && par[2]) return;
                 corpo += '<div class="flex flex-col mb-1">'
-                       + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>'
-                       + '<span class="text-sm text-white font-medium break-words">'
+                       + '<span class="text-xs font-medium uppercase text-gray-400">' + par[1] + ':</span>';
+                /* O código da peça ganha, ao lado, o botão de abrir o
+                   desenho — o mesmo do Localizador, na versão pequena.
+                   Fica aqui e não no fim do cartão porque é o código que
+                   abre o desenho: o botão tem de estar junto dele. */
+                if (par[0] === 'COD_PECA' && !vazio) {
+                    const cod = sepEsc(String(valor).trim().toUpperCase());
+                    corpo += '<div class="sep-cod-linha">'
+                           + '<span class="text-sm text-white font-medium break-words">' + cod + '</span>'
+                           + '<button type="button" class="sep-dsn-bt" id="sepDsnBt-' + n + '"'
+                           + ' onclick="sepAbrirDesenho(\'' + cod + '\', ' + n + ')"'
+                           + ' title="Abrir o desenho deste código">'
+                           + SEP_ICONE_DESENHO + 'Desenho</button>'
+                           + '</div>'
+                           + '<p class="desenho-aviso hidden" id="sepDsnAviso-' + n + '"></p>'
+                           + '</div>';
+                    return;
+                }
+                corpo += '<span class="text-sm text-white font-medium break-words">'
                        + sepEsc(vazio ? '—' : valor)
                        + '</span></div>';
             });
@@ -5052,15 +5115,30 @@
         }
 
         async function abrirDesenho() {
-            if (desenhoBuscando) return;
-            const botao = document.getElementById('desenhoBotao');
             const codigo = (codeInput.value || '').trim().toUpperCase();
-            if (!codigo) return;
+            return desenhoAbrir(codigo, document.getElementById('desenhoBotao'), desenhoAvisar,
+                '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Abrindo o desenho...');
+        }
+
+        /**
+         * Busca e abre o desenho de um código. O mesmo caminho serve o
+         * botão do Localizador e o botão pequeno do Separador — os dois
+         * procuram na MESMA pasta do Drive, pelo mesmo índice.
+         *
+         * @param {string} codigo    o código da peça
+         * @param {Element} botao    o botão que foi tocado (fica girando)
+         * @param {Function} avisar  (texto, ehErro) — onde escrever o recado
+         * @param {string} ocupado   o que mostrar dentro do botão enquanto busca
+         */
+        async function desenhoAbrir(codigo, botao, avisar, ocupado) {
+            if (desenhoBuscando) return;
+            if (!codigo || !botao) return;
+            const desenhoAvisar = avisar || function () {};
 
             desenhoBuscando = true;
             const htmlBotao = botao.innerHTML;
             botao.disabled = true;
-            botao.innerHTML = '<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Abrindo o desenho...';
+            botao.innerHTML = ocupado || 'Abrindo...';
             desenhoAvisar('');
 
             try {
@@ -6299,7 +6377,7 @@
                 return;
             }
             let h = '<p class="cfg-detalhe" style="margin:0 0 10px">'
-                  + 'Toque em uma pessoa para escolher em quais pedidos ela está trabalhando.</p>';
+                  + 'Selecione o supervisor para definir o pedido.</p>';
             lista.forEach(function (u, i) {
                 const etiqueta = u.ativo ? '' : '<span class="adm-etiqueta off">DESATIVADO</span>';
                 const obras = (u.pedidos && u.pedidos.length)
@@ -6449,7 +6527,7 @@
             { pagina: 'documentos',  titulo: 'Documentos de Montagem',  descricao: 'Documentos gerais de montagem e links 3D' },
             { pagina: 'formularios', titulo: 'Formulários de Obra',     descricao: 'Inconformidades, Retorno de Obra, Checklists e Melhorias' },
             { pagina: 'cronograma',  titulo: 'Cronograma de Obra',      descricao: 'Progresso e prazos de montagem por equipamento' },
-            { acao: 'abrirAdmin',    titulo: 'Administração',          descricao: 'Liberar pedidos para cada supervisor',
+            { acao: 'abrirAdmin',    titulo: 'Administração',          descricao: 'Autorizar acesso do supervisor ao pedido',
               somenteAdmin: true }
         ];
         let menuRecolhido = true;   // o app abre com o andamento à vista
