@@ -9160,32 +9160,40 @@
 
                 let y = SEP_TIMBRE_TOPO_H + 8;
 
-                // ── Faixa do título, como na folha de papel ──
-                doc.setDrawColor(120); doc.setLineWidth(0.25);
-                doc.rect(mg, y, util, 8);
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5);
+                // ── Faixa do título ──
+                doc.setFillColor(238, 244, 240);
+                doc.setDrawColor(verde[0], verde[1], verde[2]); doc.setLineWidth(0.3);
+                doc.rect(mg, y, util, 9, 'FD');
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
                 doc.setTextColor(verde[0], verde[1], verde[2]);
-                doc.text(titulo, larg / 2, y + 5.6, { align: 'center' });
-                y += 8;
+                doc.text(titulo, larg / 2, y + 6.1, { align: 'center' });
+                y += 9;
 
                 /* ── Identificação ──
                    Reproduz o quadro do formulário de papel: rótulo à
                    direita na célula estreita, valor na larga. Uma
                    correção de português no caminho — o papel traz
                    "Resonsável", sem o p. */
-                const linhaAlt = 7.5;
+                const linhaAlt = 8;
                 const celula = function (x, w, rotulo, valor, alinhaRotulo) {
-                    doc.setDrawColor(120); doc.setLineWidth(0.25);
-                    doc.rect(x, y, w, linhaAlt);
-                    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-                    doc.setTextColor(90);
+                    doc.setDrawColor(200); doc.setLineWidth(0.2);
                     if (rotulo) {
-                        doc.text(rotulo, alinhaRotulo === 'dir' ? x + w - 1.5 : x + 1.5, y + 5,
+                        // A célula do rótulo ganha um fundo levemente
+                        // acinzentado, para o olho separar rótulo de valor
+                        // sem precisar de linha grossa.
+                        doc.setFillColor(247, 249, 247);
+                        doc.rect(x, y, w, linhaAlt, 'FD');
+                        doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+                        doc.setTextColor(verde[0], verde[1], verde[2]);
+                        doc.text(rotulo, alinhaRotulo === 'dir' ? x + w - 2 : x + 2, y + 5.3,
                                  { align: alinhaRotulo === 'dir' ? 'right' : 'left' });
+                        return;
                     }
+                    doc.rect(x, y, w, linhaAlt);
                     if (valor !== undefined) {
-                        doc.setFontSize(9.5); doc.setTextColor(30);
-                        doc.text(doc.splitTextToSize(String(valor || ''), w - 3)[0] || '', x + 2, y + 5.2);
+                        doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+                        doc.setTextColor(30);
+                        doc.text(doc.splitTextToSize(String(valor || ''), w - 4)[0] || '', x + 2.5, y + 5.4);
                     }
                 };
                 const lb = 30, lb2 = 40;
@@ -9201,7 +9209,14 @@
                 celula(mg + lb, util / 2 - lb, '', retVal('ret_pedido'));
                 celula(mg + util / 2, lb2, 'Data:', undefined, 'dir');
                 celula(mg + util / 2 + lb2, util / 2 - lb2, '', new Date().toLocaleDateString('pt-BR'));
-                y += linhaAlt + 4;
+                y += linhaAlt;
+                const agora = new Date();
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+                doc.setTextColor(150);
+                doc.text('Emitido em ' + agora.toLocaleDateString('pt-BR') + ' '
+                       + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                         larg - mg, y + 4, { align: 'right' });
+                y += 7;
 
                 // ── Tabela de itens, no estilo do relatório do separador ──
                 doc.autoTable({
@@ -9212,11 +9227,18 @@
                                     i.unidade || '', i.descricao || ''];
                           })
                         : [['', '', '', '', '']],
+                    foot: itens.length
+                        ? [['', '', '', '', itens.length + (itens.length === 1 ? ' item na lista' : ' itens na lista')]]
+                        : undefined,
                     startY: y,
-                    margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 26, left: mg, right: mg },
-                    styles: { fontSize: 8, cellPadding: 1.8, textColor: 40, lineColor: 190, lineWidth: 0.1 },
-                    headStyles: { fillColor: verde, textColor: 255, fontStyle: 'bold', halign: 'center' },
-                    alternateRowStyles: { fillColor: [246, 248, 245] },
+                    margin: { top: SEP_TIMBRE_TOPO_H + 8, bottom: SEP_TIMBRE_ROD_H + 30, left: mg, right: mg },
+                    styles: { fontSize: 8.5, cellPadding: { top: 2.6, bottom: 2.6, left: 2.4, right: 2.4 },
+                              textColor: 45, lineColor: 214, lineWidth: 0.1, valign: 'middle' },
+                    headStyles: { fillColor: verde, textColor: 255, fontStyle: 'bold',
+                                  halign: 'center', fontSize: 8, cellPadding: 2.4 },
+                    footStyles: { fillColor: [238, 244, 240], textColor: verde, fontStyle: 'bold',
+                                  fontSize: 8, halign: 'right', cellPadding: 2.2 },
+                    alternateRowStyles: { fillColor: [248, 250, 248] },
                     /* Um item não pode ficar partido entre duas folhas —
                        o código numa e o fim da descrição na outra. Não
                        cabendo inteiro, a linha desce para a folha seguinte. */
@@ -9239,11 +9261,15 @@
                 });
 
                 // ── Assinatura ──
-                let fy = doc.lastAutoTable.finalY + 14;
-                const precisa = 24;                         // risco + linha + rótulo
-                if (fy + precisa > alt - SEP_TIMBRE_ROD_H - 8) {
+                /* A assinatura fica no PÉ da folha, sempre na mesma
+                   altura — é onde ela está no formulário de papel, e é o
+                   que evita o bloco flutuando no meio de uma folha quase
+                   vazia quando a lista é curta. */
+                const fyPadrao = alt - SEP_TIMBRE_ROD_H - 20;
+                let fy = fyPadrao;
+                if (doc.lastAutoTable.finalY + 22 > fyPadrao) {
                     doc.addPage(); timbrar();
-                    fy = SEP_TIMBRE_TOPO_H + 20;
+                    fy = fyPadrao;
                 }
                 const meio = larg / 2;
                 if (assinatura) {
