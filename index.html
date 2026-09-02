@@ -4034,7 +4034,8 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
                     <div>
                         <label for="ret_pedido" class="block text-sm font-medium text-gray-400 mb-0.5">Número Pedido <span class="text-red-500">*</span></label>
-                        <input type="text" id="ret_pedido" required placeholder="Digite um número">
+                        <input type="text" id="ret_pedido" required placeholder="Digite um número"
+                               onchange="retDadosDoPedido()">
                     </div>
                     <div>
                         <label for="ret_cliente" class="block text-sm font-medium text-gray-400 mb-0.5">Nome Cliente <span class="text-red-500">*</span></label>
@@ -7377,6 +7378,7 @@
             }
             if (tipo === 'retorno') {
                 populateSupervisorSelect('ret_responsavel');
+                retPorResponsavel();
                 /* Cada retorno é um documento novo — o mesmo pedido pode ter
                    vários. O carimbo do momento em que a tela abriu é o que
                    distingue um do outro, e é ele que faz o papel da TAG dos
@@ -10275,7 +10277,12 @@
                                         + 'O que está na tela ainda não foi — toque em ' + f.verbo + ' de novo.';
                     } else if (r.ok) {
                         msg.textContent = ehRetorno
-                            ? 'E-mail enviado para ' + r.pasta + '. Escolha por onde compartilhar.'
+                            ? (r.repetido
+                                ? 'Este retorno já tinha sido enviado para ' + r.pasta
+                                  + ' — não mandei de novo. Escolha por onde compartilhar.'
+                                : 'E-mail enviado para ' + r.pasta
+                                  + (r.versao > 1 ? ' como VERSÃO ' + r.versao + ' (corrigida)' : '')
+                                  + '. Escolha por onde compartilhar.')
                             : (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
                               + ' Pasta ' + r.pasta + ' · ' + r.nome;
                     } else {
@@ -10509,11 +10516,167 @@
          * o mesmo formato que o envio dos checklists, para a fila e a
          * lista tratarem os dois do mesmo jeito.
          */
+        /* =============================================================
+           O pedido preenche cliente, localidade e responsável
+
+           Cliente e localidade vêm da planilha de controle do Comercial
+           (colunas J, K e L), pela rota ?mode=dadosPedido do Apps Script.
+           O responsável é o NOME de quem está logado — não o login.
+
+           Só preenche campo vazio ou campo que o próprio app preencheu
+           antes (marcado com data-auto). O que o supervisor digitou não
+           se perde nem quando ele troca o número do pedido.
+        ============================================================= */
+        const RET_PED_CHAVE = 'obraflow_retorno_pedidos';
+
+        function retPedCache() {
+            try { return JSON.parse(localStorage.getItem(RET_PED_CHAVE) || '{}') || {}; }
+            catch (e) { return {}; }
+        }
+        function retPedGuardar(pedido, dados) {
+            try {
+                const c = retPedCache();
+                c[pedido] = dados;
+                const chaves = Object.keys(c);
+                while (chaves.length > 60) delete c[chaves.shift()];
+                localStorage.setItem(RET_PED_CHAVE, JSON.stringify(c));
+            } catch (e) { /* sem espaço: segue sem guardar */ }
+        }
+
+        /** Responsável pelo envio = o nome de quem entrou no app. */
+        function retPorResponsavel() {
+            const campo = document.getElementById('ret_responsavel');
+            const nome = String((usuarioAtual && usuarioAtual.nome) || '').trim();
+            if (!campo || !nome) return;
+            if (campo.value && campo.dataset.auto !== '1') return;   /* escolha da pessoa manda */
+            /* Quem entra no app e não está na lista de supervisores (o
+               Fernando, o Marcos) mesmo assim assina o que enviou. */
+            const tem = Array.prototype.some.call(campo.options, function (o) { return o.value === nome; });
+            if (!tem) {
+                const extra = document.createElement('option');
+                extra.value = nome; extra.textContent = nome;
+                campo.appendChild(extra);
+            }
+            campo.value = nome;
+            campo.dataset.auto = '1';
+            if (typeof selSincronizar === 'function') selSincronizar(campo);
+        }
+
+        function retPorSeVazio(campo, valor) {
+            if (!campo || !valor) return false;
+            const atual = String(campo.value || '').trim();
+            if (atual && campo.dataset.auto !== '1') return false;   /* digitado à mão: não mexe */
+            if (atual === valor) { campo.dataset.auto = '1'; return false; }
+            campo.value = valor;
+            campo.dataset.auto = '1';
+            return true;
+        }
+
+        /** Chamado quando a pessoa sai do campo Número Pedido. */
+        async function retDadosDoPedido() {
+            const campo = document.getElementById('ret_pedido');
+            if (!campo) return;
+            const pedido = String(campo.value || '').trim().toUpperCase();
+            if (campo.value !== pedido) campo.value = pedido;
+            retPorResponsavel();
+            if (!pedido) return;
+
+            const cCliente = document.getElementById('ret_cliente');
+            const cLocal = document.getElementById('ret_localidade');
+            const guardado = retPedCache()[pedido];
+            if (guardado) {
+                const a = retPorSeVazio(cCliente, guardado.cliente);
+                const b = retPorSeVazio(cLocal, guardado.localidade);
+                if (a || b) retAviso('Cliente e localidade do pedido ' + pedido
+                                   + ' (guardados neste aparelho). Confira e ajuste se precisar.', false);
+                return;
+            }
+            if (navigator.onLine === false) return;
+
+            try {
+                const url = APPS_SCRIPT_URL + '?mode=dadosPedido&pedido=' + encodeURIComponent(pedido);
+                const resp = await fetchWithTimeout(url, RET_BUSCA_MS);
+                const d = await resp.json();
+                if (String(campo.value || '').trim().toUpperCase() !== pedido) return;  /* já mudou */
+                if (!d || d.ok !== true) return;
+                if (!d.achou) {
+                    retAviso('O pedido ' + pedido + ' não está na planilha do Comercial. '
+                           + 'Preencha cliente e localidade à mão.', false);
+                    return;
+                }
+                retPedGuardar(pedido, { cliente: d.cliente || '', localidade: d.localidade || '' });
+                const a = retPorSeVazio(cCliente, d.cliente);
+                const b = retPorSeVazio(cLocal, d.localidade);
+                if (a || b) retAviso('Cliente e localidade vieram do pedido ' + pedido
+                                   + '. Confira e ajuste se precisar.', false);
+            } catch (e) {
+                /* Sem rede ou servidor fora: os campos ficam livres, e o
+                   supervisor nem precisa saber que houve uma tentativa. */
+            }
+        }
+
+        /**
+         * A identidade de UM envio: o carimbo da ficha mais uma impressão
+         * digital do CONTEÚDO — os campos, os itens e a assinatura.
+         *
+         * Por que o conteúdo e não a hora: o mesmo documento mandado de
+         * novo (a fila tentando outra vez, ou o supervisor apertando
+         * Compartilhar duas vezes porque a primeira pareceu falhar) tem de
+         * dar a MESMA chave, e o servidor recusa mandar em duplicata. Se
+         * fosse a hora da alteração, cada toque no botão viraria um
+         * documento novo na caixa do Comercial.
+         *
+         * Mexeu em qualquer coisa — um item, a localidade, a assinatura —
+         * a impressão digital muda e o e-mail sai de novo, que é o certo.
+         */
+        function retImpressao(texto) {
+            /* FNV-1a de 32 bits: curto, rápido e suficiente para separar
+               uma versão da outra dentro da mesma ficha. */
+            let h = 0x811c9dc5;
+            for (let i = 0; i < texto.length; i++) {
+                h ^= texto.charCodeAt(i);
+                h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+            }
+            return h.toString(36);
+        }
+        function retChaveDoEnvio(ficha) {
+            let conteudo = '';
+            try {
+                conteudo = JSON.stringify({
+                    campos: ficha.campos || {},
+                    itens: (ficha.extras && ficha.extras.itens) || [],
+                    assinaturas: ficha.assinaturas || {}
+                });
+            } catch (e) {
+                conteudo = String(ficha.alteradoEm || '');
+            }
+            return String(ficha.tag || ficha.id || '') + '#' + retImpressao(conteudo);
+        }
+
+        /** Pergunta ao servidor se aquele envio está registrado. */
+        async function retConferirEnvio(carimbo) {
+            if (!carimbo) return null;
+            try {
+                const url = APPS_SCRIPT_URL + '?mode=retornoEnviado'
+                          + '&token=' + encodeURIComponent((usuarioAtual && usuarioAtual.token) || '')
+                          + '&carimbo=' + encodeURIComponent(carimbo);
+                const resp = await fetchWithTimeout(url, 15000);
+                const d = await resp.json();
+                if (!d || d.ok !== true) return { respondeu: false };
+                return { respondeu: true, enviado: !!d.enviado,
+                         para: d.para || '', nome: d.nome || '', enviadoEm: d.enviadoEm || '' };
+            } catch (e) {
+                return { respondeu: false };
+            }
+        }
+
         async function retEnviarPorEmail(ficha, bytes) {
             try {
+                const carimbo = retChaveDoEnvio(ficha);
                 const corpo = JSON.stringify({
                     acao: 'retorno',
                     token: (usuarioAtual && usuarioAtual.token) || '',
+                    carimbo: carimbo,
                     pedido: ficha.pedido, cliente: ficha.cliente,
                     localidade: (ficha.campos && ficha.campos.ret_localidade) || '',
                     tipoItem: ficha.modelo || '',
@@ -10527,9 +10690,25 @@
                 try {
                     r = JSON.parse(texto);
                 } catch (e) {
-                    throw new Error('o servidor respondeu de um jeito inesperado'
-                        + (resp.status ? ' (código ' + resp.status + ')' : '')
-                        + '. Peça para publicar uma nova versão do script.');
+                    /* A resposta se perdeu. Isso NÃO quer dizer que o e-mail
+                       não saiu: o Apps Script responde por redirecionamento e
+                       ele falha de vez em quando — foi o "código 404" que
+                       apareceu na obra com o e-mail já entregue.
+
+                       Em vez de chutar, pergunta ao servidor se aquele
+                       carimbo já foi registrado. */
+                    const conferido = await retConferirEnvio(carimbo);
+                    if (conferido && conferido.enviado) {
+                        r = { ok: true, para: conferido.para, nome: conferido.nome,
+                              enviadoEm: conferido.enviadoEm };
+                    } else if (conferido && conferido.respondeu) {
+                        throw new Error('o servidor não confirmou o envio. O retorno continua '
+                            + 'guardado e o app tenta de novo.');
+                    } else {
+                        throw new Error('não consegui confirmar se o e-mail saiu'
+                            + (resp.status ? ' (código ' + resp.status + ')' : '')
+                            + '. O retorno continua guardado e o app tenta de novo.');
+                    }
                 }
                 if (r && r.ok) {
                     const g = await fchGuardarResultado(ficha, {
@@ -10537,11 +10716,13 @@
                         enviadoEm: r.enviadoEm || '',
                         para: r.para || '',
                         arquivoNome: r.nome || '',
+                        versao: r.versao || 1,
                         erro: ''
                     });
                     return {
                         ok: true, substituiu: false,
                         pasta: r.para || '', nome: r.nome || '',
+                        versao: r.versao || 1, repetido: !!r.repetido,
                         aindaPendente: g.mudouNoMeio
                     };
                 }
