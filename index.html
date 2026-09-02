@@ -603,6 +603,71 @@
         @media (prefers-reduced-motion: reduce) {
             .prog-btn.girando svg { animation: none; }
         }
+        /* ---- Atalho e lista de checklists enviados/pendentes ------ */
+        .fch-atalho {
+            width: 100%; display: flex; align-items: center; gap: 10px;
+            background: #1f1f1f; border: 1px solid #3d3d3d; border-radius: 10px;
+            padding: 11px 13px; margin-bottom: 14px; cursor: pointer;
+            color: #d1d5db; font-size: 14px; font-weight: 600; text-align: left;
+        }
+        .fch-atalho:hover { border-color: #4ade80; background: #262626; }
+        .fch-atalho svg { width: 17px; height: 17px; flex: 0 0 auto; color: #9ca3af; }
+        .fch-conta {
+            flex: 0 0 auto; background: #b45309; color: #fff;
+            font-size: 11px; font-weight: 700; border-radius: 999px;
+            padding: 2px 8px; min-width: 20px; text-align: center;
+        }
+        #fichasRoot .fch-topo {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 12px; flex-wrap: wrap;
+        }
+        #fichasRoot .fch-btn {
+            background: #0c4a31; color: #eafff4; border: 1px solid #14663f;
+            border-radius: 8px; padding: 8px 14px; font-size: 12.5px;
+            font-weight: 700; cursor: pointer;
+        }
+        #fichasRoot .fch-btn:hover { background: #10603f; }
+        #fichasRoot .fch-btn:disabled { opacity: .5; cursor: default; }
+        #fichasRoot .fch-secao {
+            font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: #6b7280;
+            margin: 16px 0 8px; display: flex; align-items: center; gap: 8px;
+        }
+        #fichasRoot .fch-secao::after { content: ''; flex: 1; height: 1px; background: #333; }
+        #fichasRoot .fch-secao:first-child { margin-top: 0; }
+        #fichasRoot .fch-linha {
+            background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
+            padding: 11px 13px; margin-bottom: 8px;
+        }
+        #fichasRoot .fch-linha.pendente { border-left: 3px solid #f59e0b; }
+        #fichasRoot .fch-linha.enviada { border-left: 3px solid #4ade80; }
+        #fichasRoot .fch-linha.remota { border-left: 3px solid #4b5563; opacity: .82; }
+        #fichasRoot .fch-cab { display: flex; align-items: baseline; gap: 8px; }
+        #fichasRoot .fch-chave {
+            flex: 0 0 auto; font-size: 13.5px; font-weight: 700; color: #fff;
+        }
+        #fichasRoot .fch-equip {
+            flex: 1; min-width: 0; font-size: 11.5px; color: #9ca3af;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #fichasRoot .fch-pe { margin-top: 6px; font-size: 11px; color: #6b7280; line-height: 1.5; }
+        #fichasRoot .fch-pe b { color: #9ca3af; font-weight: 600; }
+        #fichasRoot .fch-erro { color: #f87171; }
+        #fichasRoot .fch-acoes { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+        #fichasRoot .fch-acao {
+            background: #2e2e2e; color: #d1d5db; border: 1px solid #4a4a4a;
+            border-radius: 7px; padding: 6px 11px; font-size: 11.5px;
+            font-weight: 600; cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center;
+        }
+        #fichasRoot .fch-acao:hover { background: #3a3a3a; color: #fff; }
+        #fichasRoot .fch-acao.perigo { border-color: #7f1d1d; color: #fca5a5; }
+        #fichasRoot .fch-acao.perigo:hover { background: #3a1f1f; }
+        #fichasRoot .fch-vazio {
+            font-size: 12px; color: #6b7280; font-style: italic; padding: 6px 0;
+        }
+        #fichasRoot .fch-aviso { font-size: 11.5px; color: #9ca3af; padding: 8px 0 0; line-height: 1.5; }
+        #fichasRoot .fch-aviso.erro { color: #f87171; }
         .prog-linha {
             display: block; width: 100%; text-align: left; cursor: pointer;
             background: #1f1f1f; border: 1px solid #333; border-radius: 10px;
@@ -862,7 +927,9 @@
         #checklistElevadorRoot .footnotes p { margin: 0 0 4px; }
         #checklistElevadorRoot .action-bar {
             position: sticky; bottom: 0;
-            display: flex; gap: 10px; align-items: center;
+            /* Quatro botões não cabem lado a lado num celular: eles
+               quebram em duas linhas de dois. */
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
             padding: 14px 0 4px;
             background: linear-gradient(to top, var(--chk-card) 72%, transparent);
         }
@@ -884,6 +951,38 @@
             border: 1px solid var(--chk-border-2); flex: 0 0 auto;
         }
         #checklistElevadorRoot #btnReset:hover { background: #454545; }
+        /* ---- Salvar e Enviar, iguais nos dois checklists ---------- */
+        #checklistElevadorRoot .bt-enviar, #montagemRoot .bt-enviar {
+            background: #0c4a31; color: #eafff4; flex: 1 1 46%;
+            border: 1px solid #14663f;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        }
+        #checklistElevadorRoot .bt-enviar:hover, #montagemRoot .bt-enviar:hover { background: #10603f; }
+        #checklistElevadorRoot .bt-salvar, #montagemRoot .bt-salvar {
+            background: var(--chk-border); color: var(--chk-text);
+            border: 1px solid var(--chk-border-2); flex: 1 1 46%;
+        }
+        #checklistElevadorRoot .bt-salvar:hover, #montagemRoot .bt-salvar:hover { background: #454545; }
+        #checklistElevadorRoot #btnPdf, #montagemRoot #mtBtnPdf { flex: 1 1 46%; }
+        #checklistElevadorRoot #btnReset, #montagemRoot #mtBtnReset { flex: 1 1 46%; }
+        /* O botão de PDF da Montagem apontava para #btnPdf, que é o id do
+           formulário de Entrega — ficava sem cor nenhuma. */
+        #montagemRoot #mtBtnPdf {
+            background: var(--chk-green); color: #0a1f13;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        }
+        #montagemRoot #mtBtnPdf:hover { background: var(--chk-green-hover); }
+        #montagemRoot #mtBtnPdf:disabled { opacity: .6; cursor: wait; }
+        #montagemRoot #mtBtnReset {
+            background: var(--chk-border); color: var(--chk-text);
+            border: 1px solid var(--chk-border-2);
+        }
+        #montagemRoot #mtBtnReset:hover { background: #454545; }
+        #checklistElevadorRoot .bt-enviar:disabled, #montagemRoot .bt-enviar:disabled,
+        #checklistElevadorRoot .bt-salvar:disabled, #montagemRoot .bt-salvar:disabled {
+            opacity: .6; cursor: wait;
+        }
+
         #checklistElevadorRoot .status-msg {
             font-size: 12px; color: var(--chk-green);
             min-height: 18px; padding: 0 2px;
@@ -1393,7 +1492,7 @@
 }
 #montagemRoot .action-bar {
     position: sticky; bottom: 0;
-    display: flex; gap: 10px; align-items: center;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
     padding: 14px 0 4px;
     background: linear-gradient(to top, var(--chk-card) 72%, transparent);
 }
@@ -3903,6 +4002,14 @@
                 </button>
             </div>
             <div class="p-4">
+                <button type="button" class="fch-atalho" onclick="fchAbrirLista('entrega')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                    <span class="flex-1">Enviados e pendentes</span>
+                    <span class="fch-conta hidden" id="fchConta_entrega"></span>
+                </button>
                 <p class="text-sm text-gray-400 mb-3">Selecione o tipo de equipamento para abrir o checklist correspondente:</p>
                 <div class="flex flex-col gap-3">
                     <button type="button" class="form-card" onclick="selectEquipamentoChecklist('elevador')">
@@ -4128,6 +4235,8 @@
                     </div>
                 </form>
                 <div class="action-bar">
+                    <button id="btnEnviar" type="button" class="bt-enviar" onclick="fchEnviarDaTela('entrega')">Enviar</button>
+                    <button id="btnSalvar" type="button" class="bt-salvar" onclick="fchSalvar('entrega')">Salvar</button>
                     <button id="btnPdf" type="button">⬇ Gerar PDF</button>
                     <button id="btnReset" type="button">Limpar</button>
                 </div>
@@ -4154,6 +4263,14 @@
                 </button>
             </div>
             <div class="p-4">
+                <button type="button" class="fch-atalho" onclick="fchAbrirLista('montagem')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                    <span class="flex-1">Enviados e pendentes</span>
+                    <span class="fch-conta hidden" id="fchConta_montagem"></span>
+                </button>
                 <p class="text-sm text-gray-400 mb-3">Selecione o tipo de equipamento para abrir o checklist correspondente:</p>
                 <div class="flex flex-col gap-3">
                     <button type="button" class="form-card" onclick="selectEquipamentoMontagem('elevador')">
@@ -4329,11 +4446,31 @@
                     </div>
                 </form>
                 <div class="action-bar">
+                    <button id="mtBtnEnviar" type="button" class="bt-enviar" onclick="fchEnviarDaTela('montagem')">Enviar</button>
+                    <button id="mtBtnSalvar" type="button" class="bt-salvar" onclick="fchSalvar('montagem')">Salvar</button>
                     <button id="mtBtnPdf" type="button">⬇ Gerar PDF</button>
                     <button id="mtBtnReset" type="button">Limpar</button>
                 </div>
                 <div class="status-msg" id="mtStatusMsg"></div>
             </div>
+        </div>
+    </div>
+
+
+    <!-- Modal: Checklists enviados e pendentes -->
+    <div id="modal-fichas" class="fixed inset-0 z-[70] hidden items-center justify-center p-4" style="background-color: rgba(0,0,0,0.6);">
+        <div class="bg-[#2e2e2e] border border-[#3d3d3d] rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" id="fichasRoot">
+            <div class="flex items-center justify-between p-3 border-b border-[#3d3d3d] sticky top-0 bg-[#2e2e2e] z-10">
+                <h2 class="text-base font-semibold text-gray-200 flex items-center" id="fichasTitulo">
+                    Checklists enviados e pendentes
+                </h2>
+                <button type="button" onclick="fchFecharLista()" class="text-gray-400 hover:text-white transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4" id="fichasConteudo"></div>
         </div>
     </div>
 
@@ -5964,6 +6101,7 @@
             switchPage('inicio');   // a tela inicial passa a ser o menu
             fetchAllPedidos();
             admPrecarregar();       // administrador: a lista já chega pronta
+            fchPrepararFila();      // checklists que ficaram para trás
         }
 
         function initializeApp() {
@@ -5992,7 +6130,7 @@
            consulta direto, sem passar pelo app, seja qual for o
            perfil. Fechar isso de verdade é outra tarefa, anotada.
         ============================================================ */
-        const APP_VERSAO = 'v11';
+        const APP_VERSAO = 'v12';
 
         function ehAdmin() {
             return !!(usuarioAtual && usuarioAtual.admin);
@@ -7747,11 +7885,21 @@
                 chkUpdateProgress();
             }
         });
-        document.getElementById('btnPdf').addEventListener('click', chkGerarPDF);
-        async function chkGerarPDF(){
+        document.getElementById('btnPdf').addEventListener('click', function () { chkGerarPDF(); });
+        /**
+         * Gera o PDF do Checklist de Entrega.
+         * @param {object} [op]
+         * @param {boolean} [op.baixar=true] false = não baixa, só devolve os
+         *        bytes. É assim que o envio ao Drive usa a mesma função: o
+         *        arquivo que vai para a nuvem é exatamente o que sai aqui.
+         * @returns {Promise<Uint8Array|null>} os bytes do PDF, ou null se falhou.
+         */
+        async function chkGerarPDF(op){
+            const baixar = !op || op.baixar !== false;
             const btn = document.getElementById('btnPdf');
             const msg = document.getElementById('statusMsg');
-            btn.disabled = true; msg.textContent = 'Gerando PDF…';
+            btn.disabled = true;
+            if (baixar) msg.textContent = 'Gerando PDF…';
             try {
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
@@ -7984,6 +8132,7 @@
                 txt(chkVal('srEngenharia'),mg+240,y,{size:9}); hline(mg+240,y-4,mg+370); txt('Grupo SR',mg+240,y-13,{size:7,color:muted});
                 txt(chkVal('gestorMontagem'),mg+400,y,{size:9}); hline(mg+400,y-4,pageW-mg); txt('Gestor de Montagem',mg+400,y-13,{size:7,color:muted});
                 const bytes = await doc.save();
+                if (!baixar) return bytes;      // quem chamou vai mandar ao Drive
                 const blob = new Blob([bytes], {type:'application/pdf'});
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -8000,9 +8149,14 @@
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(()=>URL.revokeObjectURL(url), 5000);
                 msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
+                return bytes;
             } catch(err){
                 console.error(err);
+                // Quem está enviando precisa saber que falhou, e não ver um
+                // recado na tela enquanto recebe "deu tudo certo".
+                if (!baixar) throw err;
                 msg.textContent = 'Não foi possível gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido') + '. Tente novamente.';
+                return null;
             } finally {
                 btn.disabled = false;
             }
@@ -8493,12 +8647,19 @@
                 mtAtualizarProgresso();
             }
         });
-        document.getElementById('mtBtnPdf').addEventListener('click', mtGerarPDF);
+        document.getElementById('mtBtnPdf').addEventListener('click', function () { mtGerarPDF(); });
         function mtVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
-        async function mtGerarPDF() {
+        /**
+         * Gera o PDF do Checklist de Montagem.
+         * @param {object} [op] op.baixar = false devolve os bytes sem baixar,
+         *        que é como o envio ao Drive reaproveita esta mesma função.
+         */
+        async function mtGerarPDF(op) {
+            const baixar = !op || op.baixar !== false;
             const btn = document.getElementById('mtBtnPdf');
             const msg = document.getElementById('mtStatusMsg');
-            btn.disabled = true; msg.textContent = 'Gerando PDF…';
+            btn.disabled = true;
+            if (baixar) msg.textContent = 'Gerando PDF…';
             try {
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
@@ -8647,6 +8808,7 @@
                 hline(mg+240, y-4, mg+370); txt('Nome do supervisor', mg+240, y-13, {size:7, color:muted});
                 hline(mg+400, y-4, pageW-mg); txt('Assinatura do supervisor', mg+400, y-13, {size:7, color:muted});
                 const bytes = await doc.save();
+                if (!baixar) return bytes;      // quem chamou vai mandar ao Drive
                 const blob = new Blob([bytes], {type:'application/pdf'});
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -8658,12 +8820,732 @@
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 5000);
                 msg.textContent = 'PDF gerado e baixado com sucesso. Abra o arquivo para imprimir.';
+                return bytes;
             } catch (err) {
                 console.error(err);
+                if (!baixar) throw err;
                 msg.textContent = 'Não foi possível gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido') + '. Tente novamente.';
+                return null;
             } finally {
                 btn.disabled = false;
             }
+        }
+
+        /* ============================================================
+           CHECKLISTS: GUARDAR NO APARELHO, ENVIAR AO DRIVE
+
+           O checklist é preenchido no galpão, onde quase nunca há
+           sinal. Até agora ele só virava PDF na pasta de downloads do
+           celular e acabava ali. Agora existe um caminho:
+
+             preencher  →  Salvar (fica no aparelho)
+                        →  Enviar (vai ao Drive; sem internet, espera)
+                        →  a lista mostra o que foi e o que falta
+
+           O que fica guardado são as RESPOSTAS, não o PDF. É menor,
+           dá para reabrir e corrigir, e o PDF é gerado de novo na
+           hora do envio — sempre a partir do que está valendo.
+
+           A chave de cada ficha é FAMÍLIA + PEDIDO + TAG. É ela que
+           faz o reenvio TROCAR o arquivo no Drive em vez de empilhar
+           uma segunda via do mesmo equipamento.
+        ============================================================ */
+        const FCH_BANCO = 'obraflow_checklists';
+        const FCH_LOJA = 'fichas';
+        let fchBancoPronto = null;
+
+        function fchBanco() {
+            if (fchBancoPronto) return fchBancoPronto;
+            fchBancoPronto = new Promise(function (ok, erro) {
+                if (!window.indexedDB) return erro(new Error('sem IndexedDB'));
+                const p = indexedDB.open(FCH_BANCO, 1);
+                p.onupgradeneeded = function () {
+                    const db = p.result;
+                    if (!db.objectStoreNames.contains(FCH_LOJA)) {
+                        db.createObjectStore(FCH_LOJA, { keyPath: 'id' });
+                    }
+                };
+                p.onsuccess = function () { ok(p.result); };
+                p.onerror = function () { erro(p.error || new Error('falhou')); };
+            }).catch(function (e) { fchBancoPronto = null; throw e; });
+            return fchBancoPronto;
+        }
+
+        function fchGravar(ficha) {
+            return fchBanco().then(function (db) {
+                return new Promise(function (ok, erro) {
+                    const t = db.transaction(FCH_LOJA, 'readwrite');
+                    t.objectStore(FCH_LOJA).put(ficha);
+                    t.oncomplete = function () { ok(ficha); };
+                    t.onerror = function () { erro(t.error || new Error('falhou')); };
+                });
+            });
+        }
+        function fchLer(id) {
+            return fchBanco().then(function (db) {
+                return new Promise(function (ok) {
+                    const r = db.transaction(FCH_LOJA, 'readonly').objectStore(FCH_LOJA).get(id);
+                    r.onsuccess = function () { ok(r.result || null); };
+                    r.onerror = function () { ok(null); };
+                });
+            }).catch(function () { return null; });
+        }
+        function fchTodas() {
+            return fchBanco().then(function (db) {
+                return new Promise(function (ok) {
+                    const r = db.transaction(FCH_LOJA, 'readonly').objectStore(FCH_LOJA).getAll();
+                    r.onsuccess = function () { ok(r.result || []); };
+                    r.onerror = function () { ok([]); };
+                });
+            }).catch(function () { return []; });
+        }
+        /**
+         * Só as fichas de quem está logado agora.
+         *
+         * O celular pode ser passado de mão em mão. Sem este filtro, o
+         * Juarez entrando no aparelho do Jocélio veria os checklists
+         * dele — e pior, a fila mandaria o preenchimento do Jocélio ao
+         * Drive assinado com o cartão do Juarez.
+         */
+        async function fchMinhas() {
+            const todas = await fchTodas();
+            const eu = (usuarioAtual && usuarioAtual.usuario) || '';
+            return todas.filter(function (f) { return !f.usuario || f.usuario === eu; });
+        }
+        function fchApagar(id) {
+            return fchBanco().then(function (db) {
+                return new Promise(function (ok) {
+                    const t = db.transaction(FCH_LOJA, 'readwrite');
+                    t.objectStore(FCH_LOJA).delete(id);
+                    t.oncomplete = ok; t.onerror = ok;
+                });
+            }).catch(function () {});
+        }
+
+        /* ---- Qual formulário é qual -------------------------------- */
+        const FCH_FAMILIAS = {
+            entrega: {
+                rotulo: 'Entrega',
+                raiz: 'checklistElevadorRoot',
+                modal: 'modal-checklist-elevador',
+                msg: 'statusMsg',
+                campoPedido: 'pedido', campoTag: 'tag', campoCliente: 'cliente',
+                campoSupervisor: 'supervisorNome',
+                assinaturas: ['sigSupervisor', 'sigCliente'],
+                itens: /^[LR]-\d+$/,
+                abrir: function (tipo) { abrirChecklist(tipo); },
+                fechar: function () { closeChecklistElevador(); },
+                nomeDoTipo: function (tipo) { return (CHK_TIPOS[tipo] || {}).nome || tipo; },
+                modeloAtual: function () { return chkModelo(); },
+                tipoAtual: function () { return currentChecklistMode; },
+                gerarPDF: function () { return chkGerarPDF({ baixar: false }); },
+                recontar: function () { chkUpdateProgress(); }
+            },
+            montagem: {
+                rotulo: 'Montagem',
+                raiz: 'montagemRoot',
+                modal: 'modal-montagem',
+                msg: 'mtStatusMsg',
+                campoPedido: 'mt_pedido', campoTag: 'mt_tag', campoCliente: 'mt_cliente',
+                campoSupervisor: 'mt_supervisorNome',
+                assinaturas: ['mtSigSupervisor'],
+                itens: /^M[LR]-\d+$/,
+                abrir: function (tipo) { abrirMontagem(tipo); },
+                fechar: function () { closeMontagem(); },
+                nomeDoTipo: function (tipo) { return (CHK_MONTAGEM[tipo] || {}).nome || tipo; },
+                modeloAtual: function () { return mtModelo(); },
+                tipoAtual: function () { return mtModo; },
+                gerarPDF: function () { return mtGerarPDF({ baixar: false }); },
+                recontar: function () { mtAtualizarProgresso(); }
+            }
+        };
+
+        function fchChave(familia, pedido, tag) {
+            return familia + '|' + String(pedido || '').trim().toUpperCase()
+                           + '|' + String(tag || '').trim().toUpperCase();
+        }
+
+        /* ---- Ler e repor a tela inteira ---------------------------- */
+
+        /** Todos os campos com id dentro do formulário, exceto os itens. */
+        function fchCamposDaTela(f) {
+            const raiz = document.getElementById(f.raiz);
+            if (!raiz) return { campos: {}, respostas: {} };
+            const campos = {}, respostas = {};
+            raiz.querySelectorAll('input[id], select[id], textarea[id]').forEach(function (el) {
+                if (f.itens.test(el.id)) respostas[el.id] = el.value;
+                else campos[el.id] = el.value;
+            });
+            return { campos: campos, respostas: respostas };
+        }
+
+        /** O resumo que aparece na lista e vai para a planilha. */
+        function fchResumo(respostas) {
+            let total = 0, ok = 0, nc = 0, na = 0;
+            Object.keys(respostas).forEach(function (k) {
+                total++;
+                const v = respostas[k];
+                if (v === 'OK') ok++; else if (v === 'NC') nc++; else if (v === 'NA') na++;
+            });
+            return { total: total, ok: ok, nc: nc, na: na, preenchidos: ok + nc + na };
+        }
+
+        /** Monta a ficha a partir do que está na tela agora. */
+        function fchColeta(familia) {
+            const f = FCH_FAMILIAS[familia];
+            const dados = fchCamposDaTela(f);
+            const tipo = f.tipoAtual();
+            const assinaturas = {};
+            f.assinaturas.forEach(function (id) {
+                const url = chkGetSignatureDataUrl(id);
+                if (url) assinaturas[id] = url;
+            });
+            const pedido = String(dados.campos[f.campoPedido] || '').trim().toUpperCase();
+            const tag = String(dados.campos[f.campoTag] || '').trim().toUpperCase();
+            return {
+                id: fchChave(familia, pedido, tag),
+                familia: familia, tipo: tipo,
+                equipamento: f.nomeDoTipo(tipo),
+                pedido: pedido, tag: tag,
+                cliente: String(dados.campos[f.campoCliente] || '').trim(),
+                modelo: f.modeloAtual(),
+                supervisor: String(dados.campos[f.campoSupervisor] || '').trim(),
+                campos: dados.campos, respostas: dados.respostas,
+                assinaturas: assinaturas,
+                resumo: fchResumo(dados.respostas),
+                usuario: (usuarioAtual && usuarioAtual.usuario) || '',
+                alteradoEm: Date.now()
+            };
+        }
+
+        /** Repõe na tela uma ficha guardada. */
+        async function fchAbrirFicha(id, silencioso) {
+            const ficha = await fchLer(id);
+            if (!ficha) { alert('Este checklist não está mais guardado neste aparelho.'); return; }
+            const f = FCH_FAMILIAS[ficha.familia];
+            if (!f) return;
+            // silencioso = quem chamou foi a fila de envio, com a tela
+            // escondida. Aí a lista não pode ser fechada na cara de quem
+            // está olhando para ela.
+            if (!silencioso) fchFecharLista();
+            f.abrir(ficha.tipo);
+
+            // Os campos comuns primeiro. O modelo entra aqui, e é ele que
+            // decide a lista de itens da fita de montagem — por isso as
+            // respostas só são repostas depois de o modelo estar no lugar.
+            Object.keys(ficha.campos || {}).forEach(function (idCampo) {
+                const el = document.getElementById(idCampo);
+                if (!el) return;
+                el.value = ficha.campos[idCampo];
+                if (el.tagName === 'SELECT') el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            selSincronizarTodos(document.getElementById(f.raiz));
+
+            // Espera o redesenho da lista de itens antes de repor as respostas.
+            await new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
+            Object.keys(ficha.respostas || {}).forEach(function (idItem) {
+                const el = document.getElementById(idItem);
+                if (!el) return;
+                el.value = ficha.respostas[idItem];
+                el.classList.remove('v-OK', 'v-NC', 'v-NA');
+                if (el.value) el.classList.add('v-' + el.value);
+            });
+            selSincronizarTodos(document.getElementById(f.raiz));
+            f.recontar();
+
+            // As assinaturas voltam desenhadas, do jeito que estavam.
+            f.assinaturas.forEach(function (idPad) {
+                if (ficha.assinaturas && ficha.assinaturas[idPad]) fchReporAssinatura(idPad, ficha.assinaturas[idPad]);
+                else chkClearSignature(idPad);
+            });
+
+            const msg = document.getElementById(f.msg);
+            if (msg) {
+                msg.textContent = ficha.estado === 'enviado'
+                    ? 'Checklist já enviado em ' + (ficha.enviadoEm || '—') + '. Alterar e enviar de novo substitui o arquivo no Drive.'
+                    : 'Checklist salvo neste aparelho, ainda não enviado.';
+            }
+        }
+
+        /** Redesenha no quadro de assinatura a imagem guardada. */
+        function fchReporAssinatura(canvasId, dataUrl) {
+            const pad = chkSignaturePads[canvasId];
+            if (!pad) return;
+            const img = new Image();
+            img.onload = function () {
+                const razao = window.devicePixelRatio || 1;
+                pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height);
+                pad.ctx.drawImage(img, 0, 0, pad.canvas.width / razao, pad.canvas.height / razao);
+                pad.state.hasDrawn = true;
+                chkUpdateSignatureStatus(canvasId);
+            };
+            img.src = dataUrl;
+        }
+
+        /* ---- Salvar e enviar --------------------------------------- */
+
+        /** Pedido e TAG são a chave: sem os dois não dá para guardar. */
+        function fchConferir(familia) {
+            const f = FCH_FAMILIAS[familia];
+            const pedido = String((document.getElementById(f.campoPedido) || {}).value || '').trim();
+            const tag = String((document.getElementById(f.campoTag) || {}).value || '').trim();
+            if (!pedido || !tag) {
+                return 'Preencha o Pedido e a TAG antes de salvar: são eles que identificam '
+                     + 'o checklist e evitam que um equipamento sobrescreva o outro.';
+            }
+            // Um dígito trocado no pedido cria uma pasta errada no Drive, e
+            // ninguém percebe. Avisar é barato; travar seria demais, porque
+            // pode haver obra que ainda não foi liberada para a pessoa.
+            if (!ehAdmin() && pedidosLiberados().length
+                && pedidosLiberados().indexOf(pedido.toUpperCase()) < 0) {
+                if (!confirm('O pedido ' + pedido.toUpperCase() + ' não está liberado para você.\n\n'
+                           + 'Se digitou errado, cancele e corrija. Continuar assim mesmo?')) {
+                    return 'Envio cancelado. Confira o número do pedido.';
+                }
+            }
+            return '';
+        }
+
+        async function fchSalvar(familia) {
+            const f = FCH_FAMILIAS[familia];
+            const msg = document.getElementById(f.msg);
+            const erro = fchConferir(familia);
+            if (erro) { if (msg) msg.textContent = erro; return null; }
+            try {
+                const ficha = fchColeta(familia);
+                const antiga = await fchLer(ficha.id);
+                if (antiga) {
+                    // Guarda o histórico de envio: se já foi ao Drive, o
+                    // registro continua, mas volta para a fila de pendentes
+                    // porque o conteúdo mudou.
+                    ficha.criadoEm = antiga.criadoEm || antiga.alteradoEm;
+                    ficha.enviadoEm = antiga.enviadoEm || '';
+                    ficha.link = antiga.link || '';
+                    ficha.arquivoId = antiga.arquivoId || '';
+                } else {
+                    ficha.criadoEm = ficha.alteradoEm;
+                }
+                ficha.estado = 'pendente';
+                ficha.erro = '';
+                await fchGravar(ficha);
+                if (msg) {
+                    msg.textContent = 'Salvo no aparelho: ' + ficha.pedido + ' · ' + ficha.tag
+                        + '. ' + (ficha.enviadoEm
+                            ? 'Já tinha sido enviado; use Enviar para substituir o arquivo no Drive.'
+                            : 'Use Enviar quando quiser mandar para o Drive.');
+                }
+                return ficha;
+            } catch (e) {
+                if (msg) msg.textContent = 'Não consegui salvar neste aparelho: ' + (e.message || e);
+                return null;
+            }
+        }
+
+        async function fchEnviarDaTela(familia) {
+            const f = FCH_FAMILIAS[familia];
+            const msg = document.getElementById(f.msg);
+            const ficha = await fchSalvar(familia);
+            if (!ficha) return;
+            if (!navigator.onLine) {
+                if (msg) {
+                    msg.textContent = 'Sem internet agora. O checklist ficou guardado e vai sozinho '
+                                    + 'para o Drive assim que a conexão voltar.';
+                }
+                return;
+            }
+            if (msg) msg.textContent = 'Enviando para o Drive…';
+            // Gera o PDF com a tela aberta: é aqui que as assinaturas e a
+            // lista de itens estão montadas.
+            let bytes = null;
+            try {
+                bytes = await f.gerarPDF();
+            } catch (e) {
+                if (msg) msg.textContent = 'Não consegui gerar o PDF para enviar: ' + (e.message || e);
+                return;
+            }
+            const r = await fchPostar(ficha, bytes);
+            if (msg) {
+                msg.textContent = r.ok
+                    ? (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
+                      + ' Pasta ' + r.pasta + ' · ' + r.nome
+                    : 'Não consegui enviar: ' + r.erro + ' O checklist continua guardado e será reenviado depois.';
+            }
+            fchDesenharLista();
+        }
+
+        /** Manda uma ficha ao Apps Script e anota o resultado nela. */
+        async function fchPostar(ficha, bytes) {
+            try {
+                const corpo = JSON.stringify({
+                    acao: 'checklist',
+                    token: (usuarioAtual && usuarioAtual.token) || '',
+                    familia: ficha.familia, pedido: ficha.pedido, tag: ficha.tag,
+                    equipamento: ficha.equipamento, modelo: ficha.modelo,
+                    cliente: ficha.cliente, supervisor: ficha.supervisor,
+                    resumo: ficha.resumo,
+                    pdf: fchBytesParaBase64(bytes)
+                });
+                // Texto puro de propósito: é o que dispensa a chamada de
+                // permissão que o Apps Script não sabe responder.
+                const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: corpo });
+                /* O Apps Script responde HTML quando alguma coisa está fora
+                   do lugar — implantação antiga, sem doPost, ou a tela de
+                   permissão do Google. Deixar o "Unexpected token '<'" subir
+                   até o supervisor não ajuda ninguém: ele precisa saber que
+                   o problema é do servidor e que o preenchimento está a
+                   salvo. */
+                const texto = await resp.text();
+                let r;
+                try {
+                    r = JSON.parse(texto);
+                } catch (e) {
+                    throw new Error('o servidor respondeu de um jeito inesperado'
+                        + (resp.status ? ' (código ' + resp.status + ')' : '')
+                        + '. Peça para publicar uma nova versão do script.');
+                }
+                if (r && r.ok) {
+                    ficha.estado = 'enviado';
+                    ficha.enviadoEm = r.enviadoEm || '';
+                    ficha.link = r.link || '';
+                    ficha.arquivoId = r.arquivoId || '';
+                    ficha.arquivoNome = r.nome || '';
+                    ficha.erro = '';
+                    await fchGravar(ficha);
+                    return { ok: true, substituiu: !!r.substituiu, pasta: r.pasta || ficha.pedido, nome: r.nome || '' };
+                }
+                ficha.erro = (r && r.erro) || 'o servidor recusou o envio.';
+                await fchGravar(ficha);
+                return { ok: false, erro: ficha.erro };
+            } catch (e) {
+                ficha.erro = e.message || String(e);
+                await fchGravar(ficha);
+                return { ok: false, erro: ficha.erro };
+            }
+        }
+
+        /** Uint8Array → base64, em pedaços para não estourar a pilha. */
+        function fchBytesParaBase64(bytes) {
+            let bruto = '';
+            const passo = 0x8000;
+            for (let i = 0; i < bytes.length; i += passo) {
+                bruto += String.fromCharCode.apply(null, bytes.subarray(i, i + passo));
+            }
+            return btoa(bruto);
+        }
+
+        /* ---- A fila: enviar o que ficou para trás ------------------ */
+        let fchSincronizando = false;
+
+        /**
+         * Tenta mandar tudo que está pendente. Chamada ao entrar no app,
+         * quando a internet volta e pelo botão da lista.
+         *
+         * Reabrir a tela para cada ficha seria lento e piscaria na cara do
+         * supervisor, então a ficha é reposta numa tela ESCONDIDA: o modal
+         * fica com visibility oculta enquanto o PDF é montado.
+         */
+        /** Algum checklist está aberto na tela agora? */
+        function fchTelaOcupada() {
+            return ['modal-checklist-elevador', 'modal-montagem'].some(function (id) {
+                const m = document.getElementById(id);
+                return m && !m.classList.contains('hidden');
+            });
+        }
+
+        async function fchSincronizar(aviso, forcar) {
+            if (fchSincronizando || !navigator.onLine) return { enviados: 0, falhas: 0 };
+            if (!usuarioAtual || !usuarioAtual.token) return { enviados: 0, falhas: 0 };
+            /* Se há um checklist aberto, a fila espera. Para montar o PDF
+               de uma ficha guardada o app repõe ela no formulário — e se
+               fizesse isso com alguém preenchendo, apagaria o que a pessoa
+               acabou de digitar. A fila é tentada de novo quando a tela
+               fecha. */
+            if (!forcar && fchTelaOcupada()) return { enviados: 0, falhas: 0, esperando: true };
+            fchSincronizando = true;
+            let enviados = 0, falhas = 0;
+            try {
+                const todas = await fchMinhas();
+                const fila = todas.filter(function (f) { return f.estado !== 'enviado'; });
+                for (const ficha of fila) {
+                    if (aviso) aviso('Enviando ' + ficha.pedido + ' · ' + ficha.tag + '…');
+                    const r = await fchEnviarFicha(ficha);
+                    if (r.ok) enviados++; else falhas++;
+                }
+            } finally {
+                fchSincronizando = false;
+            }
+            if (enviados || falhas) fchDesenharLista();
+            return { enviados: enviados, falhas: falhas };
+        }
+
+        /** Gera o PDF de uma ficha guardada, sem o supervisor ver a tela. */
+        async function fchEnviarFicha(ficha) {
+            const f = FCH_FAMILIAS[ficha.familia];
+            if (!f) return { ok: false, erro: 'família desconhecida' };
+            const modal = document.getElementById(f.modal);
+            const estavaFechado = modal.classList.contains('hidden');
+            // Só esconde e fecha o que ELE mesmo abriu. Fechar um formulário
+            // que já estava aberto tiraria a tela de quem está usando.
+            const rolagem = document.body.style.overflow;
+            if (estavaFechado) modal.style.visibility = 'hidden';
+            try {
+                await fchAbrirFicha(ficha.id, estavaFechado);
+                const bytes = await f.gerarPDF();
+                const atual = await fchLer(ficha.id);
+                return await fchPostar(atual || ficha, bytes);
+            } catch (e) {
+                ficha.erro = e.message || String(e);
+                await fchGravar(ficha);
+                return { ok: false, erro: ficha.erro };
+            } finally {
+                if (estavaFechado) {
+                    f.fechar();
+                    modal.style.visibility = '';
+                    document.body.style.overflow = rolagem;   // a lista pode estar aberta
+                }
+            }
+        }
+
+
+        /* ---- A tela de enviados e pendentes ------------------------ */
+        let fchFamiliaAberta = 'entrega';
+        let fchRemotos = [];       // o que o servidor tem; chega depois
+        let fchBuscandoRemoto = false;
+
+        function fchEsc(t) {
+            return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+        function fchQuando(ms) {
+            if (!ms) return '';
+            const d = new Date(ms);
+            if (isNaN(d.getTime())) return '';
+            const dois = function (n) { return String(n).padStart(2, '0'); };
+            return dois(d.getDate()) + '/' + dois(d.getMonth() + 1) + '/' + d.getFullYear()
+                 + ' ' + dois(d.getHours()) + ':' + dois(d.getMinutes());
+        }
+
+        function fchAbrirLista(familia) {
+            fchFamiliaAberta = familia;
+            const modal = document.getElementById('modal-fichas');
+            document.getElementById('fichasTitulo').textContent =
+                'Checklists de ' + FCH_FAMILIAS[familia].rotulo + ' — enviados e pendentes';
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            fchDesenharLista();
+            fchBuscarRemotos(familia);
+        }
+        function fchFecharLista() {
+            const modal = document.getElementById('modal-fichas');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+
+        /* O que o servidor registrou. Serve para o supervisor que trocou
+           de celular: o aparelho novo não tem nada guardado, mas os
+           checklists dele estão lá. Esses aparecem só para consulta —
+           editar exige as respostas, que ficaram no aparelho antigo. */
+        async function fchBuscarRemotos(familia) {
+            if (!usuarioAtual || !usuarioAtual.token || !navigator.onLine) return;
+            if (fchBuscandoRemoto) return;
+            fchBuscandoRemoto = true;
+            try {
+                const url = APPS_SCRIPT_URL + '?mode=checklistsEnviados&familia='
+                          + encodeURIComponent(familia)
+                          + '&token=' + encodeURIComponent(usuarioAtual.token);
+                const r = await fetch(url);
+                const j = await r.json();
+                fchRemotos = (j && j.itens) || [];
+            } catch (e) {
+                fchRemotos = [];
+            } finally {
+                fchBuscandoRemoto = false;
+                fchDesenharLista();
+            }
+        }
+
+        async function fchDesenharLista() {
+            const alvo = document.getElementById('fichasConteudo');
+            const familia = fchFamiliaAberta;
+            const minhas = await fchMinhas();
+            const todas = minhas.filter(function (f) { return f.familia === familia; });
+            fchAtualizarContadores(minhas);
+            if (!alvo || document.getElementById('modal-fichas').classList.contains('hidden')) return;
+
+            const pendentes = todas.filter(function (f) { return f.estado !== 'enviado'; })
+                                   .sort(function (a, b) { return b.alteradoEm - a.alteradoEm; });
+            const enviadas = todas.filter(function (f) { return f.estado === 'enviado'; })
+                                  .sort(function (a, b) { return b.alteradoEm - a.alteradoEm; });
+            const locais = {};
+            todas.forEach(function (f) { locais[f.pedido + '|' + f.tag] = true; });
+            const soNoServidor = fchRemotos.filter(function (r) {
+                return r.familia === familia && !locais[r.pedido + '|' + r.tag];
+            });
+
+            let h = '<div class="fch-topo">';
+            h += '<button type="button" class="fch-btn" id="fchBtnEnviarTudo" onclick="fchEnviarPendentes()"'
+               + (pendentes.length && navigator.onLine ? '' : ' disabled') + '>'
+               + 'Enviar pendentes' + (pendentes.length ? ' (' + pendentes.length + ')' : '') + '</button>';
+            h += '<button type="button" class="fch-acao" onclick="fchBuscarRemotos(\'' + familia + '\')">Atualizar</button>';
+            h += '</div>';
+            if (!navigator.onLine) {
+                h += '<p class="fch-aviso">Sem internet agora. O que estiver pendente vai sozinho '
+                   + 'assim que a conexão voltar.</p>';
+            }
+
+            h += '<div class="fch-secao">Pendentes de envio</div>';
+            if (!pendentes.length) {
+                h += '<p class="fch-vazio">Nada pendente — tudo que você preencheu já foi enviado.</p>';
+            } else {
+                pendentes.forEach(function (f) { h += fchLinha(f, 'pendente'); });
+            }
+
+            h += '<div class="fch-secao">Enviados</div>';
+            if (!enviadas.length && !soNoServidor.length) {
+                h += '<p class="fch-vazio">Nenhum checklist enviado ainda.</p>';
+            } else {
+                enviadas.forEach(function (f) { h += fchLinha(f, 'enviada'); });
+                soNoServidor.forEach(function (r) { h += fchLinhaRemota(r); });
+            }
+            alvo.innerHTML = h;
+            alvo.querySelectorAll('[data-fch]').forEach(function (bt) {
+                bt.addEventListener('click', function () {
+                    const id = bt.getAttribute('data-fid');
+                    if (bt.getAttribute('data-fch') === 'abrir') fchAbrirFicha(id);
+                    else if (bt.getAttribute('data-fch') === 'enviar') fchEnviarUma(id);
+                    else fchExcluir(id);
+                });
+            });
+        }
+
+        function fchLinha(f, classe) {
+            const r = f.resumo || {};
+            let h = '<div class="fch-linha ' + classe + '">';
+            h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(f.pedido) + ' · ' + fchEsc(f.tag) + '</span>'
+               + '<span class="fch-equip">' + fchEsc(f.equipamento) + (f.modelo ? ' — ' + fchEsc(f.modelo) : '') + '</span></div>';
+            let pe = '<b>' + (r.preenchidos || 0) + ' de ' + (r.total || 0) + '</b> itens · '
+                   + 'OK ' + (r.ok || 0) + ' · NC ' + (r.nc || 0) + ' · NA ' + (r.na || 0);
+            if (classe === 'enviada') {
+                pe += '<br>Enviado em ' + fchEsc(f.enviadoEm || '—');
+            } else {
+                pe += '<br>Salvo em ' + fchEsc(fchQuando(f.alteradoEm));
+                if (f.enviadoEm) pe += ' · já foi enviado em ' + fchEsc(f.enviadoEm) + ', vai substituir';
+            }
+            if (f.erro) pe += '<br><span class="fch-erro">Última tentativa: ' + fchEsc(f.erro) + '</span>';
+            h += '<div class="fch-pe">' + pe + '</div>';
+            /* O identificador vai num atributo, não dentro de um onclick.
+               Ele é montado com o pedido e a TAG que a pessoa digitou, e
+               uma aspa no meio do texto quebraria o onclick inteiro. */
+            const chave = fchEsc(f.id);
+            h += '<div class="fch-acoes">';
+            h += '<button type="button" class="fch-acao" data-fch="abrir" data-fid="' + chave + '">Abrir e editar</button>';
+            h += '<button type="button" class="fch-acao" data-fch="enviar" data-fid="' + chave + '"'
+               + (navigator.onLine ? '' : ' disabled') + '>'
+               + (classe === 'enviada' ? 'Enviar de novo' : 'Enviar') + '</button>';
+            if (f.link) h += '<a class="fch-acao" href="' + fchEsc(f.link) + '" target="_blank" rel="noopener">Ver no Drive</a>';
+            h += '<button type="button" class="fch-acao perigo" data-fch="excluir" data-fid="' + chave + '">Excluir daqui</button>';
+            h += '</div></div>';
+            return h;
+        }
+
+        function fchLinhaRemota(r) {
+            let h = '<div class="fch-linha remota">';
+            h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(r.pedido) + ' · ' + fchEsc(r.tag) + '</span>'
+               + '<span class="fch-equip">' + fchEsc(r.equipamento) + (r.modelo ? ' — ' + fchEsc(r.modelo) : '') + '</span></div>';
+            h += '<div class="fch-pe"><b>' + (r.ok + r.nc + r.na) + ' de ' + r.total + '</b> itens · '
+               + 'OK ' + r.ok + ' · NC ' + r.nc + ' · NA ' + r.na
+               + '<br>Enviado em ' + fchEsc(r.enviadoEm) + ' por ' + fchEsc(r.usuario)
+               + ' — não está neste aparelho, então só dá para ver.</div>';
+            h += '<div class="fch-acoes">';
+            if (r.link) h += '<a class="fch-acao" href="' + fchEsc(r.link) + '" target="_blank" rel="noopener">Ver no Drive</a>';
+            h += '</div></div>';
+            return h;
+        }
+
+        /** O contador laranja no atalho de cada família. */
+        function fchAtualizarContadores(todas) {
+            ['entrega', 'montagem'].forEach(function (fam) {
+                const el = document.getElementById('fchConta_' + fam);
+                if (!el) return;
+                const n = todas.filter(function (f) {
+                    return f.familia === fam && f.estado !== 'enviado';
+                }).length;
+                el.textContent = n;
+                el.classList.toggle('hidden', n === 0);
+            });
+        }
+
+        async function fchEnviarUma(id) {
+            const ficha = await fchLer(id);
+            if (!ficha) return;
+            const alvo = document.getElementById('fichasConteudo');
+            if (alvo) alvo.insertAdjacentHTML('afterbegin', '<p class="fch-aviso" id="fchAviso">Enviando…</p>');
+            const r = await fchEnviarFicha(ficha);
+            await fchDesenharLista();
+            const aviso = document.getElementById('fichasConteudo');
+            if (aviso && !r.ok) {
+                aviso.insertAdjacentHTML('afterbegin', '<p class="fch-aviso erro">Não consegui enviar: ' + fchEsc(r.erro) + '</p>');
+            }
+        }
+
+        async function fchEnviarPendentes() {
+            const botao = document.getElementById('fchBtnEnviarTudo');
+            if (botao) { botao.disabled = true; botao.textContent = 'Enviando…'; }
+            const r = await fchSincronizar(function (t) {
+                if (botao) botao.textContent = t;
+            });
+            await fchDesenharLista();
+            const alvo = document.getElementById('fichasConteudo');
+            if (alvo) {
+                const texto = r.falhas
+                    ? r.enviados + ' enviado(s), ' + r.falhas + ' não foram. Veja o motivo em cada linha.'
+                    : (r.enviados ? r.enviados + ' checklist(s) enviado(s) para o Drive.' : 'Nada pendente para enviar.');
+                alvo.insertAdjacentHTML('afterbegin',
+                    '<p class="fch-aviso' + (r.falhas ? ' erro' : '') + '">' + fchEsc(texto) + '</p>');
+            }
+        }
+
+        async function fchExcluir(id) {
+            const ficha = await fchLer(id);
+            if (!ficha) return;
+            const aviso = ficha.estado === 'enviado'
+                ? 'Este checklist já está no Drive. Excluir daqui NÃO apaga o arquivo de lá — '
+                  + 'ele só sai da lista deste aparelho e você perde a possibilidade de editar.\n\nExcluir?'
+                : 'Este checklist ainda NÃO foi enviado. Excluir apaga o preenchimento de vez.\n\nExcluir?';
+            if (!confirm(aviso)) return;
+            await fchApagar(id);
+            fchDesenharLista();
+        }
+
+        // A internet voltou: tenta a fila sozinho.
+        window.addEventListener('online', function () { fchSincronizar(); });
+
+        /* Fechou o checklist? Se a fila tinha desistido para não atrapalhar
+           quem estava preenchendo, agora é a hora dela. */
+        ['closeChecklistElevador', 'closeMontagem'].forEach(function (nome) {
+            const original = window[nome];
+            if (typeof original !== 'function') return;
+            window[nome] = function () {
+                original.apply(this, arguments);
+                setTimeout(function () { fchSincronizar(); }, 400);
+            };
+        });
+
+        /**
+         * Chamada assim que o app abre. Mostra o contador de pendentes
+         * nos dois atalhos e, se houver internet, manda o que ficou
+         * para trás — sem o supervisor precisar lembrar de nada.
+         *
+         * A espera de 1,5 s não é enfeite: o envio abre e fecha o
+         * formulário para montar o PDF, e fazer isso enquanto a tela
+         * inicial ainda está se desenhando dá um piscar feio.
+         */
+        async function fchPrepararFila() {
+            try {
+                fchAtualizarContadores(await fchMinhas());
+            } catch (e) { /* aparelho sem IndexedDB: segue sem a fila */ }
+            setTimeout(function () { fchSincronizar(); }, 1500);
         }
     </script>
 
