@@ -642,6 +642,9 @@
         #fichasRoot .fch-linha.pendente { border-left: 3px solid #f59e0b; }
         #fichasRoot .fch-linha.enviada { border-left: 3px solid #4ade80; }
         #fichasRoot .fch-linha.remota { border-left: 3px solid #4b5563; opacity: .82; }
+        /* Checklist de outra pessoa: continua legível, mas sem os botões
+           de abrir e enviar. */
+        #fichasRoot .fch-linha.bloqueada { border-left: 3px solid #6b7280; opacity: .8; }
         #fichasRoot .fch-cab { display: flex; align-items: baseline; gap: 8px; }
         #fichasRoot .fch-chave {
             flex: 0 0 auto; font-size: 13.5px; font-weight: 700; color: #fff;
@@ -7925,6 +7928,19 @@
             pagina.drawImage(img, { x: x1 + (caixaW - w) / 2, y: y + 2, width: w, height: h });
         }
 
+        /* A biblioteca que monta o PDF vem de fora e é guardada pelo
+           service worker já na instalação. Se ainda assim faltar, o
+           supervisor merece um recado que diga o que fazer, e não um
+           "PDFLib is not defined". O preenchimento não se perde: ele
+           continua salvo no aparelho. */
+        function chkConferirBiblioteca() {
+            if (typeof PDFLib === 'undefined' || !PDFLib) {
+                throw new Error('a biblioteca que monta o PDF não está neste aparelho. '
+                    + 'Abra o aplicativo uma vez com internet — o que você preencheu '
+                    + 'continua salvo.');
+            }
+        }
+
         let chkLogoBytes = null;
         async function chkLogoDoPDF(doc) {
             try {
@@ -7973,6 +7989,7 @@
             btn.disabled = true;
             if (baixar) msg.textContent = 'Gerando PDF…';
             try {
+                chkConferirBiblioteca();
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
                 const checklistTitle = 'Check-List de Entrega — ' + chkNomeEquipamento();
@@ -8734,6 +8751,7 @@
             btn.disabled = true;
             if (baixar) msg.textContent = 'Gerando PDF…';
             try {
+                chkConferirBiblioteca();
                 const { PDFDocument, StandardFonts, rgb } = PDFLib;
                 const doc = await PDFDocument.create();
                 const titulo = 'Check-List de Montagem — ' + mtTipo().nome;
@@ -8976,17 +8994,49 @@
             }).catch(function () { return []; });
         }
         /**
-         * Só as fichas de quem está logado agora.
+         * As fichas que esta pessoa pode ver neste aparelho.
          *
          * O celular pode ser passado de mão em mão. Sem este filtro, o
          * Juarez entrando no aparelho do Jocélio veria os checklists
          * dele — e pior, a fila mandaria o preenchimento do Jocélio ao
          * Drive assinado com o cartão do Juarez.
+         *
+         * O administrador é a exceção: ele enxerga o que houver no
+         * aparelho, com o nome de quem criou em cada linha.
          */
         async function fchMinhas() {
             const todas = await fchTodas();
+            if (ehAdmin()) return todas;
             const eu = (usuarioAtual && usuarioAtual.usuario) || '';
-            return todas.filter(function (f) { return !f.usuario || f.usuario === eu; });
+            /* "alteradoPor" também conta: se o servidor avisou que o
+               equipamento já era de outro supervisor, a ficha continua
+               aparecendo para quem a preencheu aqui — senão ela sumiria
+               junto com a explicação do porquê. */
+            return todas.filter(function (f) {
+                return !f.criadoPor || f.criadoPor === eu || f.alteradoPor === eu;
+            });
+        }
+
+        /**
+         * Esta pessoa pode mexer nesta ficha?
+         *
+         * A mesma regra do servidor, respondida aqui no aparelho: o
+         * criador e os administradores. Precisa existir dos dois lados —
+         * o servidor é quem garante de verdade, mas SEM INTERNET só há
+         * este lado, e o supervisor tem de saber na hora que aquele
+         * checklist não é dele, e não descobrir horas depois quando a
+         * fila tentar enviar.
+         */
+        function fchPodeEditar(ficha) {
+            if (!ficha) return false;
+            if (ehAdmin()) return true;
+            const eu = (usuarioAtual && usuarioAtual.usuario) || '';
+            return !ficha.criadoPor || ficha.criadoPor === eu;
+        }
+
+        /** O nome de quem criou, para o recado ficar legível. */
+        function fchNomeDoCriador(ficha) {
+            return (ficha && (ficha.criadoPorNome || ficha.criadoPor)) || 'outra pessoa';
         }
         function fchApagar(id) {
             return fchBanco().then(function (db) {
@@ -9098,7 +9148,9 @@
                 escolhas: dados.escolhas,
                 assinaturas: assinaturas,
                 resumo: fchResumo(dados.respostas),
-                usuario: (usuarioAtual && usuarioAtual.usuario) || '',
+                criadoPor: (usuarioAtual && usuarioAtual.usuario) || '',
+                criadoPorNome: (usuarioAtual && usuarioAtual.nome) || '',
+                alteradoPor: (usuarioAtual && usuarioAtual.usuario) || '',
                 alteradoEm: Date.now()
             };
         }
@@ -9109,6 +9161,11 @@
             if (!ficha) { alert('Este checklist não está mais guardado neste aparelho.'); return; }
             const f = FCH_FAMILIAS[ficha.familia];
             if (!f) return;
+            if (!fchPodeEditar(ficha)) {
+                alert('Este checklist foi preenchido por ' + fchNomeDoCriador(ficha)
+                    + '.\n\nSó ele ou um administrador pode abrir para alterar.');
+                return;
+            }
             // silencioso = quem chamou foi a fila de envio, com a tela
             // escondida. Aí a lista não pode ser fechada na cara de quem
             // está olhando para ela.
@@ -9206,6 +9263,17 @@
                 const ficha = fchColeta(familia);
                 const antiga = await fchLer(ficha.id);
                 if (antiga) {
+                    /* Já existe um checklist deste equipamento neste
+                       aparelho. Se ele é de outra pessoa, para aqui —
+                       inclusive sem internet, porque a resposta está
+                       guardada na própria ficha. */
+                    if (!fchPodeEditar(antiga)) {
+                        if (msg) {
+                            msg.textContent = 'Este checklist é de ' + fchNomeDoCriador(antiga)
+                                + '. Só ele ou um administrador pode alterar. Nada foi salvo.';
+                        }
+                        return null;
+                    }
                     // Guarda o histórico de envio: se já foi ao Drive, o
                     // registro continua, mas volta para a fila de pendentes
                     // porque o conteúdo mudou.
@@ -9213,6 +9281,10 @@
                     ficha.enviadoEm = antiga.enviadoEm || '';
                     ficha.link = antiga.link || '';
                     ficha.arquivoId = antiga.arquivoId || '';
+                    // O criador não muda nunca, nem quando quem grava por
+                    // cima é um administrador.
+                    ficha.criadoPor = antiga.criadoPor || ficha.criadoPor;
+                    ficha.criadoPorNome = antiga.criadoPorNome || ficha.criadoPorNome;
                 } else {
                     ficha.criadoEm = ficha.alteradoEm;
                 }
@@ -9274,7 +9346,13 @@
                     equipamento: ficha.equipamento, modelo: ficha.modelo,
                     cliente: ficha.cliente, supervisor: ficha.supervisor,
                     resumo: ficha.resumo,
-                    pdf: fchBytesParaBase64(bytes)
+                    pdf: fchBytesParaBase64(bytes),
+                    /* As respostas vão junto, num arquivo próprio. É o que
+                       permite reabrir e corrigir de outro aparelho — e é o
+                       que o administrador precisa para conseguir editar do
+                       lugar onde ele está. O PDF é o documento; isto é o
+                       preenchimento. */
+                    dados: JSON.stringify(fchParaGuardar(ficha))
                 });
                 // Texto puro de propósito: é o que dispensa a chamada de
                 // permissão que o Apps Script não sabe responder.
@@ -9296,6 +9374,12 @@
                 }
                 if (r && r.ok) {
                     ficha.estado = 'enviado';
+                    // O servidor é a autoridade sobre quem é o dono: se
+                    // outro aparelho mandou primeiro, é o dele que vale.
+                    if (r.criadoPor) {
+                        ficha.criadoPor = r.criadoPor;
+                        ficha.criadoPorNome = r.criadoPorNome || r.criadoPor;
+                    }
                     ficha.enviadoEm = r.enviadoEm || '';
                     ficha.link = r.link || '';
                     ficha.arquivoId = r.arquivoId || '';
@@ -9305,12 +9389,118 @@
                     return { ok: true, substituiu: !!r.substituiu, pasta: r.pasta || ficha.pedido, nome: r.nome || '' };
                 }
                 ficha.erro = (r && r.erro) || 'o servidor recusou o envio.';
+                if (r && r.bloqueado) {
+                    /* Outro supervisor mandou este equipamento primeiro.
+                       Acontece quando dois preenchem o mesmo TAG offline.
+                       Marcar a ficha evita a fila bater na mesma porta a
+                       cada abertura do app; o dono fica registrado para o
+                       recado ficar claro na lista. */
+                    ficha.bloqueada = true;
+                    if (r.criadoPor) {
+                        ficha.criadoPor = r.criadoPor;
+                        // O nome tem de vir junto: senão a linha diria
+                        // "criado por" com o nome de quem preencheu AQUI,
+                        // que é justamente quem não é o dono.
+                        ficha.criadoPorNome = r.criadoPorNome || r.criadoPor;
+                    }
+                }
                 await fchGravar(ficha);
-                return { ok: false, erro: ficha.erro };
+                return { ok: false, erro: ficha.erro, bloqueado: !!(r && r.bloqueado) };
             } catch (e) {
                 ficha.erro = e.message || String(e);
                 await fchGravar(ficha);
                 return { ok: false, erro: ficha.erro };
+            }
+        }
+
+        /** O que vale guardar de uma ficha: tudo que refaz a tela. */
+        function fchParaGuardar(f) {
+            return {
+                familia: f.familia, tipo: f.tipo, equipamento: f.equipamento,
+                pedido: f.pedido, tag: f.tag, cliente: f.cliente,
+                modelo: f.modelo, supervisor: f.supervisor,
+                campos: f.campos, respostas: f.respostas, escolhas: f.escolhas,
+                assinaturas: f.assinaturas, resumo: f.resumo,
+                criadoPor: f.criadoPor, criadoPorNome: f.criadoPorNome,
+                criadoEm: f.criadoEm, alteradoEm: f.alteradoEm
+            };
+        }
+
+        /**
+         * Traz de volta o preenchimento guardado no Drive e abre para
+         * editar. É o caminho de quem trocou de celular e do
+         * administrador que quer corrigir do aparelho dele.
+         *
+         * Precisa de internet SÓ nesta hora. Depois de aberto, a ficha
+         * fica guardada aqui e o resto funciona sem sinal como sempre.
+         */
+        async function fchBaixarEEditar(familia, pedido, tag) {
+            const alvo = document.getElementById('fichasConteudo');
+            const aviso = function (texto, ruim) {
+                if (alvo) {
+                    alvo.insertAdjacentHTML('afterbegin',
+                        '<p class="fch-aviso' + (ruim ? ' erro' : '') + '">' + fchEsc(texto) + '</p>');
+                }
+            };
+            if (!navigator.onLine) {
+                aviso('Sem internet. Este checklist está guardado no Drive, e para trazer '
+                    + 'o preenchimento para cá é preciso conexão.', true);
+                return;
+            }
+            aviso('Buscando o preenchimento…');
+            try {
+                const url = APPS_SCRIPT_URL + '?mode=checklistDados'
+                          + '&familia=' + encodeURIComponent(familia)
+                          + '&pedido=' + encodeURIComponent(pedido)
+                          + '&tag=' + encodeURIComponent(tag)
+                          + '&token=' + encodeURIComponent((usuarioAtual && usuarioAtual.token) || '');
+                const resp = await fetch(url);
+                const texto = await resp.text();
+                let r;
+                try { r = JSON.parse(texto); }
+                catch (e) {
+                    throw new Error('o servidor respondeu de um jeito inesperado'
+                        + (resp.status ? ' (código ' + resp.status + ')' : '')
+                        + '. Peça para publicar uma nova versão do script.');
+                }
+                if (!r.ok) { aviso(r.erro || 'Não consegui buscar o preenchimento.', true); return; }
+
+                const g = r.ficha || {};
+                const ficha = {
+                    id: fchChave(g.familia || familia, g.pedido || pedido, g.tag || tag),
+                    familia: g.familia || familia, tipo: g.tipo,
+                    equipamento: g.equipamento || '', pedido: g.pedido || pedido,
+                    tag: g.tag || tag, cliente: g.cliente || '', modelo: g.modelo || '',
+                    supervisor: g.supervisor || '',
+                    campos: g.campos || {}, respostas: g.respostas || {},
+                    escolhas: g.escolhas || {}, assinaturas: g.assinaturas || {},
+                    resumo: g.resumo || {},
+                    criadoPor: g.criadoPor || '', criadoPorNome: g.criadoPorNome || '',
+                    criadoEm: g.criadoEm || Date.now(),
+                    alteradoPor: (usuarioAtual && usuarioAtual.usuario) || '',
+                    alteradoEm: g.alteradoEm || Date.now(),
+                    // Ele já está no Drive: enquanto não for alterado, é um
+                    // enviado, não um pendente.
+                    estado: 'enviado', erro: ''
+                };
+                // Se este aparelho já tinha uma cópia, o que estava aqui
+                // (link, data de envio) não se perde.
+                const antiga = await fchLer(ficha.id);
+                if (antiga) {
+                    ficha.enviadoEm = antiga.enviadoEm || '';
+                    ficha.link = antiga.link || '';
+                    ficha.arquivoId = antiga.arquivoId || '';
+                }
+                if (!ficha.link) {
+                    const remoto = fchRemotos.filter(function (x) {
+                        return x.familia === ficha.familia && x.pedido === ficha.pedido && x.tag === ficha.tag;
+                    })[0];
+                    if (remoto) { ficha.link = remoto.link || ''; ficha.enviadoEm = remoto.enviadoEm || ''; }
+                }
+                await fchGravar(ficha);
+                await fchAbrirFicha(ficha.id);
+            } catch (e) {
+                aviso('Não consegui trazer o preenchimento: ' + (e.message || e), true);
             }
         }
 
@@ -9356,7 +9546,9 @@
             let enviados = 0, falhas = 0;
             try {
                 const todas = await fchMinhas();
-                const fila = todas.filter(function (f) { return f.estado !== 'enviado'; });
+                const fila = todas.filter(function (f) {
+                    return f.estado !== 'enviado' && fchPodeEditar(f);
+                });
                 for (const ficha of fila) {
                     if (aviso) aviso('Enviando ' + ficha.pedido + ' · ' + ficha.tag + '…');
                     const r = await fchEnviarFicha(ficha);
@@ -9475,9 +9667,10 @@
             });
 
             let h = '<div class="fch-topo">';
+            const enviaveis = pendentes.filter(fchPodeEditar).length;
             h += '<button type="button" class="fch-btn" id="fchBtnEnviarTudo" onclick="fchEnviarPendentes()"'
-               + (pendentes.length && navigator.onLine ? '' : ' disabled') + '>'
-               + 'Enviar pendentes' + (pendentes.length ? ' (' + pendentes.length + ')' : '') + '</button>';
+               + (enviaveis && navigator.onLine ? '' : ' disabled') + '>'
+               + 'Enviar pendentes' + (enviaveis ? ' (' + enviaveis + ')' : '') + '</button>';
             h += '<button type="button" class="fch-acao" onclick="fchBuscarRemotos(\'' + familia + '\')">Atualizar</button>';
             h += '</div>';
             if (!navigator.onLine) {
@@ -9502,9 +9695,16 @@
             alvo.innerHTML = h;
             alvo.querySelectorAll('[data-fch]').forEach(function (bt) {
                 bt.addEventListener('click', function () {
+                    const acao = bt.getAttribute('data-fch');
+                    if (acao === 'baixar') {
+                        fchBaixarEEditar(bt.getAttribute('data-familia'),
+                                         bt.getAttribute('data-pedido'),
+                                         bt.getAttribute('data-tag'));
+                        return;
+                    }
                     const id = bt.getAttribute('data-fid');
-                    if (bt.getAttribute('data-fch') === 'abrir') fchAbrirFicha(id);
-                    else if (bt.getAttribute('data-fch') === 'enviar') fchEnviarUma(id);
+                    if (acao === 'abrir') fchAbrirFicha(id);
+                    else if (acao === 'enviar') fchEnviarUma(id);
                     else fchExcluir(id);
                 });
             });
@@ -9512,6 +9712,8 @@
 
         function fchLinha(f, classe) {
             const r = f.resumo || {};
+            const posso = fchPodeEditar(f);
+            if (f.bloqueada || !posso) classe = 'bloqueada';
             let h = '<div class="fch-linha ' + classe + '">';
             h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(f.pedido) + ' · ' + fchEsc(f.tag) + '</span>'
                + '<span class="fch-equip">' + fchEsc(f.equipamento) + (f.modelo ? ' — ' + fchEsc(f.modelo) : '') + '</span></div>';
@@ -9523,6 +9725,13 @@
                 pe += '<br>Salvo em ' + fchEsc(fchQuando(f.alteradoEm));
                 if (f.enviadoEm) pe += ' · já foi enviado em ' + fchEsc(f.enviadoEm) + ', vai substituir';
             }
+            // De quem é. Só aparece quando não é de quem está olhando —
+            // ninguém precisa ler "criado por você" em cada linha.
+            const eu = (usuarioAtual && usuarioAtual.usuario) || '';
+            if (f.criadoPor && f.criadoPor !== eu) {
+                pe += '<br>Criado por <b>' + fchEsc(fchNomeDoCriador(f)) + '</b>';
+                if (!posso) pe += ' — só ele ou um administrador pode alterar';
+            }
             if (f.erro) pe += '<br><span class="fch-erro">Última tentativa: ' + fchEsc(f.erro) + '</span>';
             h += '<div class="fch-pe">' + pe + '</div>';
             /* O identificador vai num atributo, não dentro de um onclick.
@@ -9530,11 +9739,15 @@
                uma aspa no meio do texto quebraria o onclick inteiro. */
             const chave = fchEsc(f.id);
             h += '<div class="fch-acoes">';
-            h += '<button type="button" class="fch-acao" data-fch="abrir" data-fid="' + chave + '">Abrir e editar</button>';
-            h += '<button type="button" class="fch-acao" data-fch="enviar" data-fid="' + chave + '"'
-               + (navigator.onLine ? '' : ' disabled') + '>'
-               + (classe === 'enviada' ? 'Enviar de novo' : 'Enviar') + '</button>';
+            if (posso) {
+                h += '<button type="button" class="fch-acao" data-fch="abrir" data-fid="' + chave + '">Abrir e editar</button>';
+                h += '<button type="button" class="fch-acao" data-fch="enviar" data-fid="' + chave + '"'
+                   + (navigator.onLine ? '' : ' disabled') + '>'
+                   + (classe === 'enviada' ? 'Enviar de novo' : 'Enviar') + '</button>';
+            }
             if (f.link) h += '<a class="fch-acao" href="' + fchEsc(f.link) + '" target="_blank" rel="noopener">Ver no Drive</a>';
+            // Excluir daqui continua valendo mesmo para a ficha de outro:
+            // é o aparelho DELE, e isso não mexe no arquivo do Drive.
             h += '<button type="button" class="fch-acao perigo" data-fch="excluir" data-fid="' + chave + '">Excluir daqui</button>';
             h += '</div></div>';
             return h;
@@ -9544,11 +9757,23 @@
             let h = '<div class="fch-linha remota">';
             h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(r.pedido) + ' · ' + fchEsc(r.tag) + '</span>'
                + '<span class="fch-equip">' + fchEsc(r.equipamento) + (r.modelo ? ' — ' + fchEsc(r.modelo) : '') + '</span></div>';
+            const quem = fchEsc(r.criadoPorNome || r.criadoPor || '—');
             h += '<div class="fch-pe"><b>' + (r.ok + r.nc + r.na) + ' de ' + r.total + '</b> itens · '
                + 'OK ' + r.ok + ' · NC ' + r.nc + ' · NA ' + r.na
-               + '<br>Enviado em ' + fchEsc(r.enviadoEm) + ' por ' + fchEsc(r.usuario)
-               + ' — não está neste aparelho, então só dá para ver.</div>';
+               + '<br>Criado por <b>' + quem + '</b> · enviado em ' + fchEsc(r.enviadoEm)
+               + (r.podeEditar
+                    ? '<br>Não está guardado neste aparelho — toque em Abrir para trazer o preenchimento.'
+                    : '<br>Só ' + quem + ' ou um administrador pode alterar este checklist.')
+               + '</div>';
             h += '<div class="fch-acoes">';
+            if (r.podeEditar) {
+                h += '<button type="button" class="fch-acao" data-fch="baixar"'
+                   + ' data-familia="' + fchEsc(r.familia) + '"'
+                   + ' data-pedido="' + fchEsc(r.pedido) + '"'
+                   + ' data-tag="' + fchEsc(r.tag) + '"'
+                   + (navigator.onLine ? '' : ' disabled')
+                   + '>Abrir e editar</button>';
+            }
             if (r.link) h += '<a class="fch-acao" href="' + fchEsc(r.link) + '" target="_blank" rel="noopener">Ver no Drive</a>';
             h += '</div></div>';
             return h;
@@ -9560,7 +9785,9 @@
                 const el = document.getElementById('fchConta_' + fam);
                 if (!el) return;
                 const n = todas.filter(function (f) {
-                    return f.familia === fam && f.estado !== 'enviado';
+                    // Uma ficha bloqueada nunca vai sair da fila: contá-la
+                    // deixaria o número laranja preso para sempre.
+                    return f.familia === fam && f.estado !== 'enviado' && fchPodeEditar(f);
                 }).length;
                 el.textContent = n;
                 el.classList.toggle('hidden', n === 0);
