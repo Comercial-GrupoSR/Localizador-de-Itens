@@ -583,10 +583,11 @@
         .sep-dsn-mini {
             flex: 0 0 auto; align-self: center;
             display: inline-flex; align-items: center; justify-content: center;
-            width: 26px; height: 22px;
+            gap: 4px; height: 22px; padding: 0 8px;
             background: #1a5c33; color: #fff;
             border: 1px solid #2b7d4a; border-radius: 6px;
-            padding: 0; cursor: pointer;
+            font-size: 10.5px; font-weight: 700; line-height: 1;
+            cursor: pointer; white-space: nowrap;
         }
         .sep-dsn-mini:hover { background: #22713f; }
         .sep-dsn-mini:disabled { opacity: .65; cursor: wait; }
@@ -1206,6 +1207,34 @@
         }
         #retornoObraRoot .ret-sig-clear:hover { color: var(--ret-text); }
         #retornoObraRoot .ret-sig-status { font-size: 10.5px; color: var(--ret-muted); }
+        /* ---- Botões de ação do Retorno de Obra ---- */
+        #retornoObraRoot .ret-acoes {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;
+        }
+        #retornoObraRoot .ret-bt {
+            flex: 1 1 46%; display: inline-flex; align-items: center;
+            justify-content: center; gap: 7px;
+            font-size: 13.5px; font-weight: 700; padding: 10px 14px;
+            border-radius: 9px; cursor: pointer; border: 1px solid #4a4a4a;
+            background: #333; color: #e0e0e0;
+        }
+        #retornoObraRoot .ret-bt:hover { background: #454545; }
+        #retornoObraRoot .ret-bt:disabled { opacity: .6; cursor: wait; }
+        #retornoObraRoot .ret-bt-principal {
+            background: #0c4a31; color: #eafff4; border-color: #14663f;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+        }
+        #retornoObraRoot .ret-bt-principal:hover { background: #10603f; }
+        #retornoObraRoot .ret-bt svg { width: 15px; height: 15px; flex: 0 0 auto; }
+        /* Atalho da lista, na barra do topo */
+        .ret-bt-lista {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #2e2e2e; color: #d1d5db; border: 1px solid #4a4a4a;
+            border-radius: 8px; padding: 5px 10px;
+            font-size: 11.5px; font-weight: 600; cursor: pointer;
+        }
+        .ret-bt-lista:hover { background: #3a3a3a; color: #fff; }
+        .ret-bt-lista svg { width: 14px; height: 14px; }
         #retornoObraRoot .ret-sig-status.signed { color: var(--ret-green); }
                 /* ============================================================
            Cronograma de Obra — tabela com Gantt de rolagem lateral
@@ -2775,7 +2804,7 @@
                    + ' onclick="event.stopPropagation(); sepAbrirDesenho(\'' + cod + '\', \'' + chave + '\')"'
                    + ' aria-label="Abrir o desenho do código ' + cod + '"'
                    + ' title="Abrir o desenho de ' + cod + '">'
-                   + SEP_ICONE_DESENHO + '</button>';
+                   + SEP_ICONE_DESENHO + 'Desenho</button>';
             }
             h += '</div>';
             if (temDesenho) {
@@ -3904,13 +3933,27 @@
                     </svg>
                     Retorno de Obra
                 </h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="ret-bt-lista" onclick="fchAbrirLista('retorno')"
+                            title="Ver enviados e pendentes">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/>
+                            <path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>
+                        </svg>
+                        Enviados
+                        <span class="fch-conta hidden" id="fchConta_retorno"></span>
+                    </button>
                 <button type="button" onclick="closeForm('retorno')" class="text-gray-400 hover:text-white transition duration-150">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                 </button>
+                </div>
             </div>
-            <form id="formRetorno" class="p-4" onsubmit="submitRetorno(event)">
+            <form id="formRetorno" class="p-4" onsubmit="return false;">
+                <!-- Carimbo do momento em que a tela abriu. É o que separa um
+                     retorno do outro dentro do mesmo pedido. -->
+                <input type="hidden" id="ret_carimbo">
                 <div class="mb-2.5">
                     <label for="ret_tipoItem" class="block text-sm font-medium text-gray-400 mb-0.5">Tipo de Item de Retorno <span class="text-red-500">*</span></label>
                     <select id="ret_tipoItem" required>
@@ -3974,10 +4017,22 @@
                     </div>
                 </div>
                 <p id="ret_formStatus" class="text-sm text-center mb-1 min-h-[0.75rem] leading-tight" style="margin-top:10px;"></p>
-                <button type="submit" id="ret_submitButton"
-                        class="w-full btn-green-custom text-white font-bold compact-button px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" style="margin-top:4px;">
-                    Enviar Lista de Retorno de Obra
-                </button>
+                <div class="ret-acoes">
+                    <button type="button" id="ret_btCompartilhar" class="ret-bt ret-bt-principal"
+                            onclick="fchEnviarDaTela('retorno')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                            <path d="M8.6 13.5l6.8 4"/><path d="M15.4 6.5l-6.8 4"/>
+                        </svg>
+                        Compartilhar
+                    </button>
+                    <button type="button" id="ret_btSalvar" class="ret-bt ret-bt-normal"
+                            onclick="fchSalvar('retorno')">Salvar</button>
+                    <button type="button" id="ret_btBaixar" class="ret-bt ret-bt-normal"
+                            onclick="retGerarPDF()">⬇ Baixar PDF</button>
+                    <button type="button" id="ret_btLimpar" class="ret-bt ret-bt-normal"
+                            onclick="retLimpar()">Limpar</button>
+                </div>
             </form>
         </div>
     </div>
@@ -7208,6 +7263,12 @@
             }
             if (tipo === 'retorno') {
                 populateSupervisorSelect('ret_responsavel');
+                /* Cada retorno é um documento novo — o mesmo pedido pode ter
+                   vários. O carimbo do momento em que a tela abriu é o que
+                   distingue um do outro, e é ele que faz o papel da TAG dos
+                   checklists na hora de salvar e reabrir. */
+                const carimbo = document.getElementById('ret_carimbo');
+                if (carimbo && !carimbo.value) carimbo.value = retNovoCarimbo();
                 if (!document.getElementById('ret_itemsBody').dataset.initialized) {
                     retAddRow();
                     retAddRow();
@@ -7287,44 +7348,18 @@
             retAddRow();
             document.getElementById('ret_itemsBody').dataset.initialized = 'true';
             chkClearSignature('sigRetorno');
+            const carimbo = document.getElementById('ret_carimbo');
+            if (carimbo) carimbo.value = retNovoCarimbo();   // é outro documento
             const status = document.getElementById('ret_formStatus');
             status.textContent = '';
             status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
         }
-        async function submitRetorno(event) {
-            event.preventDefault();
-            const submitButton = document.getElementById('ret_submitButton');
-            const status = document.getElementById('ret_formStatus');
-            status.textContent = '';
-            status.className = 'text-sm text-center mb-1 min-h-[0.75rem] leading-tight';
-            const items = retCollectItems();
-            if (items.length === 0) {
-                status.textContent = 'Informe ao menos um item na lista de retorno.';
-                status.classList.add('text-red-400');
-                return;
-            }
-            const payload = {
-                tipoItem: document.getElementById('ret_tipoItem').value,
-                pedido: document.getElementById('ret_pedido').value.trim(),
-                cliente: document.getElementById('ret_cliente').value.trim(),
-                localidade: document.getElementById('ret_localidade').value.trim(),
-                responsavel: document.getElementById('ret_responsavel').value,
-                itens: items,
-                assinatura: chkGetSignatureDataUrl('sigRetorno')
-            };
-            // Envio ainda não conectado a um backend — dados prontos em "payload"
-            // para quando a geração de PDF / integração for implementada.
-            console.log('Retorno de Obra pronto para envio:', payload);
-            submitButton.disabled = true;
-            submitButton.innerHTML = `<div class="spinner border-4 border-[#1a5c33] border-t-4 h-4 w-4 rounded-full mr-2"></div> Enviando...`;
-            setTimeout(() => {
-                status.textContent = 'Lista de retorno registrada!';
-                status.classList.add('text-green-400');
-                submitButton.disabled = false;
-                submitButton.innerHTML = 'Enviar Lista de Retorno de Obra';
-                setTimeout(() => closeForm('retorno'), 1200);
-            }, 400);
+        /** Limpar: confirma, porque apaga a lista de itens inteira. */
+        function retLimpar() {
+            if (!confirm('Limpar todos os campos e a lista de itens?')) return;
+            resetRetornoForm();
         }
+
         // ============================================================
         // Checklist de Entrega — seleção de equipamento + Elevador de Canecas
         // ============================================================
@@ -9060,6 +9095,215 @@
             }
         }
 
+
+        /* ============================================================
+           RETORNO DE OBRA — o documento
+
+           Até aqui este formulário não gerava nada: o botão montava os
+           dados, escrevia no console e dizia "registrada". Agora ele
+           produz um PDF de verdade, no mesmo padrão dos checklists, que
+           é o que vai por e-mail, por WhatsApp e para o aparelho.
+
+           ATENÇÃO: este desenho é PROVISÓRIO. O Fernando vai mandar o
+           formulário em papel que a equipe usa hoje, e aí a página é
+           refeita fiel a ele. O que NÃO vai mudar é o resto — gerar,
+           salvar, compartilhar, mandar o e-mail: tudo isso conversa com
+           esta função só pelos bytes que ela devolve.
+        ============================================================ */
+        function retVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+        /** AAAAMMDD-HHMM: legível na lista e único o bastante na prática. */
+        function retNovoCarimbo() {
+            const d = new Date();
+            const dois = function (n) { return String(n).padStart(2, '0'); };
+            return String(d.getFullYear()) + dois(d.getMonth() + 1) + dois(d.getDate())
+                 + '-' + dois(d.getHours()) + dois(d.getMinutes()) + dois(d.getSeconds());
+        }
+
+        /**
+         * @param {object} [op] op.baixar = false devolve os bytes sem baixar.
+         * @returns {Promise<Uint8Array|null>}
+         */
+        async function retGerarPDF(op) {
+            const baixar = !op || op.baixar !== false;
+            const msg = document.getElementById('ret_formStatus');
+            try {
+                chkConferirBiblioteca();
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const doc = await PDFDocument.create();
+                const font = await doc.embedFont(StandardFonts.Helvetica);
+                const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+                const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+                const logo = await chkLogoDoPDF(doc);
+                const sigUrl = chkGetSignatureDataUrl('sigRetorno');
+                const sigImg = sigUrl ? await doc.embedPng(chkDataUrlToBytes(sigUrl)) : null;
+
+                const pageW = 595.28, pageH = 841.89, mg = 34, headerH = 58;
+                const verde = rgb(0.047, 0.290, 0.192);
+                const tinta = rgb(0.10, 0.11, 0.10);
+                const cinza = rgb(0.46, 0.47, 0.44);
+                const linha = rgb(0.84, 0.85, 0.82);
+                const branco = rgb(1, 1, 1);
+                const zebra = rgb(0.96, 0.97, 0.96);
+
+                let page, y;
+                const txt = (s, x, yy, o = {}) => page.drawText(chkTextoPDF(s), {
+                    x, y: yy, size: o.size || 9.5, font: o.font || font, color: o.color || tinta
+                });
+                const hline = (x1, yy, x2, o = {}) => page.drawLine({
+                    start: { x: x1, y: yy }, end: { x: x2, y: yy },
+                    thickness: o.t || 0.6, color: o.color || linha
+                });
+                const rect = (x, yy, w, h, o = {}) => page.drawRectangle({
+                    x, y: yy, width: w, height: h,
+                    borderWidth: o.bw !== undefined ? o.bw : 0, borderColor: o.bc || linha,
+                    color: o.fill || branco
+                });
+                const cortar = (s, larg, tam, f) => {
+                    let t = chkTextoPDF(s);
+                    if (f.widthOfTextAtSize(t, tam) <= larg) return t;
+                    while (t.length > 1 && f.widthOfTextAtSize(t + '…', tam) > larg) t = t.slice(0, -1);
+                    return t.trimEnd() + '…';
+                };
+
+                const itens = retCollectItems();
+                const titulo = 'Lista de Retorno de Obra';
+
+                // ── A folha, com cabeçalho. Vira quantas forem precisas. ──
+                const novaPagina = function () {
+                    page = doc.addPage([pageW, pageH]);
+                    hline(0, pageH - headerH, pageW, { t: 2.5, color: verde });
+                    const logoH = 26;
+                    const logoW = logo ? (logo.width / logo.height) * logoH : 0;
+                    if (logo) page.drawImage(logo, { x: mg, y: pageH - headerH / 2 - logoH / 2 + 4, width: logoW, height: logoH });
+                    txt(titulo, mg + logoW + 16, pageH - 26, { size: 13, font: bold, color: verde });
+                    txt('Pedido ' + (retVal('ret_pedido') || '—') + '   ·   ' + (retVal('ret_cliente') || '—'),
+                        mg + logoW + 16, pageH - 40, { size: 8.5, color: cinza });
+                    y = pageH - headerH - 24;
+                };
+                novaPagina();
+
+                // ── Identificação ──
+                const campo = function (rotulo, valor, x, larg) {
+                    txt(rotulo.toUpperCase(), x, y, { size: 6.8, color: cinza });
+                    txt(cortar(valor || '—', larg, 10, font), x, y - 12, { size: 10 });
+                    hline(x, y - 17, x + larg);
+                };
+                const col = (pageW - 2 * mg - 24) / 2;
+                campo('Número do pedido', retVal('ret_pedido'), mg, col);
+                campo('Nome do cliente', retVal('ret_cliente'), mg + col + 24, col);
+                y -= 34;
+                campo('Localidade', retVal('ret_localidade'), mg, col);
+                campo('Tipo de item de retorno', retVal('ret_tipoItem'), mg + col + 24, col);
+                y -= 34;
+                campo('Responsável pelo envio', retVal('ret_responsavel'), mg, col);
+                campo('Data', new Date().toLocaleDateString('pt-BR'), mg + col + 24, col);
+                y -= 34;
+
+                // ── Tabela de itens ──
+                txt('ITENS DE RETORNO', mg, y, { size: 10, font: bold, color: verde });
+                y -= 5; hline(mg, y, pageW - mg, { t: 0.5, color: rgb(.7, .8, .72) }); y -= 16;
+
+                const larguras = [66, 66, 46, 40, pageW - 2 * mg - 218];
+                const cabecalhos = ['CÓDIGO', 'MÁSCARA', 'QTDE', 'UN.', 'DESCRIÇÃO'];
+                const alturaCab = 16;
+
+                const desenharCabecalho = function () {
+                    rect(mg, y - 4, pageW - 2 * mg, alturaCab, { fill: verde });
+                    let x = mg + 5;
+                    cabecalhos.forEach(function (c, i) {
+                        page.drawText(c, { x: x, y: y, size: 7.5, font: bold, color: branco });
+                        x += larguras[i];
+                    });
+                    y -= alturaCab + 4;
+                };
+                desenharCabecalho();
+
+                if (!itens.length) {
+                    txt('Nenhum item informado.', mg + 5, y, { size: 9, font: italic, color: cinza });
+                    y -= 18;
+                } else {
+                    itens.forEach(function (it, n) {
+                        // Cabe mais uma linha nesta folha? A reserva de 150
+                        // pontos é o espaço da assinatura e do rodapé.
+                        if (y < mg + 150) {
+                            novaPagina();
+                            txt('ITENS DE RETORNO (continuação)', mg, y, { size: 10, font: bold, color: verde });
+                            y -= 5; hline(mg, y, pageW - mg, { t: 0.5, color: rgb(.7, .8, .72) }); y -= 16;
+                            desenharCabecalho();
+                        }
+                        if (n % 2 === 1) rect(mg, y - 4, pageW - 2 * mg, 15, { fill: zebra });
+                        const valores = [it.codigo, it.mascara, it.quantidade, it.unidade, it.descricao];
+                        let x = mg + 5;
+                        valores.forEach(function (v, i) {
+                            txt(cortar(v || '—', larguras[i] - 8, 8.5, font), x, y, { size: 8.5 });
+                            x += larguras[i];
+                        });
+                        y -= 15;
+                        hline(mg, y + 4, pageW - mg, { t: 0.3 });
+                    });
+                }
+                y -= 6;
+                txt(itens.length + (itens.length === 1 ? ' item na lista' : ' itens na lista'),
+                    mg, y, { size: 8.5, font: bold, color: cinza });
+                y -= 30;
+
+                // ── Declaração e assinatura ──
+                const declaracao = 'O responsável declara que os itens acima estão sendo devolvidos '
+                                 + 'da obra e confere com o material efetivamente enviado.';
+                const wrap = function (s, maxW, size, f) {
+                    const palavras = chkTextoPDF(s).split(/\s+/).filter(Boolean);
+                    const linhas = []; let cur = '';
+                    for (const p of palavras) {
+                        const t = cur ? cur + ' ' + p : p;
+                        if (f.widthOfTextAtSize(t, size) > maxW && cur) { linhas.push(cur); cur = p; } else cur = t;
+                    }
+                    if (cur) linhas.push(cur);
+                    return linhas;
+                };
+                if (y < mg + 120) novaPagina();
+                wrap(declaracao, pageW - 2 * mg, 8.5, italic).forEach(function (l) {
+                    txt(l, mg, y, { size: 8.5, font: italic, color: cinza }); y -= 11;
+                });
+                y -= 46;
+                if (sigImg) chkDesenharAssinatura(page, sigImg, mg + 250, pageW - mg, y);
+                txt(cortar(retVal('ret_responsavel'), 190, 10, font), mg, y, { size: 10 });
+                hline(mg, y - 4, mg + 200); txt('Responsável pelo envio', mg, y - 13, { size: 7, color: cinza });
+                hline(mg + 250, y - 4, pageW - mg); txt('Assinatura', mg + 250, y - 13, { size: 7, color: cinza });
+
+                const bytes = await doc.save();
+                if (!baixar) return bytes;
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = retNomeArquivo();
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+                if (msg) {
+                    msg.textContent = 'PDF gerado e baixado. Abra o arquivo para conferir ou imprimir.';
+                    msg.className = 'text-sm text-center mb-1 leading-tight text-green-400';
+                }
+                return bytes;
+            } catch (err) {
+                console.error(err);
+                if (!baixar) throw err;
+                if (msg) {
+                    msg.textContent = 'Não consegui gerar o PDF: ' + (err && err.message ? err.message : 'erro desconhecido');
+                    msg.className = 'text-sm text-center mb-1 leading-tight text-red-400';
+                }
+                return null;
+            }
+        }
+
+        /** O nome do arquivo, o mesmo no download, no e-mail e no WhatsApp. */
+        function retNomeArquivo() {
+            const pedido = retVal('ret_pedido').replace(/[^a-zA-Z0-9_-]/g, '') || 'sem-pedido';
+            const cliente = retVal('ret_cliente')
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+            return 'retorno_obra_' + pedido + (cliente ? '_' + cliente : '') + '.pdf';
+        }
+
         /* ============================================================
            CHECKLISTS: GUARDAR NO APARELHO, ENVIAR AO DRIVE
 
@@ -9187,6 +9431,8 @@
         const FCH_FAMILIAS = {
             entrega: {
                 rotulo: 'Entrega',
+                oQue: 'checklist', ondeVai: 'para o Drive', verbo: 'Enviar',
+                chavePede: 'o Pedido e a TAG',
                 raiz: 'checklistElevadorRoot',
                 modal: 'modal-checklist-elevador',
                 msg: 'statusMsg',
@@ -9203,8 +9449,64 @@
                 gerarPDF: function () { return chkGerarPDF({ baixar: false }); },
                 recontar: function () { chkUpdateProgress(); }
             },
+            retorno: {
+                rotulo: 'Retorno de Obra',
+                /* O vocabulário muda: aqui não é "checklist" nem "Drive".
+                   As mesmas funções servem as três famílias, e ler
+                   "o checklist foi para o Drive" numa tela de retorno de
+                   obra faria o supervisor duvidar do que aconteceu. */
+                oQue: 'retorno', ondeVai: 'por e-mail', verbo: 'Compartilhar',
+                chavePede: 'o Pedido',
+                raiz: 'retornoObraRoot',
+                modal: 'modal-retorno',
+                msg: 'ret_formStatus',
+                btEnviar: 'ret_btCompartilhar', btSalvar: 'ret_btSalvar',
+                campoPedido: 'ret_pedido', campoTag: 'ret_carimbo', campoCliente: 'ret_cliente',
+                campoSupervisor: 'ret_responsavel',
+                assinaturas: ['sigRetorno'],
+                itens: /^naotem$/,          // este formulário não tem lista de OK/NC
+                abrir: function () { openForm('retorno'); },
+                fechar: function () { closeForm('retorno'); },
+                nomeDoTipo: function () { return 'Retorno de Obra'; },
+                modeloAtual: function () { return retVal('ret_tipoItem'); },
+                tipoAtual: function () { return 'retorno'; },
+                gerarPDF: function () { return retGerarPDF({ baixar: false }); },
+                recontar: function () {},
+                /* O retorno não vai para o Drive: o PDF vira anexo de um
+                   e-mail disparado pelo Apps Script. Por isso a família
+                   traz o próprio envio, em vez de usar o dos checklists. */
+                enviar: retEnviarPorEmail,
+                /* E, logo depois do e-mail sair, abre a janela de
+                   compartilhar do celular — é ali que está o WhatsApp. */
+                compartilhar: retCompartilhar,
+                rotulo1: function (f) { return f.pedido || 'sem pedido'; },
+                rotulo2: function (f) { return f.cliente || ''; },
+                /* A tabela de itens é montada na hora e as células não têm
+                   id — quem coleta e quem repõe são estas duas funções. */
+                extras: {
+                    coletar: function () { return { itens: retCollectItems() }; },
+                    repor: function (ficha) {
+                        const corpo = document.getElementById('ret_itemsBody');
+                        if (!corpo) return;
+                        corpo.innerHTML = '';
+                        const itens = (ficha.extras && ficha.extras.itens) || [];
+                        (itens.length ? itens : [{}, {}, {}]).forEach(function (it) {
+                            retAddRow();
+                            const tr = corpo.lastElementChild;
+                            tr.querySelector('.ret-codigo').value = it.codigo || '';
+                            tr.querySelector('.ret-mascara').value = it.mascara || '';
+                            tr.querySelector('.ret-quantidade').value = it.quantidade || '';
+                            tr.querySelector('.ret-unidade').value = it.unidade || '';
+                            tr.querySelector('.ret-descricao').value = it.descricao || '';
+                        });
+                        corpo.dataset.initialized = 'true';
+                    }
+                }
+            },
             montagem: {
                 rotulo: 'Montagem',
+                oQue: 'checklist', ondeVai: 'para o Drive', verbo: 'Enviar',
+                chavePede: 'o Pedido e a TAG',
                 raiz: 'montagemRoot',
                 modal: 'modal-montagem',
                 msg: 'mtStatusMsg',
@@ -9283,6 +9585,7 @@
                 supervisor: String(dados.campos[f.campoSupervisor] || '').trim(),
                 campos: dados.campos, respostas: dados.respostas,
                 escolhas: dados.escolhas,
+                extras: f.extras ? f.extras.coletar() : null,
                 assinaturas: assinaturas,
                 resumo: fchResumo(dados.respostas),
                 criadoPor: (usuarioAtual && usuarioAtual.usuario) || '',
@@ -9324,6 +9627,7 @@
                     el.checked = (el.value === valor);
                 });
             });
+            if (f.extras && f.extras.repor) f.extras.repor(ficha);
             selSincronizarTodos(document.getElementById(f.raiz));
 
             // Espera o redesenho da lista de itens antes de repor as respostas.
@@ -9346,9 +9650,14 @@
 
             const msg = document.getElementById(f.msg);
             if (msg) {
+                const nome = f.oQue === 'retorno' ? 'Retorno' : 'Checklist';
                 msg.textContent = ficha.estado === 'enviado'
-                    ? 'Checklist já enviado em ' + (ficha.enviadoEm || '—') + '. Alterar e enviar de novo substitui o arquivo no Drive.'
-                    : 'Checklist salvo neste aparelho, ainda não enviado.';
+                    ? nome + ' já enviado em ' + (ficha.enviadoEm || '—') + '. '
+                      + (f.oQue === 'retorno'
+                            ? 'Alterar e compartilhar de novo manda um e-mail novo.'
+                            : 'Alterar e enviar de novo substitui o arquivo no Drive.')
+                    : nome + ' salvo neste aparelho, ainda não enviado.';
+                if (f.oQue === 'retorno') msg.className = 'text-sm text-center mb-1 leading-tight text-gray-300';
             }
         }
 
@@ -9375,8 +9684,8 @@
             const pedido = String((document.getElementById(f.campoPedido) || {}).value || '').trim();
             const tag = String((document.getElementById(f.campoTag) || {}).value || '').trim();
             if (!pedido || !tag) {
-                return 'Preencha o Pedido e a TAG antes de salvar: são eles que identificam '
-                     + 'o checklist e evitam que um equipamento sobrescreva o outro.';
+                return 'Preencha ' + (f.chavePede || 'o Pedido e a TAG') + ' antes de salvar: '
+                     + 'é o que identifica este ' + (f.oQue || 'documento') + '.';
             }
             // Um dígito trocado no pedido cria uma pasta errada no Drive, e
             // ninguém percebe. Avisar é barato; travar seria demais, porque
@@ -9429,10 +9738,12 @@
                 ficha.erro = '';
                 await fchGravar(ficha);
                 if (msg) {
-                    msg.textContent = 'Salvo no aparelho: ' + ficha.pedido + ' · ' + ficha.tag
-                        + '. ' + (ficha.enviadoEm
-                            ? 'Já tinha sido enviado; use Enviar para substituir o arquivo no Drive.'
-                            : 'Use Enviar quando quiser mandar para o Drive.');
+                    const quem = (f.oQue === 'retorno')
+                        ? 'Salvo no aparelho: pedido ' + ficha.pedido + '.'
+                        : 'Salvo no aparelho: ' + ficha.pedido + ' · ' + ficha.tag + '.';
+                    msg.textContent = quem + ' ' + (ficha.enviadoEm
+                        ? 'Já tinha sido enviado; use ' + f.verbo + ' para mandar a versão nova.'
+                        : 'Use ' + f.verbo + ' quando quiser mandar ' + f.ondeVai + '.');
                 }
                 return ficha;
             } catch (e) {
@@ -9448,13 +9759,13 @@
             if (!ficha) return;
             if (!navigator.onLine) {
                 if (msg) {
-                    msg.textContent = 'Sem internet agora. O checklist ficou guardado e vai sozinho '
-                                    + 'para o Drive assim que a conexão voltar. '
+                    msg.textContent = 'Sem internet agora. O ' + f.oQue + ' ficou guardado e vai sozinho '
+                                    + f.ondeVai + ' assim que a conexão voltar. '
                                     + 'Você pode continuar corrigindo até lá.';
                 }
                 return;
             }
-            if (msg) msg.textContent = 'Enviando para o Drive…';
+            if (msg) msg.textContent = (f.oQue === 'retorno') ? 'Gerando e enviando…' : 'Enviando para o Drive…';
             /* Com sinal fraco o envio demora, e nesse tempo os botões
                ficam travados: dois envios ao mesmo tempo do mesmo
                checklist só atrapalham. Editar a tela continua liberado —
@@ -9471,18 +9782,29 @@
                     return;
                 }
                 const r = await fchPostar(ficha, bytes);
+                /* A janela de compartilhar só abre com um toque da pessoa,
+                   e este é o toque. Por isso ela vem daqui e não da fila:
+                   a fila roda sozinha, sem ninguém na frente da tela. */
+                if (r.ok && f.compartilhar) {
+                    try { await f.compartilhar(ficha, bytes); } catch (e) { /* ele cancelou */ }
+                }
                 if (msg) {
+                    const ehRetorno = (f.oQue === 'retorno');
                     if (r.ok && r.aindaPendente) {
-                        msg.textContent = 'Enviado para o Drive (pasta ' + r.pasta + '), mas você mexeu no '
-                                        + 'checklist enquanto ele subia. O que está na tela ainda não foi — '
-                                        + 'toque em Enviar de novo.';
+                        msg.textContent = (ehRetorno ? 'E-mail enviado' : 'Enviado para o Drive (pasta ' + r.pasta + ')')
+                                        + ', mas você mexeu no ' + f.oQue + ' enquanto ele subia. '
+                                        + 'O que está na tela ainda não foi — toque em ' + f.verbo + ' de novo.';
                     } else if (r.ok) {
-                        msg.textContent = (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
-                                        + ' Pasta ' + r.pasta + ' · ' + r.nome;
+                        msg.textContent = ehRetorno
+                            ? 'E-mail enviado para ' + r.pasta + '. Escolha por onde compartilhar.'
+                            : (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
+                              + ' Pasta ' + r.pasta + ' · ' + r.nome;
                     } else {
                         msg.textContent = 'Não consegui enviar: ' + r.erro
-                                        + ' O checklist continua guardado e será reenviado depois.';
+                                        + ' O ' + f.oQue + ' continua guardado e será reenviado depois.';
                     }
+                    if (ehRetorno) msg.className = 'text-sm text-center mb-1 leading-tight '
+                                                 + (r.ok ? 'text-green-400' : 'text-red-400');
                 }
             } finally {
                 fchTravarBotoes(f, false);
@@ -9500,6 +9822,8 @@
 
         /** Manda uma ficha ao Apps Script e anota o resultado nela. */
         async function fchPostar(ficha, bytes) {
+            const f = FCH_FAMILIAS[ficha.familia];
+            if (f && f.enviar) return f.enviar(ficha, bytes);
             try {
                 const corpo = JSON.stringify({
                     acao: 'checklist',
@@ -9613,7 +9937,7 @@
                 pedido: f.pedido, tag: f.tag, cliente: f.cliente,
                 modelo: f.modelo, supervisor: f.supervisor,
                 campos: f.campos, respostas: f.respostas, escolhas: f.escolhas,
-                assinaturas: f.assinaturas, resumo: f.resumo,
+                extras: f.extras, assinaturas: f.assinaturas, resumo: f.resumo,
                 criadoPor: f.criadoPor, criadoPorNome: f.criadoPorNome,
                 criadoEm: f.criadoEm, alteradoEm: f.alteradoEm
             };
@@ -9666,7 +9990,8 @@
                     tag: g.tag || tag, cliente: g.cliente || '', modelo: g.modelo || '',
                     supervisor: g.supervisor || '',
                     campos: g.campos || {}, respostas: g.respostas || {},
-                    escolhas: g.escolhas || {}, assinaturas: g.assinaturas || {},
+                    escolhas: g.escolhas || {}, extras: g.extras || null,
+                    assinaturas: g.assinaturas || {},
                     resumo: g.resumo || {},
                     criadoPor: g.criadoPor || '', criadoPorNome: g.criadoPorNome || '',
                     criadoEm: g.criadoEm || Date.now(),
@@ -9694,6 +10019,98 @@
                 await fchAbrirFicha(ficha.id);
             } catch (e) {
                 aviso('Não consegui trazer o preenchimento: ' + (e.message || e), true);
+            }
+        }
+
+
+        /* ---- Retorno de Obra: e-mail e compartilhamento ------------- */
+
+        /**
+         * Manda o PDF para o Apps Script, que dispara o e-mail. Devolve
+         * o mesmo formato que o envio dos checklists, para a fila e a
+         * lista tratarem os dois do mesmo jeito.
+         */
+        async function retEnviarPorEmail(ficha, bytes) {
+            try {
+                const corpo = JSON.stringify({
+                    acao: 'retorno',
+                    token: (usuarioAtual && usuarioAtual.token) || '',
+                    pedido: ficha.pedido, cliente: ficha.cliente,
+                    localidade: (ficha.campos && ficha.campos.ret_localidade) || '',
+                    tipoItem: ficha.modelo || '',
+                    responsavel: ficha.supervisor || '',
+                    itens: (ficha.extras && ficha.extras.itens) || [],
+                    pdf: fchBytesParaBase64(bytes)
+                });
+                const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: corpo });
+                const texto = await resp.text();
+                let r;
+                try {
+                    r = JSON.parse(texto);
+                } catch (e) {
+                    throw new Error('o servidor respondeu de um jeito inesperado'
+                        + (resp.status ? ' (código ' + resp.status + ')' : '')
+                        + '. Peça para publicar uma nova versão do script.');
+                }
+                if (r && r.ok) {
+                    const g = await fchGuardarResultado(ficha, {
+                        estado: 'enviado',
+                        enviadoEm: r.enviadoEm || '',
+                        para: r.para || '',
+                        arquivoNome: r.nome || '',
+                        erro: ''
+                    });
+                    return {
+                        ok: true, substituiu: false,
+                        pasta: r.para || '', nome: r.nome || '',
+                        aindaPendente: g.mudouNoMeio
+                    };
+                }
+                /* Sem endereço configurado no script, o app NÃO pode dizer
+                   "enviado". O supervisor precisa saber que ninguém
+                   recebeu — e que o PDF continua com ele. */
+                const erro = (r && r.erro) || 'o servidor recusou o envio.';
+                await fchGuardarResultado(ficha, { erro: erro });
+                return { ok: false, erro: erro };
+            } catch (e) {
+                const erro = e.message || String(e);
+                await fchGuardarResultado(ficha, { erro: erro });
+                return { ok: false, erro: erro };
+            }
+        }
+
+        /**
+         * Abre a janela de compartilhar do próprio celular — a mesma do
+         * WhatsApp, e-mail, Drive. É preciso ser um toque da pessoa, e é
+         * por isso que só acontece no botão, nunca na fila.
+         *
+         * Onde o navegador não sabe compartilhar arquivo (computador, em
+         * geral), o PDF é baixado e o app diz o que fazer — pior seria um
+         * botão que não faz nada.
+         */
+        async function retCompartilhar(ficha, bytes) {
+            const nome = ficha.arquivoNome || retNomeArquivo();
+            const msg = document.getElementById('ret_formStatus');
+            const arquivo = new File([bytes], nome, { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+                await navigator.share({
+                    files: [arquivo],
+                    title: 'Retorno de Obra — Pedido ' + (ficha.pedido || ''),
+                    text: 'Lista de retorno de obra do pedido ' + (ficha.pedido || '')
+                        + (ficha.cliente ? ' — ' + ficha.cliente : '') + '.'
+                });
+                return;
+            }
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = nome;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+            if (msg) {
+                msg.textContent = 'Este aparelho não abre a janela de compartilhar. '
+                                + 'Baixei o PDF — é só anexar onde você quiser.';
+                msg.className = 'text-sm text-center mb-1 leading-tight text-gray-300';
             }
         }
 
@@ -9805,8 +10222,9 @@
         function fchAbrirLista(familia) {
             fchFamiliaAberta = familia;
             const modal = document.getElementById('modal-fichas');
-            document.getElementById('fichasTitulo').textContent =
-                'Checklists de ' + FCH_FAMILIAS[familia].rotulo + ' — enviados e pendentes';
+            document.getElementById('fichasTitulo').textContent = (familia === 'retorno')
+                ? 'Retornos de obra — enviados e pendentes'
+                : 'Checklists de ' + FCH_FAMILIAS[familia].rotulo + ' — enviados e pendentes';
             modal.classList.remove('hidden'); modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
             fchDesenharLista();
@@ -9823,6 +10241,9 @@
            checklists dele estão lá. Esses aparecem só para consulta —
            editar exige as respostas, que ficaram no aparelho antigo. */
         async function fchBuscarRemotos(familia) {
+            // O retorno de obra não fica guardado no servidor — só e-mail e
+            // compartilhamento. Então não há lista remota para buscar.
+            if (familia === 'retorno') { fchRemotos = []; return; }
             if (!usuarioAtual || !usuarioAtual.token || !navigator.onLine) return;
             if (fchBuscandoRemoto) return;
             fchBuscandoRemoto = true;
@@ -9908,12 +10329,24 @@
             const posso = fchPodeEditar(f);
             if (f.bloqueada || !posso) classe = 'bloqueada';
             let h = '<div class="fch-linha ' + classe + '">';
-            h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(f.pedido) + ' · ' + fchEsc(f.tag) + '</span>'
-               + '<span class="fch-equip">' + fchEsc(f.equipamento) + (f.modelo ? ' — ' + fchEsc(f.modelo) : '') + '</span></div>';
-            let pe = '<b>' + (r.preenchidos || 0) + ' de ' + (r.total || 0) + '</b> itens · '
+            const fam = FCH_FAMILIAS[f.familia] || {};
+            const chaveTexto = fam.rotulo1 ? fam.rotulo1(f) : (f.pedido + ' · ' + f.tag);
+            const ladoTexto = fam.rotulo2 ? fam.rotulo2(f)
+                            : (f.equipamento + (f.modelo ? ' — ' + f.modelo : ''));
+            h += '<div class="fch-cab"><span class="fch-chave">' + fchEsc(chaveTexto) + '</span>'
+               + '<span class="fch-equip">' + fchEsc(ladoTexto) + '</span></div>';
+            let pe;
+            if (f.familia === 'retorno') {
+                const qtd = ((f.extras && f.extras.itens) || []).length;
+                pe = '<b>' + qtd + '</b> ' + (qtd === 1 ? 'item' : 'itens')
+                   + (f.modelo ? ' · ' + fchEsc(f.modelo) : '');
+            } else {
+                pe = '<b>' + (r.preenchidos || 0) + ' de ' + (r.total || 0) + '</b> itens · '
                    + 'OK ' + (r.ok || 0) + ' · NC ' + (r.nc || 0) + ' · NA ' + (r.na || 0);
+            }
             if (classe === 'enviada') {
-                pe += '<br>Enviado em ' + fchEsc(f.enviadoEm || '—');
+                pe += '<br>Enviado em ' + fchEsc(f.enviadoEm || '—')
+                   + (f.familia === 'retorno' && f.para ? ' para ' + fchEsc(f.para) : '');
             } else {
                 pe += '<br>Salvo em ' + fchEsc(fchQuando(f.alteradoEm));
                 if (f.enviadoEm) pe += ' · já foi enviado em ' + fchEsc(f.enviadoEm) + ', vai substituir';
@@ -9936,7 +10369,7 @@
                 h += '<button type="button" class="fch-acao" data-fch="abrir" data-fid="' + chave + '">Abrir e editar</button>';
                 h += '<button type="button" class="fch-acao" data-fch="enviar" data-fid="' + chave + '"'
                    + (navigator.onLine ? '' : ' disabled') + '>'
-                   + (classe === 'enviada' ? 'Enviar de novo' : 'Enviar') + '</button>';
+                   + (classe === 'enviada' ? (fam.verbo || 'Enviar') + ' de novo' : (fam.verbo || 'Enviar')) + '</button>';
             }
             if (f.link) h += '<a class="fch-acao" href="' + fchEsc(f.link) + '" target="_blank" rel="noopener">Ver no Drive</a>';
             // Excluir daqui continua valendo mesmo para a ficha de outro:
@@ -9974,7 +10407,7 @@
 
         /** O contador laranja no atalho de cada família. */
         function fchAtualizarContadores(todas) {
-            ['entrega', 'montagem'].forEach(function (fam) {
+            ['entrega', 'montagem', 'retorno'].forEach(function (fam) {
                 const el = document.getElementById('fchConta_' + fam);
                 if (!el) return;
                 const n = todas.filter(function (f) {
