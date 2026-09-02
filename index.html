@@ -9057,6 +9057,7 @@
                 msg: 'statusMsg',
                 campoPedido: 'pedido', campoTag: 'tag', campoCliente: 'cliente',
                 campoSupervisor: 'supervisorNome',
+                btEnviar: 'btnEnviar', btSalvar: 'btnSalvar',
                 assinaturas: ['sigSupervisor', 'sigCliente'],
                 itens: /^[LR]-\d+$/,
                 abrir: function (tipo) { abrirChecklist(tipo); },
@@ -9074,6 +9075,7 @@
                 msg: 'mtStatusMsg',
                 campoPedido: 'mt_pedido', campoTag: 'mt_tag', campoCliente: 'mt_cliente',
                 campoSupervisor: 'mt_supervisorNome',
+                btEnviar: 'mtBtnEnviar', btSalvar: 'mtBtnSalvar',
                 assinaturas: ['mtSigSupervisor'],
                 itens: /^M[LR]-\d+$/,
                 abrir: function (tipo) { abrirMontagem(tipo); },
@@ -9312,28 +9314,53 @@
             if (!navigator.onLine) {
                 if (msg) {
                     msg.textContent = 'Sem internet agora. O checklist ficou guardado e vai sozinho '
-                                    + 'para o Drive assim que a conexão voltar.';
+                                    + 'para o Drive assim que a conexão voltar. '
+                                    + 'Você pode continuar corrigindo até lá.';
                 }
                 return;
             }
             if (msg) msg.textContent = 'Enviando para o Drive…';
-            // Gera o PDF com a tela aberta: é aqui que as assinaturas e a
-            // lista de itens estão montadas.
-            let bytes = null;
+            /* Com sinal fraco o envio demora, e nesse tempo os botões
+               ficam travados: dois envios ao mesmo tempo do mesmo
+               checklist só atrapalham. Editar a tela continua liberado —
+               o que for mexido agora entra no próximo envio. */
+            fchTravarBotoes(f, true);
             try {
-                bytes = await f.gerarPDF();
-            } catch (e) {
-                if (msg) msg.textContent = 'Não consegui gerar o PDF para enviar: ' + (e.message || e);
-                return;
+                // Gera o PDF com a tela aberta: é aqui que as assinaturas e a
+                // lista de itens estão montadas.
+                let bytes = null;
+                try {
+                    bytes = await f.gerarPDF();
+                } catch (e) {
+                    if (msg) msg.textContent = 'Não consegui gerar o PDF para enviar: ' + (e.message || e);
+                    return;
+                }
+                const r = await fchPostar(ficha, bytes);
+                if (msg) {
+                    if (r.ok && r.aindaPendente) {
+                        msg.textContent = 'Enviado para o Drive (pasta ' + r.pasta + '), mas você mexeu no '
+                                        + 'checklist enquanto ele subia. O que está na tela ainda não foi — '
+                                        + 'toque em Enviar de novo.';
+                    } else if (r.ok) {
+                        msg.textContent = (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
+                                        + ' Pasta ' + r.pasta + ' · ' + r.nome;
+                    } else {
+                        msg.textContent = 'Não consegui enviar: ' + r.erro
+                                        + ' O checklist continua guardado e será reenviado depois.';
+                    }
+                }
+            } finally {
+                fchTravarBotoes(f, false);
+                fchDesenharLista();
             }
-            const r = await fchPostar(ficha, bytes);
-            if (msg) {
-                msg.textContent = r.ok
-                    ? (r.substituiu ? 'Enviado: o arquivo no Drive foi substituído.' : 'Enviado para o Drive.')
-                      + ' Pasta ' + r.pasta + ' · ' + r.nome
-                    : 'Não consegui enviar: ' + r.erro + ' O checklist continua guardado e será reenviado depois.';
-            }
-            fchDesenharLista();
+        }
+
+        /** Liga e desliga os botões Salvar e Enviar de um formulário. */
+        function fchTravarBotoes(f, travar) {
+            [f.btEnviar, f.btSalvar].forEach(function (id) {
+                const bt = document.getElementById(id);
+                if (bt) bt.disabled = !!travar;
+            });
         }
 
         /** Manda uma ficha ao Apps Script e anota o resultado nela. */
@@ -9373,44 +9400,75 @@
                         + '. Peça para publicar uma nova versão do script.');
                 }
                 if (r && r.ok) {
-                    ficha.estado = 'enviado';
+                    const mudanca = {
+                        estado: 'enviado',
+                        enviadoEm: r.enviadoEm || '',
+                        link: r.link || '',
+                        arquivoId: r.arquivoId || '',
+                        arquivoNome: r.nome || '',
+                        erro: ''
+                    };
                     // O servidor é a autoridade sobre quem é o dono: se
                     // outro aparelho mandou primeiro, é o dele que vale.
                     if (r.criadoPor) {
-                        ficha.criadoPor = r.criadoPor;
-                        ficha.criadoPorNome = r.criadoPorNome || r.criadoPor;
+                        mudanca.criadoPor = r.criadoPor;
+                        mudanca.criadoPorNome = r.criadoPorNome || r.criadoPor;
                     }
-                    ficha.enviadoEm = r.enviadoEm || '';
-                    ficha.link = r.link || '';
-                    ficha.arquivoId = r.arquivoId || '';
-                    ficha.arquivoNome = r.nome || '';
-                    ficha.erro = '';
-                    await fchGravar(ficha);
-                    return { ok: true, substituiu: !!r.substituiu, pasta: r.pasta || ficha.pedido, nome: r.nome || '' };
+                    const g = await fchGuardarResultado(ficha, mudanca);
+                    return {
+                        ok: true, substituiu: !!r.substituiu,
+                        pasta: r.pasta || ficha.pedido, nome: r.nome || '',
+                        aindaPendente: g.mudouNoMeio
+                    };
                 }
-                ficha.erro = (r && r.erro) || 'o servidor recusou o envio.';
+                const mudanca = { erro: (r && r.erro) || 'o servidor recusou o envio.' };
                 if (r && r.bloqueado) {
                     /* Outro supervisor mandou este equipamento primeiro.
                        Acontece quando dois preenchem o mesmo TAG offline.
                        Marcar a ficha evita a fila bater na mesma porta a
                        cada abertura do app; o dono fica registrado para o
                        recado ficar claro na lista. */
-                    ficha.bloqueada = true;
+                    mudanca.bloqueada = true;
                     if (r.criadoPor) {
-                        ficha.criadoPor = r.criadoPor;
+                        mudanca.criadoPor = r.criadoPor;
                         // O nome tem de vir junto: senão a linha diria
                         // "criado por" com o nome de quem preencheu AQUI,
                         // que é justamente quem não é o dono.
-                        ficha.criadoPorNome = r.criadoPorNome || r.criadoPor;
+                        mudanca.criadoPorNome = r.criadoPorNome || r.criadoPor;
                     }
                 }
-                await fchGravar(ficha);
-                return { ok: false, erro: ficha.erro, bloqueado: !!(r && r.bloqueado) };
+                await fchGuardarResultado(ficha, mudanca);
+                return { ok: false, erro: mudanca.erro, bloqueado: !!(r && r.bloqueado) };
             } catch (e) {
-                ficha.erro = e.message || String(e);
-                await fchGravar(ficha);
-                return { ok: false, erro: ficha.erro };
+                const erro = e.message || String(e);
+                await fchGuardarResultado(ficha, { erro: erro });
+                return { ok: false, erro: erro };
             }
+        }
+
+        /**
+         * Anota na ficha guardada o que voltou do envio — sem apagar o que
+         * a pessoa mexeu enquanto o envio corria.
+         *
+         * Com internet ruim um envio pode levar meio minuto. Nesse tempo o
+         * supervisor continua com a tela aberta e pode corrigir mais coisa
+         * e salvar. Se o envio terminasse gravando por cima o objeto que
+         * ele levou no começo, essa correção sumia — e pior, a ficha ficava
+         * marcada como "enviada" com um PDF no Drive que já não era o que
+         * estava na tela.
+         *
+         * Então: releio a ficha guardada, aplico só o resultado do envio, e
+         * se o conteúdo mudou no meio do caminho ela CONTINUA pendente. O
+         * link do Drive fica registrado, e o próximo envio sobe a versão
+         * certa.
+         */
+        async function fchGuardarResultado(ficha, mudanca) {
+            const atual = (await fchLer(ficha.id)) || ficha;
+            const mudouNoMeio = atual.alteradoEm !== ficha.alteradoEm;
+            Object.keys(mudanca).forEach(function (k) { atual[k] = mudanca[k]; });
+            if (mudouNoMeio && mudanca.estado === 'enviado') atual.estado = 'pendente';
+            await fchGravar(atual);
+            return { atual: atual, mudouNoMeio: mudouNoMeio };
         }
 
         /** O que vale guardar de uma ficha: tudo que refaz a tela. */
