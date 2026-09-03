@@ -2916,6 +2916,7 @@
         sepFantasmaDesc = String(descricao || '').trim();
         if (aviso !== undefined) sepAvisoConjunto = aviso;
         sepFiltro = 'todas';
+        sepListaTodas = null;   /* é outro conjunto: os números velhos não valem */
         sepTrocarAba('resumo');
         if (sepResumoDados) { sepDesenharResumo(); sepCarregarLista(); }
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2992,6 +2993,9 @@
     let sepFiltro = 'pendente';   /* pendente | naoencontrada | separado | todas */
     let sepFantasma = '';
     let sepFantasmaDesc = '';
+    /* Com filtro de conjunto, a lista inteira dele fica aqui e os números
+       saem DELA — não do pedido. Ver sepContarLista. */
+    let sepListaTodas = null;
     let sepAvisoConjunto = '';
     let sepEquipCod = '';
     let sepEquipDesc = '';
@@ -3035,7 +3039,12 @@
         }
         
 
-        const g = d.geral;
+        /* Filtrado por conjunto, os números são os DELE — contados da
+           lista que veio. O resumo do servidor é sempre do pedido
+           inteiro, e mostrar 1.505 embaixo de "Conjunto 160084" fazia
+           parecer que o filtro não pegou. */
+        const doConjunto = !!(sepFantasma && sepListaTodas);
+        const g = doConjunto ? sepContarLista(sepListaTodas) : d.geral;
         const pcOk  = g.itens ? (g.separados      / g.itens * 100) : 0;
         const pcBad = g.itens ? (g.naoEncontrados / g.itens * 100) : 0;
 
@@ -3052,8 +3061,11 @@
            + '<i class="bad" style="width:' + pcBad + '%"></i>'
            + '</div>';
 
-        h += '<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra. '
-           + d.compradas + ' itens comprados ficam de fora da separação.</p>';
+        h += doConjunto
+           ? ('<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens neste conjunto, '
+              + g.pecas + ' peças. O pedido inteiro tem ' + d.geral.itens + '.</p>')
+           : ('<p class="text-xs text-gray-400 mb-3">' + g.itens + ' itens em obra. '
+              + d.compradas + ' itens comprados ficam de fora da separação.</p>');
 
         /* filtrar por conjunto: o supervisor separa um conjunto de cada
            vez, então ver só o que pertence a ele é o modo natural */
@@ -3101,6 +3113,14 @@
 
     function sepTrocarFiltro(chave) {
         sepFiltro = chave;
+        /* Com o conjunto já carregado inteiro, trocar de ficha é só
+           escolher o que mostrar — sem esperar o servidor de novo. */
+        if (sepFantasma && sepListaTodas) {
+            sepLista = sepFiltrarSituacao(sepListaTodas, sepFiltro);
+            sepDesenharResumo();
+            sepDesenharLista();
+            return;
+        }
         sepDesenharResumo();
         sepCarregarLista();
     }
@@ -3110,6 +3130,7 @@
         sepFantasma = campo ? campo.value.trim() : '';
         sepFantasmaDesc = '';
         sepAvisoConjunto = '';
+        sepListaTodas = null;
         sepEquipCod = '';
         sepEquipDesc = '';
         sepCarregarResumo();
@@ -3119,6 +3140,7 @@
         sepFantasma = '';
         sepFantasmaDesc = '';
         sepAvisoConjunto = '';
+        sepListaTodas = null;
         sepEquipCod = '';
         sepEquipDesc = '';
         sepCarregarResumo();
@@ -3129,14 +3151,27 @@
         if (!alvo) return;
         alvo.innerHTML = '<div class="flex items-center justify-center p-3"><div class="spinner border-4 border-[#333] border-t-4 h-5 w-5 rounded-full"></div></div>';
         try {
+            /* Filtrando por conjunto, pede TODAS as peças dele de uma vez:
+               é dessa lista que saem os números do cabeçalho, e trocar de
+               ficha passa a não custar viagem nenhuma. Sem filtro, o
+               pedido inteiro continua sendo filtrado no servidor — são
+               1.500 itens, não faz sentido trazer tudo. */
+            const tudoDoConjunto = !!sepFantasma;
             const url = SEPARADOR_URL + '?mode=lista'
                       + '&pedido=' + encodeURIComponent(sepPedido || '')
-                      + '&situacao=' + sepFiltro
+                      + '&situacao=' + (tudoDoConjunto ? 'todas' : sepFiltro)
                       + (sepFantasma ? '&fantasma=' + encodeURIComponent(sepFantasma) : '');
             const resposta = await fetchWithTimeout(url, SEARCH_TIMEOUT_MS);
             const d = await resposta.json();
             if (d.error) throw new Error(d.error);
-            sepLista = d.itens || [];
+            if (tudoDoConjunto) {
+                sepListaTodas = d.itens || [];
+                sepLista = sepFiltrarSituacao(sepListaTodas, sepFiltro);
+                sepDesenharResumo();   /* os números agora são os do conjunto */
+            } else {
+                sepListaTodas = null;
+                sepLista = d.itens || [];
+            }
             /* A descrição do conjunto vem da resposta: só o servidor
                sabe qual nível da corrente casou com o código.
                Se não vier — Apps Script antigo, por exemplo — tenta
@@ -3175,6 +3210,50 @@
      * toque errado tiraria o item da tela antes de dar para corrigir.
      * Ela sai na próxima vez que a lista for carregada.
      */
+    /** A mesma regra do servidor, aplicada aqui: qual situação a peça está. */
+    function sepFiltrarSituacao(lista, situacao) {
+        if (situacao === 'todas') return lista.slice();
+        return lista.filter(function (it) {
+            const sep  = Number(it.SEPARADAS) || 0;
+            const ne   = Number(it.NAO_ENCONTRADAS) || 0;
+            const pend = Math.max(0, sepTotal(it) - sep - ne);
+            if (situacao === 'pendente')      return pend > 0;
+            if (situacao === 'naoencontrada') return ne > 0;
+            if (situacao === 'separado')      return sep > 0;
+            return true;
+        });
+    }
+
+    /**
+     * Os números do conjunto filtrado.
+     *
+     * O resumo do servidor é sempre do PEDIDO INTEIRO — o filtro por
+     * código de conjunto nunca chegou lá. Era isso que fazia a tela dizer
+     * "1505 pendentes" depois de filtrar o 160084: a lista embaixo estava
+     * certa, os números em cima é que continuavam do pedido.
+     *
+     * Um item conta uma vez só, pela mesma regra do carimbo.
+     */
+    function sepContarLista(lista) {
+        const g = { itens: 0, separados: 0, naoEncontrados: 0, pendentes: 0,
+                    pecas: 0, pecasSeparadas: 0, pecasNaoEncontradas: 0, pecasPendentes: 0 };
+        lista.forEach(function (it) {
+            const total = sepTotal(it);
+            const sep = Number(it.SEPARADAS) || 0;
+            const ne  = Number(it.NAO_ENCONTRADAS) || 0;
+            const pend = Math.max(0, total - sep - ne);
+            g.itens++;
+            g.pecas += total;
+            g.pecasSeparadas += sep;
+            g.pecasNaoEncontradas += ne;
+            g.pecasPendentes += pend;
+            if (total > 0 && sep >= total) g.separados++;
+            else if (total > 0 && ne >= total) g.naoEncontrados++;
+            else g.pendentes++;
+        });
+        return g;
+    }
+
     function sepDesenharLista() {
         const alvo = document.getElementById('sepResumoLista');
         if (!alvo) return;
