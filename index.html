@@ -246,6 +246,50 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+            /* segura o brilho dentro da faixa */
+            position: relative;
+            overflow: hidden;
+        }
+        /* BRILHO QUE ATRAVESSA
+           Uma faixa de luz inclinada cruza a arte de tempos em tempos, como
+           reflexo passando em chapa polida. É desenho puro — nada de imagem
+           extra para baixar.
+
+           Dois cuidados que valem mais que o efeito:
+           · a animação é só de `transform`, que o celular resolve na placa
+             de vídeo. Animar `left` ou `background-position` obrigaria a
+             redesenhar a faixa inteira a cada quadro e esquentaria o
+             aparelho no bolso de quem está em obra;
+           · a pausa é longa de propósito. O brilho leva 1,6 s para passar e
+             só volta 9 s depois: some antes de virar piscar de vitrine. */
+        .inicio-topo::after {
+            content: "";
+            position: absolute;
+            top: -30%;
+            bottom: -30%;
+            left: -60%;
+            width: 45%;
+            background: linear-gradient(100deg,
+                        rgba(255,255,255,0) 0%,
+                        rgba(255,255,255,.06) 35%,
+                        rgba(255,255,255,.16) 50%,
+                        rgba(255,255,255,.06) 65%,
+                        rgba(255,255,255,0) 100%);
+            transform: translateX(0) rotate(8deg);
+            animation: brilhoTopo 10.6s ease-in-out infinite;
+            pointer-events: none;   /* nunca rouba o toque de quem usa a tela */
+        }
+        @keyframes brilhoTopo {
+            0%   { transform: translateX(0) rotate(8deg); }
+            /* 1,6 s de travessia dentro dos 10,6 s do ciclo */
+            15%  { transform: translateX(420%) rotate(8deg); }
+            100% { transform: translateX(420%) rotate(8deg); }
+        }
+        /* Quem pediu ao celular para reduzir animações não vê nada se
+           mexer — é ajuste de acessibilidade, e desrespeitar isso incomoda
+           de verdade quem depende dele. */
+        @media (prefers-reduced-motion: reduce) {
+            .inicio-topo::after { animation: none; opacity: 0; }
         }
         @media (min-width: 768px) {
             .inicio-topo { margin: -1.5rem -1.5rem 26px; }
@@ -7252,23 +7296,27 @@
                 painel.innerHTML = h;
                 return;
             }
-            /* Aqui o painel é diferente das outras telas: TODA obra do
-               cronograma aparece para todo mundo, porque acompanhar o
-               andamento da fábrica inteira ajuda a todos. O que o
-               perfil decide é só quem PODE ABRIR: a obra liberada vira
-               botão e cai no cronograma; a outra fica na tela apenas
-               para leitura. As telas que mostram peça, documento e
-               separação continuam restritas ao pedido liberado. */
-            const obras = progDados.pedidos || [];
+            /* CADA UM VÊ SÓ AS SUAS OBRAS.
+               Antes a obra não liberada aparecia bloqueada, com cadeado.
+               Mostrar um cadeado é mostrar que existe — número do pedido,
+               nome do cliente e andamento inclusive. O supervisor não tem
+               o que fazer com a obra do colega, e o Comercial prefere que
+               ele nem a veja. Agora a lista traz só o que está liberado
+               para a pessoa; o administrador continua vendo tudo. */
+            const todas = progDados.pedidos || [];
+            const obras = ehAdmin() ? todas : todas.filter(function (p) {
+                return pedidoLiberado(p.pedido);
+            });
             if (!obras.length) {
-                h += '<p class="prog-erro">Nenhuma obra no cronograma.</p>';
+                h += '<p class="prog-erro">' + (todas.length
+                        ? 'Nenhum pedido liberado para você ainda — fale com o Comercial.'
+                        : 'Nenhuma obra no cronograma.') + '</p>';
                 painel.innerHTML = h;
                 return;
             }
-            const minhas = obras.filter(function (p) { return pedidoLiberado(p.pedido); });
-            const outras = obras.filter(function (p) { return !pedidoLiberado(p.pedido); });
-            // Sem nenhuma liberada, a divisória não diz nada: é tudo "outra".
-            const comSecoes = minhas.length > 0 && outras.length > 0;
+            const minhas = obras;
+            const outras = [];
+            const comSecoes = false;   /* não há mais duas seções */
 
             const desenharObra = function (p, liberada) {
                 const temDado = typeof p.progresso === 'number';
@@ -7317,18 +7365,7 @@
                 h += '<p class="prog-erro">Não atualizou agora: ' + progEsc(progErro) + '</p>';
             } else if (!progBuscando) {
                 // Enquanto busca, quem avisa é o próprio botão.
-                let dica;
-                if (ehAdmin() || !outras.length) {
-                    dica = 'Toque num pedido para abrir o cronograma.';
-                } else if (!minhas.length) {
-                    // Ninguém liberou nada para esta pessoa ainda: aqui ela
-                    // acompanha, mas não entra em obra nenhuma.
-                    dica = 'Nenhum pedido liberado para você ainda — fale com o Comercial. '
-                         + 'Por enquanto, esta tela é só para acompanhar.';
-                } else {
-                    dica = 'Você abre o cronograma dos pedidos liberados para você; '
-                         + 'os demais são só para acompanhar.';
-                }
+                const dica = 'Toque num pedido para abrir o cronograma.';
                 h += '<p class="prog-aviso">Média ponderada pela duração de cada equipamento. '
                    + dica + '</p>';
             }
